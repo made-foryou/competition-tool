@@ -34,9 +34,12 @@ class FortifyServiceProvider extends ServiceProvider
         $this->app->singleton(TwoFactorLoginResponse::class, \App\Http\Responses\LoginResponse::class);
 
         // Passkey-login loopt buiten de Fortify-pipeline om (laravel/passkeys
-        // heeft een eigen contract), maar moet dezelfde rolafhankelijke
-        // redirect krijgen als password- en 2FA-login.
-        $this->app->singleton(PasskeyLoginResponse::class, \App\Http\Responses\LoginResponse::class);
+        // heeft een eigen contract met een eigen responseformaat: een
+        // `redirect`-veld i.p.v. Fortify's `two_factor`-veld), maar moet
+        // dezelfde rolafhankelijke bestemming krijgen als password- en
+        // 2FA-login. Vandaar een eigen responseklasse i.p.v. hergebruik van
+        // \App\Http\Responses\LoginResponse.
+        $this->app->singleton(PasskeyLoginResponse::class, \App\Http\Responses\PasskeyLoginResponse::class);
     }
 
     /**
