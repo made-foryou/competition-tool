@@ -34,15 +34,15 @@ Twee uitbreidingen op de bestaande invite-only setup:
 
 ### `competitions` (nieuw)
 
-| Kolom | Type | Opmerking |
-| --- | --- | --- |
-| `name` | string | |
-| `slug` | string, uniek | Automatisch afgeleid van `name`, getoond in het formulier |
-| `description` | text, nullable | |
-| `location` | string, nullable | |
-| `starts_at` | date | |
-| `ends_at` | date, nullable | |
-| `status` | string (enum `CompetitionStatus`) | `Draft` / `Active` / `Finished`, default `Draft` |
+| Kolom         | Type                              | Opmerking                                                 |
+| ------------- | --------------------------------- | --------------------------------------------------------- |
+| `name`        | string                            |                                                           |
+| `slug`        | string, uniek                     | Automatisch afgeleid van `name`, getoond in het formulier |
+| `description` | text, nullable                    |                                                           |
+| `location`    | string, nullable                  |                                                           |
+| `starts_at`   | date                              |                                                           |
+| `ends_at`     | date, nullable                    |                                                           |
+| `status`      | string (enum `CompetitionStatus`) | `Draft` / `Active` / `Finished`, default `Draft`          |
 
 Model `Competition` met `HasFactory`, factory + seeder, relatie
 `participants(): BelongsToMany<User>`.
@@ -97,13 +97,13 @@ Verwijderen van een competitie verwijdert de koppelingen (cascade), nooit de acc
 - `GET /{slug}` — deelnemersdashboard, achter `auth` + nieuwe middleware
   `EnsureUserParticipatesInCompetition`.
 - Toegangsregels voor `/{slug}`:
-  - Gekoppelde gebruikers (deelnemers, inclusief admins die deelnemen) → toegang
-    als deelnemer.
-  - Niet-gekoppelde admins → ook toegang (controle), maar staan niet in de
-    deelnemerslijst.
-  - Niet-gekoppelde deelnemers → 403.
-  - Status `Draft` → 404 voor iedereen behalve admins; `Active` en `Finished` zijn
-    toegankelijk.
+    - Gekoppelde gebruikers (deelnemers, inclusief admins die deelnemen) → toegang
+      als deelnemer.
+    - Niet-gekoppelde admins → ook toegang (controle), maar staan niet in de
+      deelnemerslijst.
+    - Niet-gekoppelde deelnemers → 403.
+    - Status `Draft` → 404 voor iedereen behalve admins; `Active` en `Finished` zijn
+      toegankelijk.
 - Competitie-routes worden als **laatste** geregistreerd zodat bestaande routes
   altijd voorrang hebben op de slug-wildcard.
 
@@ -135,13 +135,13 @@ Custom `LoginResponse` (gebonden in `FortifyServiceProvider`):
   gereserveerde-slugs-check.
 - **Verwijderen** — met bevestigingsdialoog.
 - **Deelnemerslijst** op de competitie-detail-/editpagina:
-  - Gekoppelde deelnemers tonen (naam, e-mail, uitnodiging-status waar relevant).
-  - Ontkoppelen (met bevestiging).
-  - Toevoegen via e-mailadres:
-    - Bestaand account (ook admin) → direct koppelen, rol blijft ongewijzigd.
-    - Onbekend e-mailadres → beheerder kiest: uitnodigingsmail sturen (bestaande
-      `InvitationNotification`-flow, nu met competitie-context) óf account direct
-      aanmaken met naam + wachtwoord.
+    - Gekoppelde deelnemers tonen (naam, e-mail, uitnodiging-status waar relevant).
+    - Ontkoppelen (met bevestiging).
+    - Toevoegen via e-mailadres:
+        - Bestaand account (ook admin) → direct koppelen, rol blijft ongewijzigd.
+        - Onbekend e-mailadres → beheerder kiest: uitnodigingsmail sturen (bestaande
+          `InvitationNotification`-flow, nu met competitie-context) óf account direct
+          aanmaken met naam + wachtwoord.
 - Wayfinder voor alle route-verwijzingen; UI-copy via `t()` met Engelse keys en
   NL-vertalingen in `lang/nl.json`.
 

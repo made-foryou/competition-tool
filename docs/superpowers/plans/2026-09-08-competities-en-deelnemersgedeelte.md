@@ -29,6 +29,7 @@
 ### Task 1: UserRole-enum + `role`-kolom op users
 
 **Files:**
+
 - Create: `app/Enums/UserRole.php`
 - Create: migratie via `php artisan make:migration add_role_to_users_table --no-interaction`
 - Modify: `app/Models/User.php`
@@ -36,6 +37,7 @@
 - Test: `tests/Feature/UserRoleTest.php`
 
 **Interfaces:**
+
 - Consumes: bestaande `User`-model/factory.
 - Produces: `App\Enums\UserRole` (`Admin`/`Participant`, string-backed `'admin'`/`'participant'`), `User::$role` (cast naar `UserRole`), `User::isAdmin(): bool`, factory-default `Admin`, factory-state `User::factory()->participant()`.
 
@@ -176,6 +178,7 @@ git add -A && git commit -m "feat: voeg role-kolom en UserRole-enum toe aan user
 ### Task 2: Competition-model, status-enum, pivot en factory
 
 **Files:**
+
 - Create: `app/Enums/CompetitionStatus.php`
 - Create: `app/Models/Competition.php`, `database/factories/CompetitionFactory.php`, `database/seeders/CompetitionSeeder.php` (via `php artisan make:model Competition --migration --factory --seed --no-interaction`)
 - Create: migratie via `php artisan make:migration create_competition_user_table --no-interaction`
@@ -183,6 +186,7 @@ git add -A && git commit -m "feat: voeg role-kolom en UserRole-enum toe aan user
 - Test: `tests/Feature/CompetitionModelTest.php`
 
 **Interfaces:**
+
 - Consumes: `App\Models\User`, `App\Enums\UserRole` (Task 1).
 - Produces: `App\Enums\CompetitionStatus` (`Draft`/`Active`/`Finished`, string-backed `'draft'`/`'active'`/`'finished'`), `Competition` met kolommen `name, slug, description, location, starts_at, ends_at, status`, relatie `Competition::participants(): BelongsToMany<User>`, `User::competitions(): BelongsToMany<Competition>`, `Competition::RESERVED_SLUGS` (`list<string>`), factory-default status `Active` met states `draft()` en `finished()`.
 
@@ -495,11 +499,13 @@ git add -A && git commit -m "feat: voeg Competition-model met status-enum en dee
 ### Task 3: EnsureUserIsAdmin-middleware op het beheer
 
 **Files:**
+
 - Create: `app/Http/Middleware/EnsureUserIsAdmin.php`
 - Modify: `routes/web.php`
 - Test: `tests/Feature/DashboardTest.php` (uitbreiden)
 
 **Interfaces:**
+
 - Consumes: `User::isAdmin()` (Task 1).
 - Produces: `App\Http\Middleware\EnsureUserIsAdmin` (403 voor niet-admins); het dashboard zit achter `['auth', 'verified', EnsureUserIsAdmin::class]`. Latere taken hangen `/competitions`-routes in dezelfde groep.
 
@@ -588,10 +594,12 @@ git add -A && git commit -m "feat: scherm beheer-routes af met EnsureUserIsAdmin
 ### Task 4: 2FA alleen nog verplicht voor admins
 
 **Files:**
+
 - Modify: `app/Http/Middleware/EnsureTwoFactorIsConfigured.php`
 - Test: `tests/Feature/Auth/TwoFactorEnforcementTest.php` (uitbreiden)
 
 **Interfaces:**
+
 - Consumes: `User::isAdmin()` (Task 1).
 - Produces: participants worden nooit naar `two-factor.setup` geforceerd; gedrag voor admins ongewijzigd.
 
@@ -651,12 +659,14 @@ git add -A && git commit -m "feat: dwing 2FA alleen af voor admins"
 ### Task 5: Competitie-CRUD backend (controller, requests, routes)
 
 **Files:**
+
 - Create: `app/Http/Requests/Competitions/StoreCompetitionRequest.php`, `app/Http/Requests/Competitions/UpdateCompetitionRequest.php`
 - Create: `app/Http/Controllers/CompetitionController.php` (via `php artisan make:controller CompetitionController --no-interaction`)
 - Modify: `routes/web.php`
 - Test: `tests/Feature/CompetitionManagementTest.php`
 
 **Interfaces:**
+
 - Consumes: `Competition`, `Competition::RESERVED_SLUGS`, `CompetitionStatus` (Task 2), admin-routegroep (Task 3).
 - Produces: routes `competitions.index/create/store/edit/update/destroy` (resource zonder `show`, binding op id). `store`/`update` leiden de slug server-side af uit `name` (`Str::slug`); valideren uniek + niet-gereserveerd (foutkey `slug`). `edit` levert prop `competition` (`{id, name, slug, description, location, starts_at, ends_at, status}`); `index` levert `competitions` (zelfde velden + `participants_count`).
 
@@ -979,11 +989,13 @@ git add -A && git commit -m "feat: competitie-CRUD backend met slug-validatie"
 ### Task 6: Beheer-UI voor competities (React)
 
 **Files:**
+
 - Create: `resources/js/pages/competitions/index.tsx`, `resources/js/pages/competitions/create.tsx`, `resources/js/pages/competitions/edit.tsx`, `resources/js/components/competitions/competition-form.tsx`
 - Modify: `lang/nl.json`
 - Verify: `php artisan wayfinder:generate`, `npm run check`, `npm run types:check`
 
 **Interfaces:**
+
 - Consumes: routes/props uit Task 5; Wayfinder-functies uit `@/routes/competitions` (`index`, `create`, `store`, `edit`, `update`, `destroy`); ui-componenten uit `@/components/ui/*`; `t()` uit `@/hooks/use-translations`.
 - Produces: type `CompetitionProps` (geëxporteerd uit `competition-form.tsx`): `{ id: number; name: string; slug: string; description: string | null; location: string | null; starts_at: string; ends_at: string | null; status: string }` — hergebruikt in Task 10.
 
@@ -1047,7 +1059,11 @@ export default function CompetitionForm({
     };
 
     return (
-        <Form action={action} method={method} className="flex max-w-xl flex-col gap-6">
+        <Form
+            action={action}
+            method={method}
+            className="flex max-w-xl flex-col gap-6"
+        >
             {({ processing, errors }) => (
                 <>
                     <div className="grid gap-2">
@@ -1223,7 +1239,11 @@ export default function CompetitionsIndex({ competitions }: Props) {
                                         </td>
                                         <td className="p-3">
                                             <Badge variant="secondary">
-                                                {statusLabels[competition.status]}
+                                                {
+                                                    statusLabels[
+                                                        competition.status
+                                                    ]
+                                                }
                                             </Badge>
                                         </td>
                                         <td className="p-3">
@@ -1265,7 +1285,9 @@ export default function CompetitionsCreate() {
         <>
             <Head title={t('New competition')} />
             <div className="flex flex-col gap-4 p-4">
-                <h1 className="text-xl font-semibold">{t('New competition')}</h1>
+                <h1 className="text-xl font-semibold">
+                    {t('New competition')}
+                </h1>
                 <CompetitionForm
                     action={store().url}
                     method="post"
@@ -1404,6 +1426,7 @@ Voeg in `resources/js/components/app-sidebar.tsx` (check de bestaande structuur 
 ```bash
 npm run check:fix && npm run types:check
 ```
+
 Expected: geen errors/warnings.
 
 ```bash
@@ -1415,12 +1438,14 @@ git add -A && git commit -m "feat: beheer-UI voor competities"
 ### Task 7: Deelnemersgedeelte backend (middlewares, routes, controllers)
 
 **Files:**
+
 - Create: `app/Http/Middleware/EnsureCompetitionIsVisible.php`, `app/Http/Middleware/EnsureUserParticipatesInCompetition.php`
 - Create: `app/Http/Controllers/Participant/CompetitionLoginController.php`, `app/Http/Controllers/Participant/CompetitionDashboardController.php`
 - Modify: `routes/web.php`, `bootstrap/app.php`
 - Test: `tests/Feature/CompetitionAccessTest.php`
 
 **Interfaces:**
+
 - Consumes: `Competition` + `CompetitionStatus` (Task 2), `User::isAdmin()` en `User::competitions()`.
 - Produces: routes `competition.login` (`GET /{competition:slug}/login`) en `competition.dashboard` (`GET /{competition:slug}`); Inertia-componenten `auth/competition-login` (props: `competitionName`, `canResetPassword`, `status`) en `participant/dashboard` (props: `competition` `{name, slug, status, description, location, starts_at, ends_at}`, `participants` `Array<{id, name}>`). Gasten op deelnemer-routes worden naar `competition.login` geredirect i.p.v. `login`.
 
@@ -1659,7 +1684,7 @@ class CompetitionLoginController extends Controller
             return redirect()->route('competition.dashboard', $competition);
         }
 
-        redirect()->setIntendedUrl(route('competition.dashboard', $competition));
+        $request->session()->put('url.intended', route('competition.dashboard', $competition));
 
         return Inertia::render('auth/competition-login', [
             'competitionName' => $competition->name,
@@ -1722,24 +1747,26 @@ Route::prefix('{competition:slug}')
             ->name('competition.login');
 
         Route::get('/', CompetitionDashboardController::class)
-            ->middleware(['auth', EnsureUserParticipatesInCompetition::class])
+            ->middleware(EnsureUserParticipatesInCompetition::class)
             ->name('competition.dashboard');
     });
 ```
 
 (imports: `App\Http\Controllers\Participant\CompetitionLoginController`, `App\Http\Controllers\Participant\CompetitionDashboardController`, `App\Http\Middleware\EnsureCompetitionIsVisible`, `App\Http\Middleware\EnsureUserParticipatesInCompetition`).
 
-In `bootstrap/app.php`, binnen `withMiddleware(...)` toevoegen (import `App\Models\Competition`):
+**Let op — gastafhandeling zonder `auth`-middleware.** De dashboard-route draagt bewust GEEN `auth`. Reden: `auth` heeft één globaal redirect-doel en kan niet competitiebewust zijn, en Laravel's default-prioriteit draait `auth` vóór `SubstituteBindings`, waardoor de route-parameter bij een gast nog een string is. Een globale `redirectGuestsTo`-callback of een herdefinitie van `$middleware->priority([...])` lost dat wel op, maar verandert het gedrag van élke web-route met route-model-binding (o.a. een anoniem existentie-orakel op `competitions/{id}/edit`) en is daarom bewust verworpen.
+
+In plaats daarvan is `EnsureUserParticipatesInCompetition` de toegangspoort van het deelnemersgedeelte: die middleware staat niet in Laravel's prioriteitsmap, behoudt dus zijn natuurlijke positie ná `SubstituteBindings`, en stuurt gasten zelf door:
 
 ```php
-$middleware->redirectGuestsTo(function (Request $request) {
-    $competition = $request->route('competition');
+$user = $request->user();
 
-    return $competition instanceof Competition
-        ? route('competition.login', $competition)
-        : route('login');
-});
+if ($user === null) {
+    return redirect()->route('competition.login', $competition);
+}
 ```
+
+`bootstrap/app.php` blijft hierdoor volledig ongewijzigd. Omdat `EnsureCompetitionIsVisible` op de routegroep hangt, draait die vóór deze middleware: een gast op een `Draft`-competitie krijgt dus een 404 en geen redirect, waardoor concept-competities voor anonieme bezoekers ononderscheidbaar blijven van niet-bestaande.
 
 Maak tijdelijk een minimale placeholder `resources/js/pages/participant/dashboard.tsx` en `resources/js/pages/auth/competition-login.tsx` zodat Vite/tsc niet breekt (feature tests renderen geen JS, maar `npm run types:check` wel):
 
@@ -1779,12 +1806,14 @@ git add -A && git commit -m "feat: deelnemersgedeelte-routes met zichtbaarheids-
 ### Task 8: Rolafhankelijke LoginResponse + geen-competitie-pagina
 
 **Files:**
+
 - Create: `app/Http/Responses/LoginResponse.php`
 - Modify: `app/Providers/FortifyServiceProvider.php`, `routes/web.php`
 - Create: `resources/js/pages/participant/no-competition.tsx` (placeholder; definitief in Task 11)
 - Test: `tests/Feature/Auth/ParticipantLoginTest.php`
 
 **Interfaces:**
+
 - Consumes: `competition.dashboard`/`competition.login`-routes (Task 7), `User::competitions()`, `CompetitionStatus`.
 - Produces: `App\Http\Responses\LoginResponse` gebonden aan zowel `Laravel\Fortify\Contracts\LoginResponse` als `Laravel\Fortify\Contracts\TwoFactorLoginResponse`; route `competition.none` (`GET /no-competition`, auth) die `participant/no-competition` rendert.
 
@@ -1962,12 +1991,14 @@ git add -A && git commit -m "feat: rolafhankelijke login-redirects via custom Lo
 ### Task 9: Invitations uitbreiden met rol + competitie
 
 **Files:**
+
 - Create: migratie via `php artisan make:migration add_competition_and_role_to_invitations_table --no-interaction`
 - Create: `app/Actions/Auth/SendInvitation.php`
 - Modify: `app/Models/Invitation.php`, `app/Models/Competition.php`, `app/Notifications/InvitationNotification.php`, `app/Http/Controllers/Auth/InvitationController.php`, `app/Console/Commands/InviteUser.php`, `database/factories/InvitationFactory.php`, `lang/nl.json`
 - Test: `tests/Feature/Auth/InvitationTest.php` (uitbreiden), `tests/Feature/Auth/InviteUserCommandTest.php` (regressie)
 
 **Interfaces:**
+
 - Consumes: `Competition`, `UserRole`, `competition.dashboard`-route (Task 7).
 - Produces: `Invitation::$competition_id` (nullable FK), `Invitation::$role` (cast `UserRole`, DB-default `'admin'`), `Invitation::competition(): BelongsTo`, `Competition::invitations(): HasMany`, `App\Actions\Auth\SendInvitation::handle(string $email, UserRole $role, ?Competition $competition = null, ?User $inviter = null): string` (retourneert de plain token en verstuurt de mail). Acceptatie zet de rol van de uitnodiging op de nieuwe user, koppelt de competitie en redirect participants naar hun competitie.
 
@@ -2237,12 +2268,14 @@ git add -A && git commit -m "feat: uitnodigingen met rol en competitie-koppeling
 ### Task 10: Deelnemersbeheer per competitie (backend + UI)
 
 **Files:**
+
 - Create: `app/Http/Requests/Competitions/StoreCompetitionParticipantRequest.php`, `app/Http/Controllers/CompetitionParticipantController.php`
 - Create: `resources/js/components/competitions/participant-manager.tsx`
 - Modify: `app/Http/Controllers/CompetitionController.php` (edit-props), `routes/web.php`, `resources/js/pages/competitions/edit.tsx`, `lang/nl.json`
 - Test: `tests/Feature/CompetitionParticipantManagementTest.php`
 
 **Interfaces:**
+
 - Consumes: `SendInvitation` (Task 9), `Competition::participants()`, `Competition::invitations()`, `Invitation::scopePending()`, admin-routegroep, `PasswordValidationRules`-concern (`app/Concerns/PasswordValidationRules.php`).
 - Produces: routes `competitions.participants.store` (`POST competitions/{competition}/participants`) en `competitions.participants.destroy` (`DELETE competitions/{competition}/participants/{user}`). Request-velden: `email` (verplicht); als het e-mailadres onbekend is ook `mode` (`invite`|`create`) en bij `create` ook `name` + `password`. `CompetitionController::edit` levert extra props `participants` (`Array<{id, name, email, is_admin}>`) en `pendingInvitations` (`Array<{id, email, expires_at}>`).
 
@@ -2776,6 +2809,7 @@ type Props = {
 npm run check:fix && npm run types:check
 php artisan test --compact tests/Feature/CompetitionParticipantManagementTest.php
 ```
+
 Expected: geen lint-/type-errors, tests PASS.
 
 ```bash
@@ -2788,11 +2822,13 @@ git add -A && git commit -m "feat: deelnemersbeheer per competitie"
 ### Task 11: Deelnemersgedeelte frontend (mobile-first) + competitie-login
 
 **Files:**
+
 - Create: `resources/js/layouts/participant/participant-layout.tsx`, `resources/js/components/console/login-form.tsx`
 - Replace: `resources/js/pages/auth/competition-login.tsx`, `resources/js/pages/participant/dashboard.tsx`, `resources/js/pages/participant/no-competition.tsx`
 - Modify: `resources/js/pages/auth/login.tsx` (refactor naar gedeeld formulier), `resources/js/app.tsx`, `lang/nl.json`
 
 **Interfaces:**
+
 - Consumes: props van `CompetitionLoginController` en `CompetitionDashboardController` (Task 7), console-componenten, `logout`-route uit `@/routes`.
 - Produces: `LoginForm`-component (`{ canResetPassword: boolean }`) gedeeld door beide loginpagina's; `ParticipantLayout` als layout voor alle `participant/*`-pagina's.
 
@@ -2805,7 +2841,9 @@ type Props = {
     canResetPassword: boolean;
 };
 
-export default function LoginForm({ canResetPassword }: Props) { /* de verplaatste JSX */ }
+export default function LoginForm({ canResetPassword }: Props) {
+    /* de verplaatste JSX */
+}
 ```
 
 Refactor `resources/js/pages/auth/login.tsx` zodat die `<LoginForm canResetPassword={canResetPassword} />` rendert onder de bestaande `ConsoleHeading` + status-melding; gedrag en animatie-delays blijven identiek. De 2FA-footerregel ("Secured with 2FA …") blijft in `login.tsx` (die claim geldt alleen voor het beheer).
@@ -3080,6 +3118,7 @@ export default function NoCompetition() {
 npm run check:fix && npm run types:check
 php artisan test --compact tests/Feature/CompetitionAccessTest.php tests/Feature/Auth
 ```
+
 Expected: geen lint-/type-errors, tests PASS.
 
 ```bash
@@ -3091,6 +3130,7 @@ git add -A && git commit -m "feat: mobile-first deelnemersgedeelte met competiti
 ### Task 12: Eindcontrole en volledige suite
 
 **Files:**
+
 - Geen nieuwe bestanden; alleen verificatie en eventuele fixes.
 
 - [ ] **Step 1: Wayfinder actueel**
@@ -3103,11 +3143,13 @@ Expected: geen diff, of alleen gegenereerde bestanden — meecommitten indien ge
 ```bash
 composer ci:check
 ```
+
 Expected: `npm run check` (0 warnings), `npm run types:check` (0 errors), pint-check schoon, PHPStan level 7 schoon, alle Pest-tests PASS. Fix gevonden issues en herhaal tot alles groen is.
 
 - [ ] **Step 3: Handmatige rooktest (via Herd)**
 
 Vraag Menno om (of doe zelf via de browser op `https://competition-tool.test`):
+
 1. Als admin een competitie aan te maken en de deelnemerslijst te vullen (bestaand account, uitnodiging, direct aanmaken).
 2. Als deelnemer in te loggen via `/{slug}/login` (mobiel formaat checken) en het dashboard te bekijken.
 3. Een concept-competitie als deelnemer te bezoeken (verwacht 404).
