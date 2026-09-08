@@ -4,7 +4,11 @@ use App\Http\Controllers\Auth\InvitationController;
 use App\Http\Controllers\Auth\PasskeyChallengeController;
 use App\Http\Controllers\Auth\TwoFactorSetupController;
 use App\Http\Controllers\CompetitionController;
+use App\Http\Controllers\Participant\CompetitionDashboardController;
+use App\Http\Controllers\Participant\CompetitionLoginController;
+use App\Http\Middleware\EnsureCompetitionIsVisible;
 use App\Http\Middleware\EnsureUserIsAdmin;
+use App\Http\Middleware\EnsureUserParticipatesInCompetition;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome')->name('home');
@@ -32,3 +36,14 @@ Route::middleware(['auth', 'verified', EnsureUserIsAdmin::class])->group(functio
 });
 
 require __DIR__.'/settings.php';
+
+Route::prefix('{competition:slug}')
+    ->middleware(EnsureCompetitionIsVisible::class)
+    ->group(function () {
+        Route::get('login', CompetitionLoginController::class)
+            ->name('competition.login');
+
+        Route::get('/', CompetitionDashboardController::class)
+            ->middleware(['auth', EnsureUserParticipatesInCompetition::class])
+            ->name('competition.dashboard');
+    });
