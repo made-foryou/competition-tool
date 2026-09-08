@@ -136,5 +136,10 @@
     "An existing account is linked directly. For a new email address, choose how the account is created.": "Een bestaand account wordt direct gekoppeld. Kies voor een nieuw e-mailadres hoe het account wordt aangemaakt.",
     "Send invitation email": "Stuur uitnodigingsmail",
     "Create account directly": "Account direct aanmaken",
-    "Add participant": "Deelnemer toevoegen"
+    "Add participant": "Deelnemer toevoegen",
+
+    "> participant login": "> deelnemer-login",
+    ":from until :until": ":from t/m :until",
+    "No active competition": "Geen actieve competitie",
+    "You are not linked to an active competition right now. Contact the organizer if you expected one.": "Je bent op dit moment niet gekoppeld aan een actieve competitie. Neem contact op met de organisator als je er wel een verwachtte."
 }
