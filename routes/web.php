@@ -27,6 +27,8 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('two-factor/setup', TwoFactorSetupController::class)
         ->name('two-factor.setup');
+
+    Route::inertia('no-competition', 'participant/no-competition')->name('competition.none');
 });
 
 Route::middleware(['auth', 'verified', EnsureUserIsAdmin::class])->group(function () {
