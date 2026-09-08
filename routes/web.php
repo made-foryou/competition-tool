@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\InvitationController;
 use App\Http\Controllers\Auth\PasskeyChallengeController;
 use App\Http\Controllers\Auth\TwoFactorSetupController;
+use App\Http\Controllers\CompetitionController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Support\Facades\Route;
 
@@ -26,6 +27,8 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth', 'verified', EnsureUserIsAdmin::class])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
+
+    Route::resource('competitions', CompetitionController::class)->except(['show']);
 });
 
 require __DIR__.'/settings.php';
