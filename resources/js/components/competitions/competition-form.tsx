@@ -12,6 +12,10 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { useTranslations } from '@/hooks/use-translations';
+import {
+    COMPETITION_STATUSES,
+    competitionStatusLabel,
+} from '@/lib/competition-status';
 
 export type CompetitionProps = {
     id: number;
@@ -31,8 +35,6 @@ type Props = {
     submitLabel: string;
 };
 
-const STATUSES = ['draft', 'active', 'finished'] as const;
-
 export default function CompetitionForm({
     competition,
     action,
@@ -40,12 +42,6 @@ export default function CompetitionForm({
     submitLabel,
 }: Props) {
     const { t } = useTranslations();
-
-    const statusLabels: Record<string, string> = {
-        draft: t('Draft'),
-        active: t('Active'),
-        finished: t('Finished'),
-    };
 
     return (
         <Form
@@ -130,9 +126,9 @@ export default function CompetitionForm({
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                {STATUSES.map((status) => (
+                                {COMPETITION_STATUSES.map((status) => (
                                     <SelectItem key={status} value={status}>
-                                        {statusLabels[status]}
+                                        {competitionStatusLabel(status, t)}
                                     </SelectItem>
                                 ))}
                             </SelectContent>

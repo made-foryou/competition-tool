@@ -55,6 +55,7 @@
     "A new verification link has been sent.": "Er is een nieuwe verificatielink verstuurd.",
     "Resend verification email": "Verificatiemail opnieuw versturen",
     "Log out": "Uitloggen",
+    "Settings": "Instellingen",
 
     "Secure your account": "Beveilig je account",
     "> 2FA required": "> 2fa vereist",
@@ -76,7 +77,6 @@
     "You're invited": "Je bent uitgenodigd",
     "> account setup": "> account instellen",
     "Set your name and a password to activate your account for": "Stel je naam en een wachtwoord in om je account te activeren voor",
-    "Name": "Naam",
     "Activate account": "Account activeren",
     "Activating…": "Bezig met activeren…",
     "This invitation is no longer valid": "Deze uitnodiging is niet meer geldig",

@@ -4,6 +4,7 @@ import type { CompetitionProps } from '@/components/competitions/competition-for
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/hooks/use-translations';
+import { competitionStatusLabel } from '@/lib/competition-status';
 import { create, edit, index } from '@/routes/competitions';
 
 type Props = {
@@ -12,12 +13,6 @@ type Props = {
 
 export default function CompetitionsIndex({ competitions }: Props) {
     const { t } = useTranslations();
-
-    const statusLabels: Record<string, string> = {
-        draft: t('Draft'),
-        active: t('Active'),
-        finished: t('Finished'),
-    };
 
     return (
         <>
@@ -66,11 +61,10 @@ export default function CompetitionsIndex({ competitions }: Props) {
                                         </td>
                                         <td className="p-3">
                                             <Badge variant="secondary">
-                                                {
-                                                    statusLabels[
-                                                        competition.status
-                                                    ]
-                                                }
+                                                {competitionStatusLabel(
+                                                    competition.status,
+                                                    t,
+                                                )}
                                             </Badge>
                                         </td>
                                         <td className="p-3">

@@ -2,6 +2,7 @@ import { Head } from '@inertiajs/react';
 import { CalendarDays, MapPin, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useTranslations } from '@/hooks/use-translations';
+import { competitionStatusLabel } from '@/lib/competition-status';
 
 type Props = {
     competition: {
@@ -22,12 +23,6 @@ export default function ParticipantDashboard({
 }: Props) {
     const { t } = useTranslations();
 
-    const statusLabels: Record<string, string> = {
-        draft: t('Draft'),
-        active: t('Active'),
-        finished: t('Finished'),
-    };
-
     return (
         <>
             <Head title={competition.name} />
@@ -39,7 +34,7 @@ export default function ParticipantDashboard({
                             {competition.name}
                         </h1>
                         <Badge variant="secondary">
-                            {statusLabels[competition.status]}
+                            {competitionStatusLabel(competition.status, t)}
                         </Badge>
                     </div>
 

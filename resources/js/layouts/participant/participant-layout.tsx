@@ -1,10 +1,11 @@
-import { Form, usePage } from '@inertiajs/react';
-import { LogOut } from 'lucide-react';
+import { Form, Link, usePage } from '@inertiajs/react';
+import { LogOut, Settings } from 'lucide-react';
 import type { ReactNode } from 'react';
 import AppLogoIcon from '@/components/app-logo-icon';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/hooks/use-translations';
 import { logout } from '@/routes';
+import { edit } from '@/routes/profile';
 
 type ParticipantPageProps = {
     competition?: { name: string };
@@ -35,21 +36,36 @@ export default function ParticipantLayout({
                             </span>
                         )}
                     </div>
-                    <Form action={logout().url} method="post">
-                        {() => (
-                            <Button
-                                type="submit"
-                                variant="ghost"
-                                size="sm"
-                                aria-label={t('Log out')}
-                            >
-                                <LogOut />
+                    <div className="flex items-center gap-1">
+                        <Button
+                            asChild
+                            variant="ghost"
+                            size="sm"
+                            aria-label={t('Settings')}
+                        >
+                            <Link href={edit()} prefetch>
+                                <Settings />
                                 <span className="hidden sm:inline">
-                                    {t('Log out')}
+                                    {t('Settings')}
                                 </span>
-                            </Button>
-                        )}
-                    </Form>
+                            </Link>
+                        </Button>
+                        <Form action={logout().url} method="post">
+                            {() => (
+                                <Button
+                                    type="submit"
+                                    variant="ghost"
+                                    size="sm"
+                                    aria-label={t('Log out')}
+                                >
+                                    <LogOut />
+                                    <span className="hidden sm:inline">
+                                        {t('Log out')}
+                                    </span>
+                                </Button>
+                            )}
+                        </Form>
+                    </div>
                 </div>
             </header>
             <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-4 sm:py-6">

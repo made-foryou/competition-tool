@@ -25,7 +25,11 @@ class SendInvitation
      */
     public function handle(string $email, UserRole $role, ?Competition $competition = null, ?User $inviter = null): string
     {
-        Invitation::query()->where('email', $email)->whereNull('accepted_at')->delete();
+        Invitation::query()
+            ->where('email', $email)
+            ->whereNull('accepted_at')
+            ->where('competition_id', $competition?->id)
+            ->delete();
 
         $plainToken = Str::random(64);
 

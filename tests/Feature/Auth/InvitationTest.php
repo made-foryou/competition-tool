@@ -169,6 +169,31 @@ test('accepting a participant invitation without a competition redirects to no-c
         ->toBe(UserRole::Participant);
 });
 
+test('accepting a participant invitation for a draft competition redirects to a working destination', function () {
+    $competition = Competition::factory()->draft()->create();
+    $plainToken = Str::random(64);
+    $invitation = Invitation::factory()->create([
+        'token' => hash('sha256', $plainToken),
+        'competition_id' => $competition->id,
+        'role' => UserRole::Participant,
+    ]);
+
+    $response = $this->post(route('invitation.store', $plainToken), [
+        'name' => 'Nieuwe Deelnemer',
+        'password' => 'nieuw-wachtwoord',
+        'password_confirmation' => 'nieuw-wachtwoord',
+    ]);
+
+    // De competitie is nog concept, dus de deelnemer heeft geen actieve
+    // competitie om naartoe te gaan: de trait stuurt dan naar
+    // "geen competitie" in plaats van naar de (voor deelnemers ontoegankelijke) competitiepagina.
+    $response->assertRedirect(route('competition.none'));
+    $this->get($response->headers->get('Location'))->assertOk();
+
+    expect(User::query()->where('email', $invitation->email)->firstOrFail()->role)
+        ->toBe(UserRole::Participant);
+});
+
 test('accepting an admin invitation still redirects to two factor setup', function () {
     $plainToken = Str::random(64);
     $invitation = Invitation::factory()->create([

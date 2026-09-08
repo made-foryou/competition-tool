@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Concerns\DeterminesLoginDestination;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\AcceptInvitationRequest;
 use App\Models\Invitation;
@@ -15,6 +16,8 @@ use Inertia\Response;
 
 class InvitationController extends Controller
 {
+    use DeterminesLoginDestination;
+
     /**
      * Toon de accept-pagina voor een uitnodiging.
      */
@@ -81,9 +84,7 @@ class InvitationController extends Controller
             return redirect()->route('two-factor.setup');
         }
 
-        return $invitation->competition !== null
-            ? redirect()->route('competition.dashboard', $invitation->competition)
-            : redirect()->route('competition.none');
+        return redirect()->to($this->defaultUrlFor($user));
     }
 
     /**

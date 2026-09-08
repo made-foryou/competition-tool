@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { BookOpen, FolderGit2, LayoutGrid, Trophy } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
@@ -33,19 +33,23 @@ const footerNavItems: NavItem[] = [
 
 export function AppSidebar() {
     const { t } = useTranslations();
+    const { auth } = usePage().props;
 
-    const mainNavItems: NavItem[] = [
-        {
-            title: t('Dashboard'),
-            href: dashboard(),
-            icon: LayoutGrid,
-        },
-        {
-            title: t('Competitions'),
-            href: competitionsIndex(),
-            icon: Trophy,
-        },
-    ];
+    const mainNavItems: NavItem[] =
+        auth.user?.role === 'admin'
+            ? [
+                  {
+                      title: t('Dashboard'),
+                      href: dashboard(),
+                      icon: LayoutGrid,
+                  },
+                  {
+                      title: t('Competitions'),
+                      href: competitionsIndex(),
+                      icon: Trophy,
+                  },
+              ]
+            : [];
 
     return (
         <Sidebar collapsible="icon" variant="inset">
