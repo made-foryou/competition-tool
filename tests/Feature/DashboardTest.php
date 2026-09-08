@@ -14,3 +14,11 @@ test('authenticated users can visit the dashboard', function () {
     $response = $this->get(route('dashboard'));
     $response->assertOk();
 });
+
+test('participants cannot access the dashboard', function () {
+    $user = User::factory()->participant()->create();
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertForbidden();
+});
