@@ -35,6 +35,12 @@ test('guests are redirected to the login page', function () {
     $this->get(route('competitions.index'))->assertRedirect(route('login'));
 });
 
+test('guests visiting the edit page are redirected to the login page', function () {
+    $competition = Competition::factory()->create();
+
+    $this->get(route('competitions.edit', $competition))->assertRedirect(route('login'));
+});
+
 test('admins can create a competition with an auto-generated slug', function () {
     actingAsAdmin();
 

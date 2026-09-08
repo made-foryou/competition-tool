@@ -44,6 +44,6 @@ Route::prefix('{competition:slug}')
             ->name('competition.login');
 
         Route::get('/', CompetitionDashboardController::class)
-            ->middleware(['auth', EnsureUserParticipatesInCompetition::class])
+            ->middleware(EnsureUserParticipatesInCompetition::class)
             ->name('competition.dashboard');
     });

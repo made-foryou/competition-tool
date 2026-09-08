@@ -22,7 +22,7 @@ class CompetitionLoginController extends Controller
             return redirect()->route('competition.dashboard', $competition);
         }
 
-        redirect()->setIntendedUrl(route('competition.dashboard', $competition));
+        $request->session()->put('url.intended', route('competition.dashboard', $competition));
 
         return Inertia::render('auth/competition-login', [
             'competitionName' => $competition->name,

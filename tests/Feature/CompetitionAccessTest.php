@@ -96,6 +96,14 @@ test('an unknown slug returns a 404', function () {
     $this->get('/bestaat-niet')->assertNotFound();
 });
 
+test('visiting the competition login page as a guest sets the dashboard as the intended url', function () {
+    $competition = Competition::factory()->create();
+
+    $this->get(route('competition.login', $competition))->assertOk();
+
+    $this->assertEquals(route('competition.dashboard', $competition), session('url.intended'));
+});
+
 test('participants only see id and name of other participants', function () {
     $competition = Competition::factory()->create();
     $user = User::factory()->participant()->create();
