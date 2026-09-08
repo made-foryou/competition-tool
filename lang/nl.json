@@ -126,5 +126,15 @@
     "Delete competition": "Competitie verwijderen",
     "Delete competition?": "Competitie verwijderen?",
     "This removes the competition and its participant list. User accounts are kept.": "Dit verwijdert de competitie en de deelnemerslijst. Gebruikersaccounts blijven bestaan.",
-    "Cancel": "Annuleren"
+    "Cancel": "Annuleren",
+
+    "No participants yet.": "Nog geen deelnemers.",
+    "Admin": "Beheerder",
+    "Remove": "Verwijderen",
+    "Pending invitations": "Openstaande uitnodigingen",
+    "Valid until :date": "Geldig tot :date",
+    "An existing account is linked directly. For a new email address, choose how the account is created.": "Een bestaand account wordt direct gekoppeld. Kies voor een nieuw e-mailadres hoe het account wordt aangemaakt.",
+    "Send invitation email": "Stuur uitnodigingsmail",
+    "Create account directly": "Account direct aanmaken",
+    "Add participant": "Deelnemer toevoegen"
 }

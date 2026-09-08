@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Competitions\StoreCompetitionRequest;
 use App\Http\Requests\Competitions\UpdateCompetitionRequest;
 use App\Models\Competition;
+use App\Models\Invitation;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -42,6 +44,25 @@ class CompetitionController extends Controller
     {
         return Inertia::render('competitions/edit', [
             'competition' => $this->competitionProps($competition),
+            'participants' => $competition->participants()
+                ->orderBy('name')
+                ->get()
+                ->map(fn (User $user): array => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'is_admin' => $user->isAdmin(),
+                ])
+                ->all(),
+            'pendingInvitations' => $competition->invitations()
+                ->pending()
+                ->get()
+                ->map(fn (Invitation $invitation): array => [
+                    'id' => $invitation->id,
+                    'email' => $invitation->email,
+                    'expires_at' => $invitation->expires_at->toDateString(),
+                ])
+                ->all(),
         ]);
     }
 

@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\InvitationController;
 use App\Http\Controllers\Auth\PasskeyChallengeController;
 use App\Http\Controllers\Auth\TwoFactorSetupController;
 use App\Http\Controllers\CompetitionController;
+use App\Http\Controllers\CompetitionParticipantController;
 use App\Http\Controllers\Participant\CompetitionDashboardController;
 use App\Http\Controllers\Participant\CompetitionLoginController;
 use App\Http\Middleware\EnsureCompetitionIsVisible;
@@ -35,6 +36,11 @@ Route::middleware(['auth', 'verified', EnsureUserIsAdmin::class])->group(functio
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
 
     Route::resource('competitions', CompetitionController::class)->except(['show']);
+
+    Route::post('competitions/{competition}/participants', [CompetitionParticipantController::class, 'store'])
+        ->name('competitions.participants.store');
+    Route::delete('competitions/{competition}/participants/{user}', [CompetitionParticipantController::class, 'destroy'])
+        ->name('competitions.participants.destroy');
 });
 
 require __DIR__.'/settings.php';

@@ -149,6 +149,26 @@ test('accepting a participant invitation creates a participant linked to the com
     $response->assertRedirect(route('competition.dashboard', $competition));
 });
 
+test('accepting a participant invitation without a competition redirects to no-competition', function () {
+    $plainToken = Str::random(64);
+    $invitation = Invitation::factory()->create([
+        'token' => hash('sha256', $plainToken),
+        'competition_id' => null,
+        'role' => UserRole::Participant,
+    ]);
+
+    $response = $this->post(route('invitation.store', $plainToken), [
+        'name' => 'Nieuwe Deelnemer',
+        'password' => 'nieuw-wachtwoord',
+        'password_confirmation' => 'nieuw-wachtwoord',
+    ]);
+
+    $response->assertRedirect(route('competition.none'));
+
+    expect(User::query()->where('email', $invitation->email)->firstOrFail()->role)
+        ->toBe(UserRole::Participant);
+});
+
 test('accepting an admin invitation still redirects to two factor setup', function () {
     $plainToken = Str::random(64);
     $invitation = Invitation::factory()->create([

@@ -1,6 +1,11 @@
 import { Form, Head } from '@inertiajs/react';
 import type { CompetitionProps } from '@/components/competitions/competition-form';
 import CompetitionForm from '@/components/competitions/competition-form';
+import type {
+    ParticipantProps,
+    PendingInvitationProps,
+} from '@/components/competitions/participant-manager';
+import ParticipantManager from '@/components/competitions/participant-manager';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -16,9 +21,15 @@ import { destroy, index, update } from '@/routes/competitions';
 
 type Props = {
     competition: CompetitionProps;
+    participants: ParticipantProps[];
+    pendingInvitations: PendingInvitationProps[];
 };
 
-export default function CompetitionsEdit({ competition }: Props) {
+export default function CompetitionsEdit({
+    competition,
+    participants,
+    pendingInvitations,
+}: Props) {
     const { t } = useTranslations();
 
     return (
@@ -32,6 +43,12 @@ export default function CompetitionsEdit({ competition }: Props) {
                     action={update(competition.id).url}
                     method="put"
                     submitLabel={t('Save changes')}
+                />
+
+                <ParticipantManager
+                    competitionId={competition.id}
+                    participants={participants}
+                    pendingInvitations={pendingInvitations}
                 />
 
                 <div className="max-w-xl border-t pt-6">
