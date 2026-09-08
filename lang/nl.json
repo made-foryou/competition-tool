@@ -103,5 +103,27 @@
     "If you did not create an account, no further action is required.": "Heb je geen account aangemaakt? Dan hoef je niets te doen.",
 
     "This name results in a reserved URL. Choose a different name.": "Deze naam levert een gereserveerde URL op. Kies een andere naam.",
-    "A competition with this URL already exists. Choose a different name.": "Er bestaat al een competitie met deze URL. Kies een andere naam."
+    "A competition with this URL already exists. Choose a different name.": "Er bestaat al een competitie met deze URL. Kies een andere naam.",
+
+    "Dashboard": "Dashboard",
+    "Competitions": "Competities",
+    "New competition": "Nieuwe competitie",
+    "No competitions yet.": "Nog geen competities.",
+    "Name": "Naam",
+    "Status": "Status",
+    "Draft": "Concept",
+    "Active": "Actief",
+    "Finished": "Afgerond",
+    "Description": "Omschrijving",
+    "Location": "Locatie",
+    "Start date": "Startdatum",
+    "End date": "Einddatum",
+    "Participants": "Deelnemers",
+    "URL: :url": "URL: :url",
+    "Create competition": "Competitie aanmaken",
+    "Save changes": "Wijzigingen opslaan",
+    "Delete competition": "Competitie verwijderen",
+    "Delete competition?": "Competitie verwijderen?",
+    "This removes the competition and its participant list. User accounts are kept.": "Dit verwijdert de competitie en de deelnemerslijst. Gebruikersaccounts blijven bestaan.",
+    "Cancel": "Annuleren"
 }
