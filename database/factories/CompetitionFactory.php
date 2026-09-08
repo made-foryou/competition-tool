@@ -19,7 +19,11 @@ class CompetitionFactory extends Factory
      */
     public function definition(): array
     {
-        $name = fake()->unique()->sentence(3);
+        $name = implode(' ', [
+            fake()->unique()->word(),
+            fake()->word(),
+            fake()->word(),
+        ]);
 
         return [
             'name' => Str::title($name),
