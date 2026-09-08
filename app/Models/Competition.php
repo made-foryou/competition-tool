@@ -36,6 +36,7 @@ class Competition extends Model
      * @var list<string>
      */
     public const array RESERVED_SLUGS = [
+        'build',
         'competitions',
         'dashboard',
         'email',

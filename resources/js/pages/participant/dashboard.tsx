@@ -1,8 +1,9 @@
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { CalendarDays, MapPin, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useTranslations } from '@/hooks/use-translations';
 import { competitionStatusLabel } from '@/lib/competition-status';
+import { formatDate } from '@/lib/format-date';
 
 type Props = {
     competition: {
@@ -22,6 +23,7 @@ export default function ParticipantDashboard({
     participants,
 }: Props) {
     const { t } = useTranslations();
+    const { locale } = usePage().props;
 
     return (
         <>
@@ -42,10 +44,16 @@ export default function ParticipantDashboard({
                         <CalendarDays className="size-4 shrink-0" />
                         {competition.ends_at
                             ? t(':from until :until', {
-                                  from: competition.starts_at,
-                                  until: competition.ends_at,
+                                  from: formatDate(
+                                      competition.starts_at,
+                                      locale,
+                                  ),
+                                  until: formatDate(
+                                      competition.ends_at,
+                                      locale,
+                                  ),
                               })
-                            : competition.starts_at}
+                            : formatDate(competition.starts_at, locale)}
                     </p>
 
                     {competition.location && (
