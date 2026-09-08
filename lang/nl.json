@@ -35,7 +35,6 @@
     "> second factor required": "> tweede factor vereist",
     "Enter the 6-digit code from your authenticator app.": "Voer de 6-cijferige code uit je authenticator-app in.",
     "Enter one of your recovery codes.": "Voer een van je herstelcodes in.",
-    "Authentication code": "Authenticatiecode",
     "Recovery code": "Herstelcode",
     "Continue": "Doorgaan",
     "Verifying…": "Bezig met verifiëren…",
@@ -71,9 +70,7 @@
     "Recovery codes": "Herstelcodes",
     "Store these codes somewhere safe. Each code can be used once if you lose access to your authenticator.": "Bewaar deze codes op een veilige plek. Elke code is één keer bruikbaar als je je authenticator kwijtraakt.",
     "I've saved my recovery codes": "Ik heb mijn herstelcodes opgeslagen",
-    "Continue to the console": "Door naar de console",
     "Two-factor authentication is enabled.": "Tweestapsverificatie is ingeschakeld.",
-    "Passkey added.": "Passkey toegevoegd.",
     "Back": "Terug",
 
     "You're invited": "Je bent uitgenodigd",
