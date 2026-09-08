@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\UserRole;
+use App\Models\Competition;
 use App\Models\Invitation;
 use App\Models\User;
 use Illuminate\Support\Str;
@@ -122,6 +124,45 @@ test('accepting an invitation validates name and password', function () {
     ])->assertSessionHasErrors(['name', 'password']);
 
     $this->assertGuest();
+});
+
+test('accepting a participant invitation creates a participant linked to the competition', function () {
+    $competition = Competition::factory()->create();
+    $plainToken = Str::random(64);
+    $invitation = Invitation::factory()->create([
+        'token' => hash('sha256', $plainToken),
+        'competition_id' => $competition->id,
+        'role' => UserRole::Participant,
+    ]);
+
+    $response = $this->post(route('invitation.store', $plainToken), [
+        'name' => 'Nieuwe Deelnemer',
+        'password' => 'nieuw-wachtwoord',
+        'password_confirmation' => 'nieuw-wachtwoord',
+    ]);
+
+    $user = User::query()->where('email', $invitation->email)->firstOrFail();
+
+    expect($user->role)->toBe(UserRole::Participant)
+        ->and($user->competitions()->whereKey($competition->id)->exists())->toBeTrue();
+
+    $response->assertRedirect(route('competition.dashboard', $competition));
+});
+
+test('accepting an admin invitation still redirects to two factor setup', function () {
+    $plainToken = Str::random(64);
+    $invitation = Invitation::factory()->create([
+        'token' => hash('sha256', $plainToken),
+    ]);
+
+    $this->post(route('invitation.store', $plainToken), [
+        'name' => 'Nieuwe Beheerder',
+        'password' => 'nieuw-wachtwoord',
+        'password_confirmation' => 'nieuw-wachtwoord',
+    ])->assertRedirect(route('two-factor.setup'));
+
+    expect(User::query()->where('email', $invitation->email)->firstOrFail()->role)
+        ->toBe(UserRole::Admin);
 });
 
 test('accepting an invitation is rate limited', function () {

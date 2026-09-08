@@ -60,7 +60,14 @@ class InvitationController extends Controller
                 'password' => $request->string('password')->toString(),
             ]);
 
-            $user->forceFill(['email_verified_at' => now()])->save();
+            $user->forceFill([
+                'email_verified_at' => now(),
+                'role' => $invitation->role,
+            ])->save();
+
+            if ($invitation->competition_id !== null) {
+                $user->competitions()->attach($invitation->competition_id);
+            }
 
             return $user;
         });
@@ -70,7 +77,13 @@ class InvitationController extends Controller
         $request->session()->regenerate();
         $request->session()->put('auth.password_confirmed_at', time());
 
-        return redirect()->route('two-factor.setup');
+        if ($user->isAdmin()) {
+            return redirect()->route('two-factor.setup');
+        }
+
+        return $invitation->competition !== null
+            ? redirect()->route('competition.dashboard', $invitation->competition)
+            : redirect()->route('competition.none');
     }
 
     /**
