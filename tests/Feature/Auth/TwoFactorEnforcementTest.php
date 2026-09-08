@@ -71,3 +71,19 @@ test('settings are blocked for a user without a second factor', function () {
 test('guests are not affected by the two factor requirement', function () {
     $this->get(route('login'))->assertOk();
 });
+
+test('a participant without a second factor is not forced into two factor setup', function () {
+    $user = User::factory()->participant()->create();
+
+    $this->actingAs($user)
+        ->get(route('profile.edit'))
+        ->assertOk();
+});
+
+test('an admin without a second factor is still forced into two factor setup', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('profile.edit'))
+        ->assertRedirect(route('two-factor.setup'));
+});

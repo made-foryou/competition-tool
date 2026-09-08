@@ -34,9 +34,20 @@ class InvitationNotification extends Notification
      */
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)
-            ->subject(__("You're invited to :app", ['app' => config('app.name')]))
-            ->line(__('You have been invited to the :app admin console.', ['app' => config('app.name')]))
+        $competition = $this->invitation->competition;
+
+        $mail = (new MailMessage)
+            ->subject(__("You're invited to :app", ['app' => config('app.name')]));
+
+        if ($competition !== null) {
+            $mail->line(__('You have been invited to join the competition :competition.', [
+                'competition' => $competition->name,
+            ]));
+        } else {
+            $mail->line(__('You have been invited to the :app admin console.', ['app' => config('app.name')]));
+        }
+
+        return $mail
             ->action(__('Accept invitation'), route('invitation.show', $this->plainToken))
             ->line(__('This invitation is valid until :date.', [
                 'date' => $this->invitation->expires_at->translatedFormat('j F Y H:i'),

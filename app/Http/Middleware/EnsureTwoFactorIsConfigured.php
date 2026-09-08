@@ -9,9 +9,10 @@ use Laravel\Fortify\Features;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Dwingt af dat elke ingelogde gebruiker een tweede factor heeft (TOTP of
- * passkey) voordat de applicatie toegankelijk is. Gebruikers zonder tweede
- * factor worden naar de verplichte setup-pagina gestuurd.
+ * Dwingt af dat iedere ingelogde beheerder een tweede factor heeft (TOTP of
+ * passkey) voordat de applicatie toegankelijk is. Beheerders zonder tweede
+ * factor worden naar de verplichte setup-pagina gestuurd; voor deelnemers is
+ * 2FA optioneel.
  */
 class EnsureTwoFactorIsConfigured
 {
@@ -53,6 +54,10 @@ class EnsureTwoFactorIsConfigured
         $user = $request->user();
 
         if (! $user instanceof User) {
+            return $next($request);
+        }
+
+        if (! $user->isAdmin()) {
             return $next($request);
         }
 

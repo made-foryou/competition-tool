@@ -3,6 +3,13 @@
 use App\Http\Controllers\Auth\InvitationController;
 use App\Http\Controllers\Auth\PasskeyChallengeController;
 use App\Http\Controllers\Auth\TwoFactorSetupController;
+use App\Http\Controllers\CompetitionController;
+use App\Http\Controllers\CompetitionParticipantController;
+use App\Http\Controllers\Participant\CompetitionDashboardController;
+use App\Http\Controllers\Participant\CompetitionLoginController;
+use App\Http\Middleware\EnsureCompetitionIsVisible;
+use App\Http\Middleware\EnsureUserIsAdmin;
+use App\Http\Middleware\EnsureUserParticipatesInCompetition;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome')->name('home');
@@ -21,10 +28,30 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('two-factor/setup', TwoFactorSetupController::class)
         ->name('two-factor.setup');
+
+    Route::inertia('no-competition', 'participant/no-competition')->name('competition.none');
 });
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified', EnsureUserIsAdmin::class])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
+
+    Route::resource('competitions', CompetitionController::class)->except(['show']);
+
+    Route::post('competitions/{competition}/participants', [CompetitionParticipantController::class, 'store'])
+        ->name('competitions.participants.store');
+    Route::delete('competitions/{competition}/participants/{user}', [CompetitionParticipantController::class, 'destroy'])
+        ->name('competitions.participants.destroy');
 });
 
 require __DIR__.'/settings.php';
+
+Route::prefix('{competition:slug}')
+    ->middleware(EnsureCompetitionIsVisible::class)
+    ->group(function () {
+        Route::get('login', CompetitionLoginController::class)
+            ->name('competition.login');
+
+        Route::get('/', CompetitionDashboardController::class)
+            ->middleware(EnsureUserParticipatesInCompetition::class)
+            ->name('competition.dashboard');
+    });

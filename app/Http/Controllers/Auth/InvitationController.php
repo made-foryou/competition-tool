@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Concerns\DeterminesLoginDestination;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\AcceptInvitationRequest;
 use App\Models\Invitation;
@@ -15,6 +16,8 @@ use Inertia\Response;
 
 class InvitationController extends Controller
 {
+    use DeterminesLoginDestination;
+
     /**
      * Toon de accept-pagina voor een uitnodiging.
      */
@@ -60,7 +63,14 @@ class InvitationController extends Controller
                 'password' => $request->string('password')->toString(),
             ]);
 
-            $user->forceFill(['email_verified_at' => now()])->save();
+            $user->forceFill([
+                'email_verified_at' => now(),
+                'role' => $invitation->role,
+            ])->save();
+
+            if ($invitation->competition_id !== null) {
+                $user->competitions()->attach($invitation->competition_id);
+            }
 
             return $user;
         });
@@ -70,7 +80,11 @@ class InvitationController extends Controller
         $request->session()->regenerate();
         $request->session()->put('auth.password_confirmed_at', time());
 
-        return redirect()->route('two-factor.setup');
+        if ($user->isAdmin()) {
+            return redirect()->route('two-factor.setup');
+        }
+
+        return redirect()->to($this->defaultUrlFor($user));
     }
 
     /**

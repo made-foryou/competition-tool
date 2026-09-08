@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\UserRole;
 use Database\Factories\InvitationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -15,13 +16,16 @@ use Illuminate\Support\Carbon;
  * @property string $email
  * @property string $token
  * @property int|null $invited_by
+ * @property int|null $competition_id
+ * @property UserRole $role
  * @property Carbon $expires_at
  * @property Carbon|null $accepted_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read User|null $inviter
+ * @property-read Competition|null $competition
  */
-#[Fillable(['email', 'token', 'invited_by', 'expires_at', 'accepted_at'])]
+#[Fillable(['email', 'token', 'invited_by', 'competition_id', 'role', 'expires_at', 'accepted_at'])]
 class Invitation extends Model
 {
     /** @use HasFactory<InvitationFactory> */
@@ -42,6 +46,14 @@ class Invitation extends Model
     public function inviter(): BelongsTo
     {
         return $this->belongsTo(User::class, 'invited_by');
+    }
+
+    /**
+     * @return BelongsTo<Competition, $this>
+     */
+    public function competition(): BelongsTo
+    {
+        return $this->belongsTo(Competition::class);
     }
 
     /**
@@ -77,6 +89,7 @@ class Invitation extends Model
         return [
             'expires_at' => 'datetime',
             'accepted_at' => 'datetime',
+            'role' => UserRole::class,
         ];
     }
 }
