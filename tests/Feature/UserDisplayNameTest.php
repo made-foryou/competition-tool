@@ -58,7 +58,8 @@ test('admins see both the nickname and the real name', function () {
         ->get(route('competitions.edit', $competition))
         ->assertInertia(fn (Assert $page) => $page
             ->where('participants.0.name', 'Sanne de Vries')
-            ->where('participants.0.nickname', 'Speedy'),
+            ->where('participants.0.nickname', 'Speedy')
+            ->where('participants.0.display_name', 'Speedy'),
         );
 });
 

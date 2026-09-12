@@ -51,6 +51,7 @@ test('email verification status is unchanged when the email address is unchanged
 });
 
 test('user can delete their account', function () {
+    User::factory()->create();
     $user = User::factory()->withTwoFactor()->create();
 
     $response = $this
@@ -64,6 +65,40 @@ test('user can delete their account', function () {
         ->assertRedirect(route('home'));
 
     $this->assertGuest();
+    expect($user->fresh())->toBeNull();
+});
+
+test('the last administrator cannot delete their own account', function () {
+    $user = User::factory()->withTwoFactor()->create();
+
+    $response = $this
+        ->actingAs($user)
+        ->from(route('profile.edit'))
+        ->delete(route('profile.destroy'), [
+            'password' => 'password',
+        ]);
+
+    $response
+        ->assertSessionHasErrors('password')
+        ->assertRedirect(route('profile.edit'));
+
+    expect($user->fresh())->not->toBeNull();
+});
+
+test('an administrator can delete their account when another administrator remains', function () {
+    User::factory()->create();
+    $user = User::factory()->withTwoFactor()->create();
+
+    $response = $this
+        ->actingAs($user)
+        ->delete(route('profile.destroy'), [
+            'password' => 'password',
+        ]);
+
+    $response
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('home'));
+
     expect($user->fresh())->toBeNull();
 });
 

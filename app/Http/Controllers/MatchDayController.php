@@ -35,7 +35,9 @@ class MatchDayController extends Controller
             return $matchDay;
         });
 
-        return redirect()->route('competitions.match-days.edit', [$competition, $matchDay]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Match day added.')]);
+
+        return back();
     }
 
     public function edit(Competition $competition, MatchDay $matchDay): Response
@@ -44,6 +46,8 @@ class MatchDayController extends Controller
             'competition' => [
                 'id' => $competition->id,
                 'name' => $competition->name,
+                'starts_at' => $competition->starts_at->toDateString(),
+                'ends_at' => $competition->ends_at?->toDateString(),
             ],
             'matchDay' => $this->matchDayProps($matchDay),
             'fields' => $matchDay->fields()
@@ -61,12 +65,16 @@ class MatchDayController extends Controller
     {
         $matchDay->update($request->validated());
 
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Match day updated.')]);
+
         return back();
     }
 
     public function destroy(Competition $competition, MatchDay $matchDay): RedirectResponse
     {
         $matchDay->delete();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Match day removed.')]);
 
         return redirect()->route('competitions.edit', $competition);
     }

@@ -43,7 +43,6 @@
     --color-ink-300: #a7aba3;
     --color-paper: #f4f0e7;
 
-    --color-success: #2f7d5b;
     --color-warning: #c08a2e;
     --color-error: #b33a2f;
     --color-info: #2f6b8f;
@@ -113,6 +112,8 @@
     --color-destructive: var(--destructive);
     --color-destructive-foreground: var(--destructive-foreground);
 
+    --color-success: var(--success);
+
     --color-border: var(--border);
     --color-input: var(--input);
     --color-ring: var(--ring);
@@ -150,7 +151,9 @@
     --accent: #dfe8e2;
     --accent-foreground: #1e4035;
     --destructive: #b33a2f;
+    /* --destructive-foreground is the destructive TEXT color here (not shadcn's "text on a destructive surface"). */
     --destructive-foreground: #b33a2f;
+    --success: #2f7d5b;
     --border: #e2dcce;
     --input: #d8d0bf;
     --ring: #b26a35;
@@ -164,7 +167,7 @@
     --sidebar-foreground: #181c19;
     --sidebar-primary: #1e4035;
     --sidebar-primary-foreground: #f7f3ea;
-    --sidebar-accent: #dfe8e2;
+    --sidebar-accent: #b3d1c0;
     --sidebar-accent-foreground: #1e4035;
     --sidebar-border: #e2dcce;
     --sidebar-ring: #b26a35;
@@ -186,7 +189,9 @@
     --accent: #2f5c4c;
     --accent-foreground: #f7f3ea;
     --destructive: #8c2f26;
+    /* --destructive-foreground is the destructive TEXT color here (not shadcn's "text on a destructive surface"). */
     --destructive-foreground: #e5928a;
+    --success: #7dc4a4;
     --border: #2c463a;
     --input: #2c463a;
     --ring: #b26a35;
@@ -199,7 +204,7 @@
     --sidebar-foreground: #f7f3ea;
     --sidebar-primary: #dfe8e2;
     --sidebar-primary-foreground: #1e4035;
-    --sidebar-accent: #223b30;
+    --sidebar-accent: #335645;
     --sidebar-accent-foreground: #f7f3ea;
     --sidebar-border: #2c463a;
     --sidebar-ring: #b26a35;

@@ -35,7 +35,8 @@ void createInertiaApp({
         );
     },
     progress: {
-        color: '#4B5563',
+        // Mirrors --color-copper from resources/css/app.css.
+        color: '#b26a35',
     },
 });
 

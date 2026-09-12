@@ -16,18 +16,22 @@ beforeEach(function () {
 });
 
 test('admins can add a match day with automatically generated fields', function () {
-    $this->post(route('competitions.match-days.store', $this->competition), [
-        'date' => '2026-10-02',
-        'starts_at' => '09:00',
-        'ends_at' => '17:00',
-        'field_count' => 3,
-    ])->assertRedirect();
+    $editUrl = route('competitions.edit', $this->competition).'?tab=match-days';
+
+    $this->from($editUrl)
+        ->post(route('competitions.match-days.store', $this->competition), [
+            'date' => '2026-10-02',
+            'starts_at' => '09:00',
+            'ends_at' => '17:00',
+            'field_count' => 3,
+        ])->assertRedirect($editUrl)
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Match day added.')]);
 
     $matchDay = MatchDay::query()->firstOrFail();
 
     expect($matchDay->competition_id)->toBe($this->competition->id)
         ->and($matchDay->date->toDateString())->toBe('2026-10-02')
-        ->and($matchDay->fields()->pluck('name')->all())->toBe(['Veld 1', 'Veld 2', 'Veld 3'])
+        ->and($matchDay->fields()->pluck('name')->all())->toBe(['Tafel 1', 'Tafel 2', 'Tafel 3'])
         ->and($matchDay->fields()->pluck('position')->all())->toBe([1, 2, 3]);
 });
 
@@ -95,7 +99,8 @@ test('admins can update the date and times of a match day', function () {
         'date' => '2026-10-05',
         'starts_at' => '10:15',
         'ends_at' => '16:45',
-    ])->assertRedirect();
+    ])->assertRedirect()
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Match day updated.')]);
 
     $matchDay->refresh();
 
@@ -117,7 +122,8 @@ test('admins can delete a match day including its fields', function () {
         ->create(['competition_id' => $this->competition]);
 
     $this->delete(route('competitions.match-days.destroy', [$this->competition, $matchDay]))
-        ->assertRedirect(route('competitions.edit', $this->competition));
+        ->assertRedirect(route('competitions.edit', $this->competition))
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Match day removed.')]);
 
     expect(MatchDay::query()->count())->toBe(0)
         ->and(DB::table('match_day_fields')->count())->toBe(0);

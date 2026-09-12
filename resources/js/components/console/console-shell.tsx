@@ -39,7 +39,7 @@ export default function ConsoleShell({ children }: { children: ReactNode }) {
                     '--made-delay': '1.5s',
                 }}
             >
-                <span className="animate-made-pulse bg-success size-[7px] rounded-full" />
+                <span className="animate-made-pulse bg-console-success size-[7px] rounded-full" />
                 {t('operational · 99.98% uptime')} · v1.0.0
             </div>
         </section>

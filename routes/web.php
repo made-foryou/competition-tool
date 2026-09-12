@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\PasskeyChallengeController;
 use App\Http\Controllers\Auth\TwoFactorSetupController;
 use App\Http\Controllers\CompetitionController;
 use App\Http\Controllers\CompetitionParticipantController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MatchDayController;
 use App\Http\Controllers\MatchDayFieldController;
 use App\Http\Controllers\Participant\AvailabilityController;
@@ -42,7 +43,7 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::middleware(['auth', 'verified', EnsureUserIsAdmin::class])->group(function () {
-    Route::inertia('dashboard', 'dashboard')->name('dashboard');
+    Route::get('dashboard', DashboardController::class)->name('dashboard');
 
     Route::resource('competitions', CompetitionController::class)->except(['show']);
 

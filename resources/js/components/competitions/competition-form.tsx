@@ -1,4 +1,5 @@
 import { Form } from '@inertiajs/react';
+import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +12,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
 import { useTranslations } from '@/hooks/use-translations';
 import {
     COMPETITION_STATUSES,
@@ -58,9 +60,17 @@ export default function CompetitionForm({
                             name="name"
                             required
                             defaultValue={competition?.name ?? ''}
+                            aria-invalid={!!errors.name || !!errors.slug}
+                            aria-describedby={
+                                errors.name || errors.slug
+                                    ? 'name-error'
+                                    : undefined
+                            }
                         />
-                        <InputError message={errors.name} />
-                        <InputError message={errors.slug} />
+                        <InputError
+                            id="name-error"
+                            message={errors.name ?? errors.slug}
+                        />
                         {competition && (
                             <p className="text-muted-foreground text-sm">
                                 {t('URL: :url', {
@@ -71,48 +81,84 @@ export default function CompetitionForm({
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="description">{t('Description')}</Label>
-                        <textarea
+                        <Label htmlFor="description">
+                            {t('Description (optional)')}
+                        </Label>
+                        <Textarea
                             id="description"
                             name="description"
                             rows={4}
                             defaultValue={competition?.description ?? ''}
-                            className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs focus-visible:ring-[3px]"
+                            aria-invalid={!!errors.description}
+                            aria-describedby={
+                                errors.description
+                                    ? 'description-error'
+                                    : undefined
+                            }
                         />
-                        <InputError message={errors.description} />
+                        <InputError
+                            id="description-error"
+                            message={errors.description}
+                        />
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="location">{t('Location')}</Label>
+                        <Label htmlFor="location">
+                            {t('Location (optional)')}
+                        </Label>
                         <Input
                             id="location"
                             name="location"
                             defaultValue={competition?.location ?? ''}
+                            aria-invalid={!!errors.location}
+                            aria-describedby={
+                                errors.location ? 'location-error' : undefined
+                            }
                         />
-                        <InputError message={errors.location} />
+                        <InputError
+                            id="location-error"
+                            message={errors.location}
+                        />
                     </div>
 
                     <div className="grid gap-6 sm:grid-cols-2">
                         <div className="grid gap-2">
                             <Label htmlFor="starts_at">{t('Start date')}</Label>
-                            <Input
+                            <DatePicker
                                 id="starts_at"
                                 name="starts_at"
-                                type="date"
                                 required
-                                defaultValue={competition?.starts_at ?? ''}
+                                defaultValue={competition?.starts_at}
+                                aria-invalid={!!errors.starts_at}
+                                aria-describedby={
+                                    errors.starts_at
+                                        ? 'starts_at-error'
+                                        : undefined
+                                }
                             />
-                            <InputError message={errors.starts_at} />
+                            <InputError
+                                id="starts_at-error"
+                                message={errors.starts_at}
+                            />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="ends_at">{t('End date')}</Label>
-                            <Input
+                            <Label htmlFor="ends_at">
+                                {t('End date (optional)')}
+                            </Label>
+                            <DatePicker
                                 id="ends_at"
                                 name="ends_at"
-                                type="date"
-                                defaultValue={competition?.ends_at ?? ''}
+                                clearable
+                                defaultValue={competition?.ends_at}
+                                aria-invalid={!!errors.ends_at}
+                                aria-describedby={
+                                    errors.ends_at ? 'ends_at-error' : undefined
+                                }
                             />
-                            <InputError message={errors.ends_at} />
+                            <InputError
+                                id="ends_at-error"
+                                message={errors.ends_at}
+                            />
                         </div>
                     </div>
 
@@ -122,7 +168,14 @@ export default function CompetitionForm({
                             name="status"
                             defaultValue={competition?.status ?? 'draft'}
                         >
-                            <SelectTrigger id="status" className="w-full">
+                            <SelectTrigger
+                                id="status"
+                                className="w-full"
+                                aria-invalid={!!errors.status}
+                                aria-describedby={
+                                    errors.status ? 'status-error' : undefined
+                                }
+                            >
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -133,7 +186,12 @@ export default function CompetitionForm({
                                 ))}
                             </SelectContent>
                         </Select>
-                        <InputError message={errors.status} />
+                        <InputError id="status-error" message={errors.status} />
+                        <p className="text-muted-foreground text-sm">
+                            {t(
+                                'Draft competitions are only visible to administrators. Participants can only sign in when the competition is active.',
+                            )}
+                        </p>
                     </div>
 
                     <div>

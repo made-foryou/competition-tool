@@ -1,14 +1,13 @@
 import { Form } from '@inertiajs/react';
+import MatchDayFieldController from '@/actions/App/Http/Controllers/MatchDayFieldController';
+import ConfirmDialog from '@/components/confirm-dialog';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { useTranslations } from '@/hooks/use-translations';
-import {
-    destroy as destroyField,
-    store as storeField,
-} from '@/routes/competitions/match-days/fields';
+import { store as storeField } from '@/routes/competitions/match-days/fields';
 
 export type MatchDayFieldProps = {
     id: number;
@@ -47,27 +46,30 @@ export default function MatchDayFieldManager({
                             <span className="truncate font-medium">
                                 {field.name}
                             </span>
-                            <Form
-                                action={
-                                    destroyField([
-                                        competitionId,
-                                        matchDayId,
-                                        field.id,
-                                    ]).url
-                                }
-                                method="delete"
-                            >
-                                {({ processing }) => (
+                            <ConfirmDialog
+                                trigger={
                                     <Button
-                                        type="submit"
-                                        variant="ghost"
+                                        variant="ghostDestructive"
                                         size="sm"
-                                        disabled={processing}
+                                        aria-label={t('Remove field :name', {
+                                            name: field.name,
+                                        })}
                                     >
                                         {t('Remove')}
                                     </Button>
+                                }
+                                title={t('Remove field?')}
+                                description={t(
+                                    'This removes the field :name.',
+                                    { name: field.name },
                                 )}
-                            </Form>
+                                action={MatchDayFieldController.destroy.form([
+                                    competitionId,
+                                    matchDayId,
+                                    field.id,
+                                ])}
+                                confirmLabel={t('Remove field')}
+                            />
                         </li>
                     ))}
                 </ul>
@@ -85,8 +87,19 @@ export default function MatchDayFieldManager({
                             <Label htmlFor="field-name">
                                 {t('Field name')}
                             </Label>
-                            <Input id="field-name" name="name" required />
-                            <InputError message={errors.name} />
+                            <Input
+                                id="field-name"
+                                name="name"
+                                required
+                                aria-invalid={!!errors.name}
+                                aria-describedby={
+                                    errors.name ? 'field-name-error' : undefined
+                                }
+                            />
+                            <InputError
+                                id="field-name-error"
+                                message={errors.name}
+                            />
                         </div>
 
                         <div>

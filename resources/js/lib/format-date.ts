@@ -3,7 +3,7 @@
  * at local midnight. `new Date(string)` would parse this as UTC midnight,
  * which can shift the displayed day depending on the viewer's timezone.
  */
-function parseIsoDate(date: string): Date {
+export function parseIsoDate(date: string): Date {
     const [year, month, day] = date.split('-').map(Number);
 
     return new Date(year, month - 1, day);

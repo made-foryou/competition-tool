@@ -1,4 +1,5 @@
 import { Form } from '@inertiajs/react';
+import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +22,10 @@ type Props = {
     /** Toont het veld waarmee de speelvelden bij het aanmaken gegenereerd worden. */
     withFieldCount?: boolean;
     resetOnSuccess?: boolean;
+    /** `YYYY-MM-DD`. Bounds the date picker to the competition's period. */
+    competitionStartsAt?: string;
+    /** `YYYY-MM-DD`. Bounds the date picker to the competition's period. */
+    competitionEndsAt?: string | null;
     className?: string;
 };
 
@@ -31,6 +36,8 @@ export default function MatchDayForm({
     submitLabel,
     withFieldCount = false,
     resetOnSuccess = false,
+    competitionStartsAt,
+    competitionEndsAt,
     className = 'flex max-w-xl flex-col gap-6',
 }: Props) {
     const { t } = useTranslations();
@@ -47,14 +54,19 @@ export default function MatchDayForm({
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
                             <Label htmlFor="date">{t('Date')}</Label>
-                            <Input
+                            <DatePicker
                                 id="date"
                                 name="date"
-                                type="date"
                                 required
-                                defaultValue={matchDay?.date ?? ''}
+                                defaultValue={matchDay?.date}
+                                minDate={competitionStartsAt}
+                                maxDate={competitionEndsAt}
+                                aria-invalid={!!errors.date}
+                                aria-describedby={
+                                    errors.date ? 'date-error' : undefined
+                                }
                             />
-                            <InputError message={errors.date} />
+                            <InputError id="date-error" message={errors.date} />
                         </div>
 
                         {withFieldCount && (
@@ -70,8 +82,17 @@ export default function MatchDayForm({
                                     max={20}
                                     required
                                     defaultValue={4}
+                                    aria-invalid={!!errors.field_count}
+                                    aria-describedby={
+                                        errors.field_count
+                                            ? 'field_count-error'
+                                            : undefined
+                                    }
                                 />
-                                <InputError message={errors.field_count} />
+                                <InputError
+                                    id="field_count-error"
+                                    message={errors.field_count}
+                                />
                             </div>
                         )}
 
@@ -83,8 +104,17 @@ export default function MatchDayForm({
                                 type="time"
                                 required
                                 defaultValue={matchDay?.starts_at ?? ''}
+                                aria-invalid={!!errors.starts_at}
+                                aria-describedby={
+                                    errors.starts_at
+                                        ? 'starts_at-error'
+                                        : undefined
+                                }
                             />
-                            <InputError message={errors.starts_at} />
+                            <InputError
+                                id="starts_at-error"
+                                message={errors.starts_at}
+                            />
                         </div>
 
                         <div className="grid gap-2">
@@ -95,8 +125,15 @@ export default function MatchDayForm({
                                 type="time"
                                 required
                                 defaultValue={matchDay?.ends_at ?? ''}
+                                aria-invalid={!!errors.ends_at}
+                                aria-describedby={
+                                    errors.ends_at ? 'ends_at-error' : undefined
+                                }
                             />
-                            <InputError message={errors.ends_at} />
+                            <InputError
+                                id="ends_at-error"
+                                message={errors.ends_at}
+                            />
                         </div>
                     </div>
 

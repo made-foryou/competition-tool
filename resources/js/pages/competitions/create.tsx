@@ -1,5 +1,6 @@
 import { Head } from '@inertiajs/react';
 import CompetitionForm from '@/components/competitions/competition-form';
+import Heading from '@/components/heading';
 import { useTranslations } from '@/hooks/use-translations';
 import { create, index, store } from '@/routes/competitions';
 
@@ -10,9 +11,11 @@ export default function CompetitionsCreate() {
         <>
             <Head title={t('New competition')} />
             <div className="flex flex-col gap-4 p-4">
-                <h1 className="text-xl font-semibold">
-                    {t('New competition')}
-                </h1>
+                <Heading
+                    as="h1"
+                    title={t('New competition')}
+                    className="mb-0"
+                />
                 <CompetitionForm
                     action={store().url}
                     method="post"
