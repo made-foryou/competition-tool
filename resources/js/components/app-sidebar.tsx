@@ -18,22 +18,22 @@ import { dashboard } from '@/routes';
 import { index as competitionsIndex } from '@/routes/competitions';
 import type { NavItem } from '@/types';
 
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: FolderGit2,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
-        icon: BookOpen,
-    },
-];
-
 export function AppSidebar() {
     const { t } = useTranslations();
     const { auth } = usePage().props;
+
+    const footerNavItems: NavItem[] = [
+        {
+            title: t('Repository'),
+            href: 'https://github.com/laravel/react-starter-kit',
+            icon: FolderGit2,
+        },
+        {
+            title: t('Documentation'),
+            href: 'https://laravel.com/docs/starter-kits#react',
+            icon: BookOpen,
+        },
+    ];
 
     const mainNavItems: NavItem[] =
         auth.user?.role === 'admin'
