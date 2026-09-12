@@ -27,7 +27,7 @@ export default function DeleteUser() {
                 description="Delete your account and all of its resources"
             />
             <div className="border-destructive/20 bg-destructive/5 space-y-4 rounded-lg border p-4">
-                <div className="text-destructive relative space-y-0.5">
+                <div className="text-destructive-foreground relative space-y-0.5">
                     <p className="font-medium">Warning</p>
                     <p className="text-sm">
                         Please proceed with caution, this cannot be undone.

@@ -12,7 +12,7 @@ export default function TextLink({
     return (
         <Link
             className={cn(
-                'text-foreground decoration-muted-foreground underline underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current!',
+                'text-foreground decoration-muted-foreground/40 underline underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current!',
                 className,
             )}
             {...props}
