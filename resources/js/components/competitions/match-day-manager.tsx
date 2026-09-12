@@ -18,10 +18,19 @@ export type MatchDayListItem = MatchDayProps & { fields_count: number };
 
 type Props = {
     competitionId: number;
+    /** `YYYY-MM-DD`. Bounds the "add match day" date picker to the competition's period. */
+    competitionStartsAt: string;
+    /** `YYYY-MM-DD`. Bounds the "add match day" date picker to the competition's period. */
+    competitionEndsAt: string | null;
     matchDays: MatchDayListItem[];
 };
 
-export default function MatchDayManager({ competitionId, matchDays }: Props) {
+export default function MatchDayManager({
+    competitionId,
+    competitionStartsAt,
+    competitionEndsAt,
+    matchDays,
+}: Props) {
     const { t } = useTranslations();
     const { locale } = usePage().props;
 
@@ -69,9 +78,8 @@ export default function MatchDayManager({ competitionId, matchDays }: Props) {
                                     <ConfirmDialog
                                         trigger={
                                             <Button
-                                                variant="ghost"
+                                                variant="ghostDestructive"
                                                 size="sm"
-                                                className="text-destructive-foreground"
                                                 aria-label={t(
                                                     'Remove match day :date',
                                                     { date: formattedDate },
@@ -102,6 +110,8 @@ export default function MatchDayManager({ competitionId, matchDays }: Props) {
                 method="post"
                 withFieldCount
                 resetOnSuccess
+                competitionStartsAt={competitionStartsAt}
+                competitionEndsAt={competitionEndsAt}
                 submitLabel={t('Add match day')}
                 className="flex max-w-xl flex-col gap-4 rounded-xl border p-4"
             />

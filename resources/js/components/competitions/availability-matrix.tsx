@@ -22,7 +22,8 @@ import { cn } from '@/lib/utils';
  * gebruikt een effen `bg-muted` in plaats van de halftransparante
  * `bg-muted/50` van de rest van die rij, om dezelfde reden.
  */
-const STICKY_COLUMN_CLASSES = 'sticky left-0 z-10 bg-background';
+const STICKY_COLUMN_CLASSES =
+    'sticky left-0 z-10 bg-background group-hover:bg-muted';
 const STICKY_FOOTER_COLUMN_CLASSES = 'sticky left-0 z-10 bg-muted';
 
 export type AvailabilityRow = {
@@ -84,7 +85,7 @@ export default function AvailabilityMatrix({ matchDays, availability }: Props) {
                     </TableHeader>
                     <TableBody>
                         {availability.map((row) => (
-                            <TableRow key={row.id}>
+                            <TableRow key={row.id} className="group">
                                 <TableHead
                                     scope="row"
                                     className={cn('p-3', STICKY_COLUMN_CLASSES)}

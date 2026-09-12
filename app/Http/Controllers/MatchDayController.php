@@ -46,6 +46,8 @@ class MatchDayController extends Controller
             'competition' => [
                 'id' => $competition->id,
                 'name' => $competition->name,
+                'starts_at' => $competition->starts_at->toDateString(),
+                'ends_at' => $competition->ends_at?->toDateString(),
             ],
             'matchDay' => $this->matchDayProps($matchDay),
             'fields' => $matchDay->fields()

@@ -62,16 +62,15 @@ export default function CompetitionForm({
                             defaultValue={competition?.name ?? ''}
                             aria-invalid={!!errors.name || !!errors.slug}
                             aria-describedby={
-                                [
-                                    errors.name && 'name-error',
-                                    errors.slug && 'slug-error',
-                                ]
-                                    .filter(Boolean)
-                                    .join(' ') || undefined
+                                errors.name || errors.slug
+                                    ? 'name-error'
+                                    : undefined
                             }
                         />
-                        <InputError id="name-error" message={errors.name} />
-                        <InputError id="slug-error" message={errors.slug} />
+                        <InputError
+                            id="name-error"
+                            message={errors.name ?? errors.slug}
+                        />
                         {competition && (
                             <p className="text-muted-foreground text-sm">
                                 {t('URL: :url', {

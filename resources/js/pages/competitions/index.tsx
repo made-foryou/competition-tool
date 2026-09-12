@@ -98,7 +98,11 @@ export default function CompetitionsIndex({ competitions, filters }: Props) {
             <Head title={t('Competitions')} />
             <div className="flex flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
-                    <Heading title={t('Competitions')} className="mb-0" />
+                    <Heading
+                        as="h1"
+                        title={t('Competitions')}
+                        className="mb-0"
+                    />
                     <Button asChild>
                         <Link href={create()}>
                             <Plus />

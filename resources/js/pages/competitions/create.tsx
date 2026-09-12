@@ -11,7 +11,11 @@ export default function CompetitionsCreate() {
         <>
             <Head title={t('New competition')} />
             <div className="flex flex-col gap-4 p-4">
-                <Heading title={t('New competition')} className="mb-0" />
+                <Heading
+                    as="h1"
+                    title={t('New competition')}
+                    className="mb-0"
+                />
                 <CompetitionForm
                     action={store().url}
                     method="post"

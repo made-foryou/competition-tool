@@ -6,7 +6,7 @@ import { useTranslations } from '@/hooks/use-translations';
 export type PaginationLink = {
     url: string | null;
     label: string;
-    page: number | null;
+    page?: number | null;
     active: boolean;
 };
 
@@ -36,7 +36,7 @@ type Props = {
  * paginanummer ("..."). Die renderen we als tekst in plaats van als knop.
  */
 function isEllipsis(link: PaginationLink): boolean {
-    return link.url === null && link.page === null;
+    return link.url === null;
 }
 
 export function Pagination({ paginator, only }: Props) {

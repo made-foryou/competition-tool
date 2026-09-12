@@ -47,7 +47,7 @@ export default function DeleteUser() {
                             {t('Delete account')}
                         </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent closeLabel={t('Close')}>
                         <DialogTitle>
                             {t('Are you sure you want to delete your account?')}
                         </DialogTitle>

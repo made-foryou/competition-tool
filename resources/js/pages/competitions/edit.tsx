@@ -37,32 +37,32 @@ const DEFAULT_TAB: TabValue = 'general';
 
 /**
  * Leest de actieve tab uit de querystring van een Inertia-url. Onbekende of
- * ontbrekende waarden vallen terug op de standaardtab.
+ * ontbrekende waarden vallen terug op de standaardtab. Gebruikt de URL-API in
+ * plaats van handmatig op `?` te splitsen, zodat een url-fragment (`#...`) de
+ * querystring-parsing niet kan verstoren.
  */
 function resolveTab(url: string): TabValue {
-    const [, query = ''] = url.split('?');
-    const tab = new URLSearchParams(query).get('tab');
+    const { searchParams } = new URL(url, window.location.origin);
+    const tab = searchParams.get('tab');
 
     return TABS.includes(tab as TabValue) ? (tab as TabValue) : DEFAULT_TAB;
 }
 
 /**
  * Bouwt dezelfde url met `?tab=` voor de gegeven tab. De standaardtab laat de
- * querystring weg, zodat de schone url naar "General" blijft verwijzen.
+ * querystring weg, zodat de schone url naar "General" blijft verwijzen. Een
+ * eventueel hash-fragment op de url blijft behouden.
  */
 function urlForTab(url: string, tab: TabValue): string {
-    const [path, query = ''] = url.split('?');
-    const params = new URLSearchParams(query);
+    const parsed = new URL(url, window.location.origin);
 
     if (tab === DEFAULT_TAB) {
-        params.delete('tab');
+        parsed.searchParams.delete('tab');
     } else {
-        params.set('tab', tab);
+        parsed.searchParams.set('tab', tab);
     }
 
-    const search = params.toString();
-
-    return search === '' ? path : `${path}?${search}`;
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
 }
 
 export default function CompetitionsEdit({
@@ -99,7 +99,11 @@ export default function CompetitionsEdit({
             <Head title={competition.name} />
             <div className="flex flex-col gap-6 p-4">
                 <div className="flex flex-wrap items-center gap-3">
-                    <Heading title={competition.name} className="mb-0" />
+                    <Heading
+                        as="h1"
+                        title={competition.name}
+                        className="mb-0"
+                    />
                     <Badge variant="secondary">
                         {competitionStatusLabel(competition.status, t)}
                     </Badge>
@@ -169,6 +173,8 @@ export default function CompetitionsEdit({
                     <TabsContent value="match-days" className="max-w-4xl">
                         <MatchDayManager
                             competitionId={competition.id}
+                            competitionStartsAt={competition.starts_at}
+                            competitionEndsAt={competition.ends_at}
                             matchDays={matchDays}
                         />
                     </TabsContent>

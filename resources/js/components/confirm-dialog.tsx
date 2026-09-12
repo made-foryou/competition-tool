@@ -2,6 +2,7 @@ import { Form } from '@inertiajs/react';
 import type { VariantProps } from 'class-variance-authority';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
     Dialog,
@@ -9,6 +10,7 @@ import {
     DialogContent,
     DialogDescription,
     DialogFooter,
+    DialogHeader,
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
@@ -41,9 +43,11 @@ export default function ConfirmDialog({
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>{trigger}</DialogTrigger>
-            <DialogContent>
-                <DialogTitle>{title}</DialogTitle>
-                <DialogDescription>{description}</DialogDescription>
+            <DialogContent closeLabel={t('Close')}>
+                <DialogHeader>
+                    <DialogTitle>{title}</DialogTitle>
+                    <DialogDescription>{description}</DialogDescription>
+                </DialogHeader>
                 <DialogFooter>
                     <DialogClose asChild>
                         <Button variant="secondary">
@@ -54,6 +58,7 @@ export default function ConfirmDialog({
                         {...action}
                         options={{ preserveScroll: true }}
                         onSuccess={() => setOpen(false)}
+                        onError={() => toast.error(t('Something went wrong.'))}
                     >
                         {({ processing }) => (
                             <Button

@@ -82,9 +82,8 @@ export default function ParticipantManager({
                                 <ConfirmDialog
                                     trigger={
                                         <Button
-                                            variant="ghost"
+                                            variant="ghostDestructive"
                                             size="sm"
-                                            className="text-destructive-foreground"
                                             aria-label={t('Remove :name', {
                                                 name: displayName,
                                             })}

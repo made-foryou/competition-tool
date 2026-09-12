@@ -67,6 +67,7 @@ export default function Dashboard({
             <Head title={t('Dashboard')} />
             <div className="flex flex-col gap-6 p-4">
                 <Heading
+                    as="h1"
                     title={t('Dashboard')}
                     description={t(
                         'An overview of your competitions, participants and match days.',

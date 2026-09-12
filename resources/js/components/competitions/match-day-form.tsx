@@ -22,6 +22,10 @@ type Props = {
     /** Toont het veld waarmee de speelvelden bij het aanmaken gegenereerd worden. */
     withFieldCount?: boolean;
     resetOnSuccess?: boolean;
+    /** `YYYY-MM-DD`. Bounds the date picker to the competition's period. */
+    competitionStartsAt?: string;
+    /** `YYYY-MM-DD`. Bounds the date picker to the competition's period. */
+    competitionEndsAt?: string | null;
     className?: string;
 };
 
@@ -32,6 +36,8 @@ export default function MatchDayForm({
     submitLabel,
     withFieldCount = false,
     resetOnSuccess = false,
+    competitionStartsAt,
+    competitionEndsAt,
     className = 'flex max-w-xl flex-col gap-6',
 }: Props) {
     const { t } = useTranslations();
@@ -53,6 +59,8 @@ export default function MatchDayForm({
                                 name="date"
                                 required
                                 defaultValue={matchDay?.date}
+                                minDate={competitionStartsAt}
+                                maxDate={competitionEndsAt}
                                 aria-invalid={!!errors.date}
                                 aria-describedby={
                                     errors.date ? 'date-error' : undefined

@@ -49,9 +49,8 @@ export default function MatchDayFieldManager({
                             <ConfirmDialog
                                 trigger={
                                     <Button
-                                        variant="ghost"
+                                        variant="ghostDestructive"
                                         size="sm"
-                                        className="text-destructive-foreground"
                                         aria-label={t('Remove field :name', {
                                             name: field.name,
                                         })}

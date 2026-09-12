@@ -19,7 +19,7 @@ export default function SuccessCheck() {
             >
                 <polyline
                     points="22 33 29 40 43 25"
-                    stroke="var(--color-success)"
+                    stroke="var(--color-console-success)"
                     strokeWidth="3"
                     strokeLinecap="round"
                     strokeLinejoin="round"

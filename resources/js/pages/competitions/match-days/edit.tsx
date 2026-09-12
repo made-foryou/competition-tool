@@ -6,6 +6,7 @@ import MatchDayForm from '@/components/competitions/match-day-form';
 import type { MatchDayFieldProps } from '@/components/competitions/match-day-field-manager';
 import MatchDayFieldManager from '@/components/competitions/match-day-field-manager';
 import ConfirmDialog from '@/components/confirm-dialog';
+import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/hooks/use-translations';
 import { formatDate } from '@/lib/format-date';
@@ -16,7 +17,12 @@ import {
 } from '@/routes/competitions/match-days';
 
 type Props = {
-    competition: { id: number; name: string };
+    competition: {
+        id: number;
+        name: string;
+        starts_at: string;
+        ends_at: string | null;
+    };
     matchDay: MatchDayProps;
     fields: MatchDayFieldProps[];
 };
@@ -46,16 +52,20 @@ export default function MatchDaysEdit({
                         <ArrowLeft className="size-4" />
                         {t('Back to competition')}
                     </Link>
-                    <h1 className="text-xl font-semibold">{title}</h1>
-                    <p className="text-muted-foreground text-sm">
-                        {competition.name}
-                    </p>
+                    <Heading
+                        as="h1"
+                        title={title}
+                        description={competition.name}
+                        className="mb-0"
+                    />
                 </div>
 
                 <MatchDayForm
                     matchDay={matchDay}
                     action={updateMatchDay([competition.id, matchDay.id]).url}
                     method="put"
+                    competitionStartsAt={competition.starts_at}
+                    competitionEndsAt={competition.ends_at}
                     submitLabel={t('Save changes')}
                 />
 
