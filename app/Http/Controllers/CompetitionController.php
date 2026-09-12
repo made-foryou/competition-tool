@@ -2,17 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Concerns\SummarizesMatchDay;
 use App\Http\Requests\Competitions\StoreCompetitionRequest;
 use App\Http\Requests\Competitions\UpdateCompetitionRequest;
 use App\Models\Competition;
 use App\Models\Invitation;
+use App\Models\MatchDay;
+use App\Models\MatchDayAvailability;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class CompetitionController extends Controller
 {
+    use SummarizesMatchDay;
+
     public function index(): Response
     {
         return Inertia::render('competitions/index', [
@@ -45,13 +51,23 @@ class CompetitionController extends Controller
         return Inertia::render('competitions/edit', [
             'competition' => $this->competitionProps($competition),
             'participants' => $competition->participants()
-                ->orderBy('name')
+                ->orderByRaw('COALESCE(NULLIF(users.nickname, ?), users.name)', [''])
                 ->get()
                 ->map(fn (User $user): array => [
                     'id' => $user->id,
                     'name' => $user->name,
+                    'nickname' => $user->nickname,
                     'email' => $user->email,
                     'is_admin' => $user->isAdmin(),
+                ])
+                ->all(),
+            'availability' => $this->availabilityRows($competition),
+            'matchDays' => $competition->matchDays()
+                ->withCount('fields')
+                ->get()
+                ->map(fn (MatchDay $matchDay): array => [
+                    ...$this->matchDayProps($matchDay),
+                    'fields_count' => $matchDay->fields_count,
                 ])
                 ->all(),
             'pendingInvitations' => $competition->invitations()
@@ -78,6 +94,41 @@ class CompetitionController extends Controller
         $competition->delete();
 
         return redirect()->route('competitions.index');
+    }
+
+    /**
+     * Per deelnemer op welke speeldagen hij beschikbaar is, plus of hij het
+     * formulier uberhaupt al heeft ingediend.
+     *
+     * @return list<array{id: int, name: string, submitted: bool, match_day_ids: list<int>}>
+     */
+    protected function availabilityRows(Competition $competition): array
+    {
+        $matchDayIds = $competition->matchDays()->pluck('id');
+
+        $availableByUser = MatchDayAvailability::query()
+            ->whereIn('match_day_id', $matchDayIds)
+            ->get()
+            ->groupBy('user_id');
+
+        $submittedUserIds = DB::table('competition_user')
+            ->where('competition_id', $competition->id)
+            ->whereNotNull('availability_submitted_at')
+            ->pluck('user_id')
+            ->all();
+
+        return array_values($competition->participants()
+            ->orderByRaw('COALESCE(NULLIF(users.nickname, ?), users.name)', [''])
+            ->get()
+            ->map(fn (User $user): array => [
+                'id' => $user->id,
+                'name' => $user->display_name,
+                'submitted' => in_array($user->id, $submittedUserIds, true),
+                'match_day_ids' => array_values($availableByUser->get($user->id, collect())
+                    ->pluck('match_day_id')
+                    ->all()),
+            ])
+            ->all());
     }
 
     /**

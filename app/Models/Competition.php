@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\CompetitionStatus;
 use Database\Factories\CompetitionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -22,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property CompetitionStatus $status
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property-read Collection<int, MatchDay> $matchDays
  */
 #[Fillable(['name', 'slug', 'description', 'location', 'starts_at', 'ends_at', 'status'])]
 class Competition extends Model
@@ -71,6 +73,14 @@ class Competition extends Model
     public function invitations(): HasMany
     {
         return $this->hasMany(Invitation::class);
+    }
+
+    /**
+     * @return HasMany<MatchDay, $this>
+     */
+    public function matchDays(): HasMany
+    {
+        return $this->hasMany(MatchDay::class)->orderBy('date')->orderBy('starts_at');
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Concerns;
 
 use App\Enums\CompetitionStatus;
+use App\Models\Competition;
 use App\Models\User;
 
 /**
@@ -20,13 +21,21 @@ trait DeterminesLoginDestination
             return route('dashboard');
         }
 
-        $competition = $user->competitions()
-            ->where('status', CompetitionStatus::Active)
-            ->orderByDesc('starts_at')
-            ->first();
+        $competition = $this->activeCompetitionFor($user);
 
         return $competition !== null
             ? route('competition.dashboard', $competition)
             : route('competition.none');
+    }
+
+    /**
+     * De meest recente actieve competitie waaraan de gebruiker gekoppeld is.
+     */
+    protected function activeCompetitionFor(User $user): ?Competition
+    {
+        return $user->competitions()
+            ->where('status', CompetitionStatus::Active)
+            ->orderByDesc('starts_at')
+            ->first();
     }
 }

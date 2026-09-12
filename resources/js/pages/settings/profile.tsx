@@ -7,6 +7,7 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useTranslations } from '@/hooks/use-translations';
 import { edit } from '@/routes/profile';
 import type { Auth } from '@/types';
 import { send } from '@/routes/verification';
@@ -23,6 +24,7 @@ export default function Profile({
     status?: string;
 }) {
     const { auth } = usePage<PageProps>().props;
+    const { t } = useTranslations();
 
     return (
         <>
@@ -63,6 +65,31 @@ export default function Profile({
                                     className="mt-2"
                                     message={errors.name}
                                 />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="nickname">
+                                    {t('Nickname')}
+                                </Label>
+
+                                <Input
+                                    id="nickname"
+                                    className="mt-1 block w-full"
+                                    defaultValue={auth.user.nickname ?? ''}
+                                    name="nickname"
+                                    placeholder={t('Optional')}
+                                />
+
+                                <InputError
+                                    className="mt-2"
+                                    message={errors.nickname}
+                                />
+
+                                <p className="text-muted-foreground text-sm">
+                                    {t(
+                                        'Other participants see your nickname instead of your name.',
+                                    )}
+                                </p>
                             </div>
 
                             <div className="grid gap-2">
