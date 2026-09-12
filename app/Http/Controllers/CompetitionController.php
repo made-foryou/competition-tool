@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Concerns\SummarizesMatchDay;
+use App\Http\Requests\Competitions\IndexCompetitionRequest;
 use App\Http\Requests\Competitions\StoreCompetitionRequest;
 use App\Http\Requests\Competitions\UpdateCompetitionRequest;
 use App\Models\Competition;
@@ -10,6 +11,7 @@ use App\Models\Invitation;
 use App\Models\MatchDay;
 use App\Models\MatchDayAvailability;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -19,18 +21,28 @@ class CompetitionController extends Controller
 {
     use SummarizesMatchDay;
 
-    public function index(): Response
+    public function index(IndexCompetitionRequest $request): Response
     {
+        ['search' => $search, 'status' => $status] = $request->filters();
+
+        $competitions = Competition::query()
+            ->withCount('participants')
+            ->when($search, fn (Builder $query, string $search) => $query->where('name', 'like', '%'.$search.'%'))
+            ->when($status, fn (Builder $query, string $status) => $query->where('status', $status))
+            ->orderByDesc('starts_at')
+            ->paginate(15)
+            ->withQueryString()
+            ->through(fn (Competition $competition): array => [
+                ...$this->competitionProps($competition),
+                'participants_count' => $competition->participants_count,
+            ]);
+
         return Inertia::render('competitions/index', [
-            'competitions' => Competition::query()
-                ->withCount('participants')
-                ->orderByDesc('starts_at')
-                ->get()
-                ->map(fn (Competition $competition): array => [
-                    ...$this->competitionProps($competition),
-                    'participants_count' => $competition->participants_count,
-                ])
-                ->all(),
+            'competitions' => $competitions,
+            'filters' => [
+                'search' => $search,
+                'status' => $status,
+            ],
         ]);
     }
 
