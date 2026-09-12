@@ -1,4 +1,5 @@
 import { Form } from '@inertiajs/react';
+import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -95,22 +96,23 @@ export default function CompetitionForm({
                     <div className="grid gap-6 sm:grid-cols-2">
                         <div className="grid gap-2">
                             <Label htmlFor="starts_at">{t('Start date')}</Label>
-                            <Input
+                            <DatePicker
                                 id="starts_at"
                                 name="starts_at"
-                                type="date"
                                 required
-                                defaultValue={competition?.starts_at ?? ''}
+                                defaultValue={competition?.starts_at}
+                                aria-invalid={!!errors.starts_at}
                             />
                             <InputError message={errors.starts_at} />
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="ends_at">{t('End date')}</Label>
-                            <Input
+                            <DatePicker
                                 id="ends_at"
                                 name="ends_at"
-                                type="date"
-                                defaultValue={competition?.ends_at ?? ''}
+                                clearable
+                                defaultValue={competition?.ends_at}
+                                aria-invalid={!!errors.ends_at}
                             />
                             <InputError message={errors.ends_at} />
                         </div>

@@ -1,4 +1,5 @@
 import { Form } from '@inertiajs/react';
+import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,12 +48,12 @@ export default function MatchDayForm({
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
                             <Label htmlFor="date">{t('Date')}</Label>
-                            <Input
+                            <DatePicker
                                 id="date"
                                 name="date"
-                                type="date"
                                 required
-                                defaultValue={matchDay?.date ?? ''}
+                                defaultValue={matchDay?.date}
+                                aria-invalid={!!errors.date}
                             />
                             <InputError message={errors.date} />
                         </div>
