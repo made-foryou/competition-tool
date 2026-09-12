@@ -51,7 +51,7 @@ class DashboardController extends Controller
      */
     protected function upcomingMatchDays(): array
     {
-        return MatchDay::query()
+        return array_values(MatchDay::query()
             ->with('competition')
             ->withCount('fields')
             ->whereDate('date', '>=', today())
@@ -67,7 +67,7 @@ class DashboardController extends Controller
                     'name' => $matchDay->competition->name,
                 ],
             ])
-            ->all();
+            ->all());
     }
 
     /**
@@ -77,7 +77,7 @@ class DashboardController extends Controller
      */
     protected function recentCompetitions(): array
     {
-        return Competition::query()
+        return array_values(Competition::query()
             ->withCount('participants')
             ->orderByDesc('starts_at')
             ->limit(5)
@@ -88,6 +88,6 @@ class DashboardController extends Controller
                 'status' => $competition->status->value,
                 'participants_count' => (int) $competition->participants_count,
             ])
-            ->all();
+            ->all());
     }
 }
