@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Competition;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -73,10 +74,12 @@ test('guests are not affected by the two factor requirement', function () {
 });
 
 test('a participant without a second factor is not forced into two factor setup', function () {
+    $competition = Competition::factory()->create();
     $user = User::factory()->participant()->create();
+    $competition->participants()->attach($user);
 
     $this->actingAs($user)
-        ->get(route('profile.edit'))
+        ->get(route('competition.settings.profile.edit', $competition))
         ->assertOk();
 });
 

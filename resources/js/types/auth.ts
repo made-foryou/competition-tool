@@ -3,6 +3,8 @@ export type UserRole = 'admin' | 'participant';
 export type User = {
     id: number;
     name: string;
+    nickname: string | null;
+    display_name: string;
     email: string;
     avatar?: string;
     role: UserRole;

@@ -1,9 +1,11 @@
-import { Head, usePage } from '@inertiajs/react';
-import { CalendarDays, MapPin, Users } from 'lucide-react';
+import { Head, Link, usePage } from '@inertiajs/react';
+import { CalendarCheck, CalendarDays, MapPin, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/hooks/use-translations';
 import { competitionStatusLabel } from '@/lib/competition-status';
 import { formatDate } from '@/lib/format-date';
+import { edit as editAvailability } from '@/routes/competition/availability';
 
 type Props = {
     competition: {
@@ -16,11 +18,15 @@ type Props = {
         ends_at: string | null;
     };
     participants: Array<{ id: number; name: string }>;
+    availableMatchDays: number;
+    totalMatchDays: number;
 };
 
 export default function ParticipantDashboard({
     competition,
     participants,
+    availableMatchDays,
+    totalMatchDays,
 }: Props) {
     const { t } = useTranslations();
     const { locale } = usePage().props;
@@ -69,6 +75,28 @@ export default function ParticipantDashboard({
                         </p>
                     )}
                 </section>
+
+                {totalMatchDays > 0 && (
+                    <section className="flex flex-col gap-3 rounded-xl border p-4">
+                        <h2 className="flex items-center gap-2 font-semibold">
+                            <CalendarCheck className="size-4" />
+                            {t('My availability')}
+                        </h2>
+                        <p className="text-muted-foreground text-sm">
+                            {t('Available on :count of :total match days', {
+                                count: availableMatchDays,
+                                total: totalMatchDays,
+                            })}
+                        </p>
+                        <div>
+                            <Button asChild variant="secondary" size="sm">
+                                <Link href={editAvailability(competition.slug)}>
+                                    {t('Change availability')}
+                                </Link>
+                            </Button>
+                        </div>
+                    </section>
+                )}
 
                 <section className="flex flex-col gap-3 rounded-xl border p-4">
                     <h2 className="flex items-center gap-2 font-semibold">

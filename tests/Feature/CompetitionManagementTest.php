@@ -2,6 +2,8 @@
 
 use App\Enums\CompetitionStatus;
 use App\Models\Competition;
+use App\Models\MatchDay;
+use App\Models\MatchDayAvailability;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -115,4 +117,33 @@ test('admins can delete a competition', function () {
         ->assertRedirect(route('competitions.index'));
 
     expect(Competition::query()->count())->toBe(0);
+});
+
+test('the edit page shows the availability of each participant', function () {
+    actingAsAdmin();
+
+    $competition = Competition::factory()->create();
+    $matchDay = MatchDay::factory()->create(['competition_id' => $competition]);
+
+    $filledIn = User::factory()->participant()->create(['name' => 'Anna']);
+    $competition->participants()->attach($filledIn, ['availability_submitted_at' => now()]);
+    MatchDayAvailability::factory()->create([
+        'match_day_id' => $matchDay,
+        'user_id' => $filledIn,
+    ]);
+
+    $pending = User::factory()->participant()->create(['name' => 'Bob']);
+    $competition->participants()->attach($pending);
+
+    $this->get(route('competitions.edit', $competition))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('availability', 2)
+            ->where('availability.0.name', 'Anna')
+            ->where('availability.0.submitted', true)
+            ->where('availability.0.match_day_ids', [$matchDay->id])
+            ->where('availability.1.name', 'Bob')
+            ->where('availability.1.submitted', false)
+            ->where('availability.1.match_day_ids', []),
+        );
 });

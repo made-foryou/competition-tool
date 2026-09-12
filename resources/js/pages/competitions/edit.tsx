@@ -1,6 +1,10 @@
 import { Form, Head } from '@inertiajs/react';
 import type { CompetitionProps } from '@/components/competitions/competition-form';
 import CompetitionForm from '@/components/competitions/competition-form';
+import type { AvailabilityRow } from '@/components/competitions/availability-matrix';
+import AvailabilityMatrix from '@/components/competitions/availability-matrix';
+import type { MatchDayListItem } from '@/components/competitions/match-day-manager';
+import MatchDayManager from '@/components/competitions/match-day-manager';
 import type {
     ParticipantProps,
     PendingInvitationProps,
@@ -22,12 +26,16 @@ import { destroy, index, update } from '@/routes/competitions';
 type Props = {
     competition: CompetitionProps;
     participants: ParticipantProps[];
+    matchDays: MatchDayListItem[];
+    availability: AvailabilityRow[];
     pendingInvitations: PendingInvitationProps[];
 };
 
 export default function CompetitionsEdit({
     competition,
     participants,
+    matchDays,
+    availability,
     pendingInvitations,
 }: Props) {
     const { t } = useTranslations();
@@ -45,10 +53,20 @@ export default function CompetitionsEdit({
                     submitLabel={t('Save changes')}
                 />
 
+                <MatchDayManager
+                    competitionId={competition.id}
+                    matchDays={matchDays}
+                />
+
                 <ParticipantManager
                     competitionId={competition.id}
                     participants={participants}
                     pendingInvitations={pendingInvitations}
+                />
+
+                <AvailabilityMatrix
+                    matchDays={matchDays}
+                    availability={availability}
                 />
 
                 <div className="max-w-xl border-t pt-6">

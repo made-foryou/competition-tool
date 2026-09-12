@@ -15,6 +15,7 @@ import {
 export type ParticipantProps = {
     id: number;
     name: string;
+    nickname: string | null;
     email: string;
     is_admin: boolean;
 };
@@ -56,7 +57,7 @@ export default function ParticipantManager({
                         >
                             <div className="min-w-0">
                                 <p className="truncate font-medium">
-                                    {participant.name}
+                                    {participant.nickname ?? participant.name}
                                     {participant.is_admin && (
                                         <Badge
                                             variant="secondary"
@@ -67,6 +68,8 @@ export default function ParticipantManager({
                                     )}
                                 </p>
                                 <p className="text-muted-foreground truncate text-sm">
+                                    {participant.nickname !== null &&
+                                        `${participant.name} · `}
                                     {participant.email}
                                 </p>
                             </div>

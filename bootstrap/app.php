@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureAvailabilityIsSubmitted;
 use App\Http\Middleware\EnsureTwoFactorIsConfigured;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -23,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
             EnsureTwoFactorIsConfigured::class,
+            EnsureAvailabilityIsSubmitted::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

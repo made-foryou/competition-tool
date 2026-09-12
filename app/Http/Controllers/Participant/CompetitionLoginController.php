@@ -26,6 +26,7 @@ class CompetitionLoginController extends Controller
 
         return Inertia::render('auth/competition-login', [
             'competitionName' => $competition->name,
+            'competitionSlug' => $competition->slug,
             'canResetPassword' => Features::enabled(Features::resetPasswords()),
             'status' => $request->session()->get('status'),
         ]);
