@@ -25,18 +25,22 @@ export function Breadcrumbs({
                     <BreadcrumbList>
                         {breadcrumbs.map((item, index) => {
                             const isLast = index === breadcrumbs.length - 1;
+                            const label =
+                                item.translate === false
+                                    ? item.title
+                                    : t(item.title);
 
                             return (
                                 <Fragment key={index}>
                                     <BreadcrumbItem>
                                         {isLast ? (
                                             <BreadcrumbPage>
-                                                {t(item.title)}
+                                                {label}
                                             </BreadcrumbPage>
                                         ) : (
                                             <BreadcrumbLink asChild>
                                                 <Link href={item.href}>
-                                                    {t(item.title)}
+                                                    {label}
                                                 </Link>
                                             </BreadcrumbLink>
                                         )}

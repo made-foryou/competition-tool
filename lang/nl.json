@@ -103,6 +103,7 @@
     "This name results in a reserved URL. Choose a different name.": "Deze naam levert een gereserveerde URL op. Kies een andere naam.",
     "A competition with this URL already exists. Choose a different name.": "Er bestaat al een competitie met deze URL. Kies een andere naam.",
 
+    "Management": "Beheer",
     "Dashboard": "Dashboard",
     "Competitions": "Competities",
     "New competition": "Nieuwe competitie",
@@ -266,9 +267,6 @@
     "Please proceed with caution, this cannot be undone.": "Ga voorzichtig te werk, dit kan niet ongedaan worden gemaakt.",
     "Are you sure you want to delete your account?": "Weet je zeker dat je je account wilt verwijderen?",
     "Once your account is deleted, all of its resources and data will also be permanently deleted. Please enter your password to confirm you would like to permanently delete your account.": "Zodra je account is verwijderd, worden alle bijbehorende gegevens ook permanent verwijderd. Voer je wachtwoord in om te bevestigen dat je je account definitief wilt verwijderen.",
-    "Platform": "Platform",
-    "Repository": "Repository",
-    "Documentation": "Documentatie",
     "Show password": "Toon wachtwoord",
     "Hide password": "Verberg wachtwoord",
     "Something went wrong.": "Er is iets misgegaan."

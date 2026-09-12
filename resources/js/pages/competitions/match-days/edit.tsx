@@ -10,7 +10,10 @@ import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/hooks/use-translations';
 import { formatDate } from '@/lib/format-date';
 import { edit as editCompetition, index } from '@/routes/competitions';
-import { update as updateMatchDay } from '@/routes/competitions/match-days';
+import {
+    edit as editMatchDay,
+    update as updateMatchDay,
+} from '@/routes/competitions/match-days';
 
 type Props = {
     competition: { id: number; name: string };
@@ -83,6 +86,22 @@ export default function MatchDaysEdit({
     );
 }
 
-MatchDaysEdit.layout = {
-    breadcrumbs: [{ title: 'Competitions', href: index() }],
-};
+MatchDaysEdit.layout = ({
+    competition,
+    matchDay,
+    locale,
+}: Props & { locale: string }) => ({
+    breadcrumbs: [
+        { title: 'Competitions', href: index() },
+        {
+            title: competition.name,
+            href: editCompetition(competition.id),
+            translate: false,
+        },
+        {
+            title: formatDate(matchDay.date, locale),
+            href: editMatchDay([competition.id, matchDay.id]),
+            translate: false,
+        },
+    ],
+});

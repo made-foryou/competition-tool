@@ -14,7 +14,7 @@ import ParticipantManager from '@/components/competitions/participant-manager';
 import { Button } from '@/components/ui/button';
 import ConfirmDialog from '@/components/confirm-dialog';
 import { useTranslations } from '@/hooks/use-translations';
-import { index, update } from '@/routes/competitions';
+import { edit, index, update } from '@/routes/competitions';
 
 type Props = {
     competition: CompetitionProps;
@@ -84,6 +84,13 @@ export default function CompetitionsEdit({
     );
 }
 
-CompetitionsEdit.layout = {
-    breadcrumbs: [{ title: 'Competitions', href: index() }],
-};
+CompetitionsEdit.layout = ({ competition }: Props) => ({
+    breadcrumbs: [
+        { title: 'Competitions', href: index() },
+        {
+            title: competition.name,
+            href: edit(competition.id),
+            translate: false,
+        },
+    ],
+});

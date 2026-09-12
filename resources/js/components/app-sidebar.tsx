@@ -1,7 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, FolderGit2, LayoutGrid, Trophy } from 'lucide-react';
+import { LayoutGrid, Plus, Trophy } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
-import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -15,25 +14,15 @@ import {
 } from '@/components/ui/sidebar';
 import { useTranslations } from '@/hooks/use-translations';
 import { dashboard } from '@/routes';
-import { index as competitionsIndex } from '@/routes/competitions';
+import {
+    create as competitionsCreate,
+    index as competitionsIndex,
+} from '@/routes/competitions';
 import type { NavItem } from '@/types';
 
 export function AppSidebar() {
     const { t } = useTranslations();
     const { auth } = usePage().props;
-
-    const footerNavItems: NavItem[] = [
-        {
-            title: t('Repository'),
-            href: 'https://github.com/laravel/react-starter-kit',
-            icon: FolderGit2,
-        },
-        {
-            title: t('Documentation'),
-            href: 'https://laravel.com/docs/starter-kits#react',
-            icon: BookOpen,
-        },
-    ];
 
     const mainNavItems: NavItem[] =
         auth.user?.role === 'admin'
@@ -47,6 +36,11 @@ export function AppSidebar() {
                       title: t('Competitions'),
                       href: competitionsIndex(),
                       icon: Trophy,
+                  },
+                  {
+                      title: t('New competition'),
+                      href: competitionsCreate(),
+                      icon: Plus,
                   },
               ]
             : [];
@@ -70,7 +64,6 @@ export function AppSidebar() {
             </SidebarContent>
 
             <SidebarFooter>
-                <NavFooter items={footerNavItems} className="mt-auto" />
                 <NavUser />
             </SidebarFooter>
         </Sidebar>
