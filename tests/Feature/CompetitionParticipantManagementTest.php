@@ -17,7 +17,8 @@ test('an existing user is linked directly by email', function () {
 
     $this->post(route('competitions.participants.store', $competition), [
         'email' => $user->email,
-    ])->assertRedirect();
+    ])->assertRedirect()
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Participant linked.')]);
 
     expect($competition->participants()->whereKey($user->id)->exists())->toBeTrue();
 });
@@ -53,7 +54,8 @@ test('an unknown email with invite mode sends a participant invitation', functio
     $this->post(route('competitions.participants.store', $competition), [
         'email' => 'nieuw@example.com',
         'mode' => 'invite',
-    ])->assertRedirect();
+    ])->assertRedirect()
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Invitation sent.')]);
 
     $invitation = Invitation::query()->where('email', 'nieuw@example.com')->firstOrFail();
     expect($invitation->role)->toBe(UserRole::Participant)
@@ -70,7 +72,8 @@ test('an unknown email with create mode creates a verified participant account',
         'mode' => 'create',
         'name' => 'Directe Deelnemer',
         'password' => 'SuperSecret123!',
-    ])->assertRedirect();
+    ])->assertRedirect()
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Participant added.')]);
 
     $user = User::query()->where('email', 'direct@example.com')->firstOrFail();
     expect($user->role)->toBe(UserRole::Participant)
@@ -101,7 +104,8 @@ test('a participant can be detached', function () {
     $competition->participants()->attach($user);
 
     $this->delete(route('competitions.participants.destroy', [$competition, $user]))
-        ->assertRedirect();
+        ->assertRedirect()
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Participant removed.')]);
 
     expect($competition->participants()->count())->toBe(0)
         ->and(User::query()->whereKey($user->id)->exists())->toBeTrue();

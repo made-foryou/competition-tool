@@ -115,7 +115,8 @@ test('admins can create a competition with an auto-generated slug', function () 
         'starts_at' => '2026-10-01',
         'ends_at' => '2026-10-02',
         'status' => CompetitionStatus::Draft->value,
-    ])->assertRedirect();
+    ])->assertRedirect()
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Competition created.')]);
 
     $competition = Competition::query()->firstOrFail();
     expect($competition->slug)->toBe('voorjaarstoernooi-2026')
@@ -176,7 +177,8 @@ test('admins can delete a competition', function () {
     $competition = Competition::factory()->create();
 
     $this->delete(route('competitions.destroy', $competition))
-        ->assertRedirect(route('competitions.index'));
+        ->assertRedirect(route('competitions.index'))
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Competition deleted.')]);
 
     expect(Competition::query()->count())->toBe(0);
 });

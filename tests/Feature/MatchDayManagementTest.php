@@ -21,7 +21,8 @@ test('admins can add a match day with automatically generated fields', function 
         'starts_at' => '09:00',
         'ends_at' => '17:00',
         'field_count' => 3,
-    ])->assertRedirect();
+    ])->assertRedirect()
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Match day added.')]);
 
     $matchDay = MatchDay::query()->firstOrFail();
 
@@ -117,7 +118,8 @@ test('admins can delete a match day including its fields', function () {
         ->create(['competition_id' => $this->competition]);
 
     $this->delete(route('competitions.match-days.destroy', [$this->competition, $matchDay]))
-        ->assertRedirect(route('competitions.edit', $this->competition));
+        ->assertRedirect(route('competitions.edit', $this->competition))
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Match day removed.')]);
 
     expect(MatchDay::query()->count())->toBe(0)
         ->and(DB::table('match_day_fields')->count())->toBe(0);

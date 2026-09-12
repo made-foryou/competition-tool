@@ -8,6 +8,7 @@ use App\Http\Requests\Competitions\StoreCompetitionParticipantRequest;
 use App\Models\Competition;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Inertia\Inertia;
 
 class CompetitionParticipantController extends Controller
 {
@@ -20,11 +21,15 @@ class CompetitionParticipantController extends Controller
         if ($existing !== null) {
             $competition->participants()->syncWithoutDetaching([$existing->id]);
 
+            Inertia::flash('toast', ['type' => 'success', 'message' => __('Participant linked.')]);
+
             return back();
         }
 
         if ($request->string('mode')->toString() === 'invite') {
             $sendInvitation->handle($email, UserRole::Participant, $competition, $request->user());
+
+            Inertia::flash('toast', ['type' => 'success', 'message' => __('Invitation sent.')]);
 
             return back();
         }
@@ -39,12 +44,16 @@ class CompetitionParticipantController extends Controller
 
         $competition->participants()->attach($user);
 
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Participant added.')]);
+
         return back();
     }
 
     public function destroy(Competition $competition, User $user): RedirectResponse
     {
         $competition->participants()->detach($user);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Participant removed.')]);
 
         return back();
     }

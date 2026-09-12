@@ -17,7 +17,8 @@ beforeEach(function () {
 test('admins can add a field which gets the next position', function () {
     $this->post(route('competitions.match-days.fields.store', [$this->competition, $this->matchDay]), [
         'name' => 'Baan A',
-    ])->assertRedirect();
+    ])->assertRedirect()
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Field added.')]);
 
     $field = $this->matchDay->fields()->where('name', 'Baan A')->firstOrFail();
 
@@ -61,7 +62,8 @@ test('admins can remove a field', function () {
     $field = $this->matchDay->fields()->firstOrFail();
 
     $this->delete(route('competitions.match-days.fields.destroy', [$this->competition, $this->matchDay, $field]))
-        ->assertRedirect();
+        ->assertRedirect()
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Field removed.')]);
 
     expect(MatchDayField::query()->whereKey($field->id)->exists())->toBeFalse();
 });

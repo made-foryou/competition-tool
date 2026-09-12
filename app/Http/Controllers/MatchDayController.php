@@ -35,6 +35,8 @@ class MatchDayController extends Controller
             return $matchDay;
         });
 
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Match day added.')]);
+
         return redirect()->route('competitions.match-days.edit', [$competition, $matchDay]);
     }
 
@@ -67,6 +69,8 @@ class MatchDayController extends Controller
     public function destroy(Competition $competition, MatchDay $matchDay): RedirectResponse
     {
         $matchDay->delete();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Match day removed.')]);
 
         return redirect()->route('competitions.edit', $competition);
     }

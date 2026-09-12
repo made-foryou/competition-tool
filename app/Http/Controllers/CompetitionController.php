@@ -55,6 +55,8 @@ class CompetitionController extends Controller
     {
         $competition = Competition::create($request->validated());
 
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Competition created.')]);
+
         return redirect()->route('competitions.edit', $competition);
     }
 
@@ -104,6 +106,8 @@ class CompetitionController extends Controller
     public function destroy(Competition $competition): RedirectResponse
     {
         $competition->delete();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Competition deleted.')]);
 
         return redirect()->route('competitions.index');
     }

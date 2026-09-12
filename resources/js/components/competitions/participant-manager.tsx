@@ -1,5 +1,7 @@
 import { Form } from '@inertiajs/react';
 import { useState } from 'react';
+import CompetitionParticipantController from '@/actions/App/Http/Controllers/CompetitionParticipantController';
+import ConfirmDialog from '@/components/confirm-dialog';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,10 +10,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Spinner } from '@/components/ui/spinner';
 import { useTranslations } from '@/hooks/use-translations';
-import {
-    destroy as destroyParticipant,
-    store as storeParticipant,
-} from '@/routes/competitions/participants';
+import { store as storeParticipant } from '@/routes/competitions/participants';
 
 export type ParticipantProps = {
     id: number;
@@ -49,51 +48,59 @@ export default function ParticipantManager({
                 </p>
             ) : (
                 <ul className="divide-y rounded-xl border">
-                    {participants.map((participant) => (
-                        <li
-                            key={participant.id}
-                            className="flex items-center justify-between gap-2 p-3"
-                        >
-                            <div className="min-w-0">
-                                <p className="truncate font-medium">
-                                    {participant.nickname ?? participant.name}
-                                    {participant.is_admin && (
-                                        <Badge
-                                            variant="secondary"
-                                            className="ml-2"
-                                        >
-                                            {t('Admin')}
-                                        </Badge>
-                                    )}
-                                </p>
-                                <p className="text-muted-foreground truncate text-sm">
-                                    {participant.nickname !== null &&
-                                        `${participant.name} · `}
-                                    {participant.email}
-                                </p>
-                            </div>
-                            <Form
-                                action={
-                                    destroyParticipant([
-                                        competitionId,
-                                        participant.id,
-                                    ]).url
-                                }
-                                method="delete"
+                    {participants.map((participant) => {
+                        const displayName =
+                            participant.nickname ?? participant.name;
+
+                        return (
+                            <li
+                                key={participant.id}
+                                className="flex items-center justify-between gap-2 p-3"
                             >
-                                {({ processing }) => (
-                                    <Button
-                                        type="submit"
-                                        variant="ghost"
-                                        size="sm"
-                                        disabled={processing}
-                                    >
-                                        {t('Remove')}
-                                    </Button>
-                                )}
-                            </Form>
-                        </li>
-                    ))}
+                                <div className="min-w-0">
+                                    <p className="truncate font-medium">
+                                        {displayName}
+                                        {participant.is_admin && (
+                                            <Badge
+                                                variant="secondary"
+                                                className="ml-2"
+                                            >
+                                                {t('Admin')}
+                                            </Badge>
+                                        )}
+                                    </p>
+                                    <p className="text-muted-foreground truncate text-sm">
+                                        {participant.nickname !== null &&
+                                            `${participant.name} · `}
+                                        {participant.email}
+                                    </p>
+                                </div>
+                                <ConfirmDialog
+                                    trigger={
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-destructive-foreground"
+                                            aria-label={t('Remove :name', {
+                                                name: displayName,
+                                            })}
+                                        >
+                                            {t('Remove')}
+                                        </Button>
+                                    }
+                                    title={t('Remove participant?')}
+                                    description={t(
+                                        'This removes :name from the competition. Their availability answers for this competition will no longer be shown.',
+                                        { name: displayName },
+                                    )}
+                                    action={CompetitionParticipantController.destroy.form(
+                                        [competitionId, participant.id],
+                                    )}
+                                    confirmLabel={t('Remove participant')}
+                                />
+                            </li>
+                        );
+                    })}
                 </ul>
             )}
 
