@@ -3,6 +3,7 @@ import { Check, ClipboardCheck, Minus } from 'lucide-react';
 import type { MatchDayProps } from '@/components/competitions/match-day-form';
 import EmptyState from '@/components/empty-state';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     Table,
     TableBody,
@@ -36,9 +37,18 @@ export type AvailabilityRow = {
 type Props = {
     matchDays: MatchDayProps[];
     availability: AvailabilityRow[];
+    /** Springt naar de tab Speeldagen. Toont een CTA in de lege staat wanneer meegegeven. */
+    onNavigateToMatchDays?: () => void;
+    /** Springt naar de tab Deelnemers. Toont een CTA in de lege staat wanneer meegegeven. */
+    onNavigateToParticipants?: () => void;
 };
 
-export default function AvailabilityMatrix({ matchDays, availability }: Props) {
+export default function AvailabilityMatrix({
+    matchDays,
+    availability,
+    onNavigateToMatchDays,
+    onNavigateToParticipants,
+}: Props) {
     const { t } = useTranslations();
     const { locale } = usePage().props;
 
@@ -50,6 +60,30 @@ export default function AvailabilityMatrix({ matchDays, availability }: Props) {
                 description={t(
                     'Availability appears as soon as there are match days and participants.',
                 )}
+                action={
+                    (onNavigateToMatchDays || onNavigateToParticipants) && (
+                        <div className="flex gap-2">
+                            {onNavigateToMatchDays && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={onNavigateToMatchDays}
+                                >
+                                    {t('Go to match days')}
+                                </Button>
+                            )}
+                            {onNavigateToParticipants && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={onNavigateToParticipants}
+                                >
+                                    {t('Go to participants')}
+                                </Button>
+                            )}
+                        </div>
+                    )
+                }
             />
         );
     }
@@ -133,7 +167,7 @@ export default function AvailabilityMatrix({ matchDays, availability }: Props) {
                                     STICKY_FOOTER_COLUMN_CLASSES,
                                 )}
                             >
-                                {t('Available')}
+                                {t('Available count')}
                             </TableCell>
                             {matchDays.map((matchDay) => (
                                 <TableCell

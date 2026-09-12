@@ -71,6 +71,7 @@ class CompetitionController extends Controller
                     'id' => $user->id,
                     'name' => $user->name,
                     'nickname' => $user->nickname,
+                    'display_name' => $user->display_name,
                     'email' => $user->email,
                     'is_admin' => $user->isAdmin(),
                 ])

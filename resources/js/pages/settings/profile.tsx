@@ -87,7 +87,7 @@ export default function Profile({
 
                                 <p className="text-muted-foreground text-sm">
                                     {t(
-                                        'Other participants see your nickname instead of your name.',
+                                        'Your nickname is shown instead of your name wherever participants are listed.',
                                     )}
                                 </p>
                             </div>

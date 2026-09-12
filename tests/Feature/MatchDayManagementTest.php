@@ -31,7 +31,7 @@ test('admins can add a match day with automatically generated fields', function 
 
     expect($matchDay->competition_id)->toBe($this->competition->id)
         ->and($matchDay->date->toDateString())->toBe('2026-10-02')
-        ->and($matchDay->fields()->pluck('name')->all())->toBe(['Veld 1', 'Veld 2', 'Veld 3'])
+        ->and($matchDay->fields()->pluck('name')->all())->toBe(['Tafel 1', 'Tafel 2', 'Tafel 3'])
         ->and($matchDay->fields()->pluck('position')->all())->toBe([1, 2, 3]);
 });
 

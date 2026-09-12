@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { FilterX, Plus, Search, Trophy } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { CompetitionProps } from '@/components/competitions/competition-form';
@@ -28,6 +28,7 @@ import {
     COMPETITION_STATUSES,
     competitionStatusLabel,
 } from '@/lib/competition-status';
+import { formatDate } from '@/lib/format-date';
 import { create, edit, index } from '@/routes/competitions';
 
 type CompetitionRow = CompetitionProps & { participants_count: number };
@@ -52,6 +53,7 @@ const DEBOUNCE_MS = 300;
 
 export default function CompetitionsIndex({ competitions, filters }: Props) {
     const { t } = useTranslations();
+    const { locale } = usePage().props;
 
     const [search, setSearch] = useState(filters.search ?? '');
     const [status, setStatus] = useState(filters.status ?? ANY_STATUS);
@@ -96,7 +98,7 @@ export default function CompetitionsIndex({ competitions, filters }: Props) {
     return (
         <>
             <Head title={t('Competitions')} />
-            <div className="flex flex-col gap-4 p-4">
+            <div className="mx-auto flex max-w-7xl flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
                     <Heading
                         as="h1"
@@ -220,7 +222,10 @@ export default function CompetitionsIndex({ competitions, filters }: Props) {
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="px-3">
-                                            {competition.starts_at}
+                                            {formatDate(
+                                                competition.starts_at,
+                                                locale,
+                                            )}
                                         </TableCell>
                                         <TableCell className="px-3">
                                             {competition.participants_count}

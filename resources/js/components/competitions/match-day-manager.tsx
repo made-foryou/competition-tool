@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/hooks/use-translations';
 import { formatDate } from '@/lib/format-date';
+import { pluralize } from '@/lib/plural';
 import {
     edit as editMatchDay,
     store as storeMatchDay,
@@ -63,7 +64,12 @@ export default function MatchDayManager({
                                 </div>
                                 <div className="flex shrink-0 items-center gap-2">
                                     <Badge variant="secondary">
-                                        {matchDay.fields_count} {t('Fields')}
+                                        {pluralize(
+                                            t,
+                                            matchDay.fields_count,
+                                            ':count field',
+                                            ':count fields',
+                                        )}
                                     </Badge>
                                     <Button asChild variant="ghost" size="sm">
                                         <Link

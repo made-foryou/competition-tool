@@ -3,12 +3,14 @@ import {
     CalendarDays,
     CirclePlay,
     type LucideIcon,
+    Plus,
     Trophy,
     Users,
 } from 'lucide-react';
 import EmptyState from '@/components/empty-state';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     Card,
     CardContent,
@@ -19,8 +21,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useTranslations } from '@/hooks/use-translations';
 import { competitionStatusLabel } from '@/lib/competition-status';
 import { formatDate } from '@/lib/format-date';
+import { pluralize } from '@/lib/plural';
+import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
-import { edit as editCompetition } from '@/routes/competitions';
+import {
+    create as createCompetition,
+    edit as editCompetition,
+    index as competitionsIndex,
+} from '@/routes/competitions';
 import { edit as editMatchDay } from '@/routes/competitions/match-days';
 
 type Kpis = {
@@ -65,7 +73,7 @@ export default function Dashboard({
     return (
         <>
             <Head title={t('Dashboard')} />
-            <div className="flex flex-col gap-6 p-4">
+            <div className="mx-auto flex max-w-7xl flex-col gap-6 p-4">
                 <Heading
                     as="h1"
                     title={t('Dashboard')}
@@ -79,11 +87,13 @@ export default function Dashboard({
                         label={t('Total competitions')}
                         value={kpis.competitions}
                         icon={Trophy}
+                        href={competitionsIndex().url}
                     />
                     <KpiCard
                         label={t('Active competitions')}
                         value={kpis.active_competitions}
                         icon={CirclePlay}
+                        href={competitionsIndex().url}
                     />
                     <KpiCard
                         label={t('Unique participants')}
@@ -94,6 +104,7 @@ export default function Dashboard({
                         label={t('Upcoming match days')}
                         value={kpis.upcoming_match_days}
                         icon={CalendarDays}
+                        href={competitionsIndex().url}
                     />
                 </div>
 
@@ -158,8 +169,12 @@ export default function Dashboard({
                                                 variant="secondary"
                                                 className="shrink-0"
                                             >
-                                                {matchDay.fields_count}{' '}
-                                                {t('Fields')}
+                                                {pluralize(
+                                                    t,
+                                                    matchDay.fields_count,
+                                                    ':count field',
+                                                    ':count fields',
+                                                )}
                                             </Badge>
                                         </li>
                                     ))}
@@ -182,6 +197,14 @@ export default function Dashboard({
                                     icon={Trophy}
                                     title={t('No competitions yet.')}
                                     size="sm"
+                                    action={
+                                        <Button asChild size="sm">
+                                            <Link href={createCompetition()}>
+                                                <Plus />
+                                                {t('New competition')}
+                                            </Link>
+                                        </Button>
+                                    }
                                 />
                             ) : (
                                 <ul className="divide-y rounded-xl border">
@@ -202,10 +225,12 @@ export default function Dashboard({
                                                     </Link>
                                                 </p>
                                                 <p className="text-muted-foreground truncate text-sm leading-5">
-                                                    {
-                                                        competition.participants_count
-                                                    }{' '}
-                                                    {t('Participants')}
+                                                    {pluralize(
+                                                        t,
+                                                        competition.participants_count,
+                                                        ':count participant',
+                                                        ':count participants',
+                                                    )}
                                                 </p>
                                             </div>
                                             <Badge
@@ -233,13 +258,16 @@ function KpiCard({
     label,
     value,
     icon: Icon,
+    href,
 }: {
     label: string;
     value: number;
     icon: LucideIcon;
+    /** Maakt de hele tegel klikbaar wanneer meegegeven. */
+    href?: string;
 }) {
-    return (
-        <Card className="gap-2 py-4">
+    const content = (
+        <>
             <CardHeader className="flex-row items-center justify-between gap-2 px-4">
                 <CardDescription>{label}</CardDescription>
                 <Icon className="text-muted-foreground size-4 shrink-0" />
@@ -247,6 +275,24 @@ function KpiCard({
             <CardContent className="px-4">
                 <p className="text-2xl font-semibold tabular-nums">{value}</p>
             </CardContent>
+        </>
+    );
+
+    return (
+        <Card
+            className={cn(
+                'gap-2 py-4',
+                href &&
+                    'hover:bg-muted/50 has-[:focus-visible]:ring-ring transition-colors has-[:focus-visible]:ring-2',
+            )}
+        >
+            {href ? (
+                <Link href={href} className="contents focus:outline-none">
+                    {content}
+                </Link>
+            ) : (
+                content
+            )}
         </Card>
     );
 }

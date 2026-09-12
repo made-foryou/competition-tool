@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutGrid, Plus, Trophy } from 'lucide-react';
+import { LayoutGrid, Trophy } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -14,10 +14,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useTranslations } from '@/hooks/use-translations';
 import { dashboard } from '@/routes';
-import {
-    create as competitionsCreate,
-    index as competitionsIndex,
-} from '@/routes/competitions';
+import { index as competitionsIndex } from '@/routes/competitions';
 import type { NavItem } from '@/types';
 
 export function AppSidebar() {
@@ -36,11 +33,6 @@ export function AppSidebar() {
                       title: t('Competitions'),
                       href: competitionsIndex(),
                       icon: Trophy,
-                  },
-                  {
-                      title: t('New competition'),
-                      href: competitionsCreate(),
-                      icon: Plus,
                   },
               ]
             : [];

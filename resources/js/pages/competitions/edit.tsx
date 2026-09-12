@@ -97,7 +97,7 @@ export default function CompetitionsEdit({
     return (
         <>
             <Head title={competition.name} />
-            <div className="flex flex-col gap-6 p-4">
+            <div className="mx-auto flex max-w-4xl flex-col gap-6 p-4">
                 <div className="flex flex-wrap items-center gap-3">
                     <Heading
                         as="h1"
@@ -131,7 +131,7 @@ export default function CompetitionsEdit({
 
                     <TabsContent
                         value="general"
-                        className="flex max-w-xl flex-col gap-8"
+                        className="flex flex-col gap-8"
                     >
                         <CompetitionForm
                             competition={competition}
@@ -140,7 +140,7 @@ export default function CompetitionsEdit({
                             submitLabel={t('Save changes')}
                         />
 
-                        <div className="border-destructive/20 bg-destructive/5 space-y-4 rounded-lg border p-4">
+                        <div className="border-destructive/20 bg-destructive/5 max-w-xl space-y-4 rounded-lg border p-4">
                             <div className="space-y-0.5">
                                 <p className="font-medium">
                                     {t('Danger zone')}
@@ -170,7 +170,7 @@ export default function CompetitionsEdit({
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="match-days" className="max-w-4xl">
+                    <TabsContent value="match-days">
                         <MatchDayManager
                             competitionId={competition.id}
                             competitionStartsAt={competition.starts_at}
@@ -179,9 +179,10 @@ export default function CompetitionsEdit({
                         />
                     </TabsContent>
 
-                    <TabsContent value="participants" className="max-w-4xl">
+                    <TabsContent value="participants">
                         <ParticipantManager
                             competitionId={competition.id}
+                            competitionSlug={competition.slug}
                             participants={participants}
                             pendingInvitations={pendingInvitations}
                         />
@@ -191,6 +192,12 @@ export default function CompetitionsEdit({
                         <AvailabilityMatrix
                             matchDays={matchDays}
                             availability={availability}
+                            onNavigateToMatchDays={() =>
+                                setActiveTab('match-days')
+                            }
+                            onNavigateToParticipants={() =>
+                                setActiveTab('participants')
+                            }
                         />
                     </TabsContent>
                 </Tabs>

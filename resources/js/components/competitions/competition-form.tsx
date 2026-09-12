@@ -81,7 +81,9 @@ export default function CompetitionForm({
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="description">{t('Description')}</Label>
+                        <Label htmlFor="description">
+                            {t('Description (optional)')}
+                        </Label>
                         <Textarea
                             id="description"
                             name="description"
@@ -101,7 +103,9 @@ export default function CompetitionForm({
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="location">{t('Location')}</Label>
+                        <Label htmlFor="location">
+                            {t('Location (optional)')}
+                        </Label>
                         <Input
                             id="location"
                             name="location"
@@ -138,7 +142,9 @@ export default function CompetitionForm({
                             />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="ends_at">{t('End date')}</Label>
+                            <Label htmlFor="ends_at">
+                                {t('End date (optional)')}
+                            </Label>
                             <DatePicker
                                 id="ends_at"
                                 name="ends_at"
@@ -181,6 +187,11 @@ export default function CompetitionForm({
                             </SelectContent>
                         </Select>
                         <InputError id="status-error" message={errors.status} />
+                        <p className="text-muted-foreground text-sm">
+                            {t(
+                                'Draft competitions are only visible to administrators. Participants can only sign in when the competition is active.',
+                            )}
+                        </p>
                     </div>
 
                     <div>
