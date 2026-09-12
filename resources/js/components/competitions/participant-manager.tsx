@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Spinner } from '@/components/ui/spinner';
 import { useTranslations } from '@/hooks/use-translations';
 import {
@@ -147,28 +148,39 @@ export default function ParticipantManager({
                             </p>
                         </div>
 
-                        <div className="flex gap-4">
-                            <label className="flex items-center gap-2 text-sm">
-                                <input
-                                    type="radio"
-                                    name="mode"
+                        <input type="hidden" name="mode" value={mode} />
+                        <RadioGroup
+                            value={mode}
+                            onValueChange={(value) =>
+                                setMode(value as 'invite' | 'create')
+                            }
+                            className="flex gap-4"
+                        >
+                            <div className="flex items-center gap-2">
+                                <RadioGroupItem
                                     value="invite"
-                                    checked={mode === 'invite'}
-                                    onChange={() => setMode('invite')}
+                                    id="participant-mode-invite"
                                 />
-                                {t('Send invitation email')}
-                            </label>
-                            <label className="flex items-center gap-2 text-sm">
-                                <input
-                                    type="radio"
-                                    name="mode"
+                                <Label
+                                    htmlFor="participant-mode-invite"
+                                    className="font-normal"
+                                >
+                                    {t('Send invitation email')}
+                                </Label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <RadioGroupItem
                                     value="create"
-                                    checked={mode === 'create'}
-                                    onChange={() => setMode('create')}
+                                    id="participant-mode-create"
                                 />
-                                {t('Create account directly')}
-                            </label>
-                        </div>
+                                <Label
+                                    htmlFor="participant-mode-create"
+                                    className="font-normal"
+                                >
+                                    {t('Create account directly')}
+                                </Label>
+                            </div>
+                        </RadioGroup>
                         <InputError message={errors.mode} />
 
                         {mode === 'create' && (

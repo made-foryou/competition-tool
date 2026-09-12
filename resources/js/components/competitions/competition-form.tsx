@@ -11,6 +11,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
 import { useTranslations } from '@/hooks/use-translations';
 import {
     COMPETITION_STATUSES,
@@ -72,12 +73,11 @@ export default function CompetitionForm({
 
                     <div className="grid gap-2">
                         <Label htmlFor="description">{t('Description')}</Label>
-                        <textarea
+                        <Textarea
                             id="description"
                             name="description"
                             rows={4}
                             defaultValue={competition?.description ?? ''}
-                            className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs focus-visible:ring-[3px]"
                         />
                         <InputError message={errors.description} />
                     </div>

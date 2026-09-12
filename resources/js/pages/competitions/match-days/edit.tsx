@@ -1,26 +1,16 @@
-import { Form, Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { ArrowLeft } from 'lucide-react';
+import MatchDayController from '@/actions/App/Http/Controllers/MatchDayController';
 import type { MatchDayProps } from '@/components/competitions/match-day-form';
 import MatchDayForm from '@/components/competitions/match-day-form';
 import type { MatchDayFieldProps } from '@/components/competitions/match-day-field-manager';
 import MatchDayFieldManager from '@/components/competitions/match-day-field-manager';
+import ConfirmDialog from '@/components/confirm-dialog';
 import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogClose,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
 import { useTranslations } from '@/hooks/use-translations';
 import { formatDate } from '@/lib/format-date';
 import { edit as editCompetition, index } from '@/routes/competitions';
-import {
-    destroy as destroyMatchDay,
-    update as updateMatchDay,
-} from '@/routes/competitions/match-days';
+import { update as updateMatchDay } from '@/routes/competitions/match-days';
 
 type Props = {
     competition: { id: number; name: string };
@@ -71,47 +61,22 @@ export default function MatchDaysEdit({
                 />
 
                 <div className="max-w-xl border-t pt-6">
-                    <Dialog>
-                        <DialogTrigger asChild>
+                    <ConfirmDialog
+                        trigger={
                             <Button variant="destructive">
                                 {t('Delete match day')}
                             </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogTitle>{t('Delete match day?')}</DialogTitle>
-                            <DialogDescription>
-                                {t(
-                                    'This removes the match day and all its fields.',
-                                )}
-                            </DialogDescription>
-                            <DialogFooter>
-                                <DialogClose asChild>
-                                    <Button variant="secondary">
-                                        {t('Cancel')}
-                                    </Button>
-                                </DialogClose>
-                                <Form
-                                    action={
-                                        destroyMatchDay([
-                                            competition.id,
-                                            matchDay.id,
-                                        ]).url
-                                    }
-                                    method="delete"
-                                >
-                                    {({ processing }) => (
-                                        <Button
-                                            type="submit"
-                                            variant="destructive"
-                                            disabled={processing}
-                                        >
-                                            {t('Delete match day')}
-                                        </Button>
-                                    )}
-                                </Form>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                        }
+                        title={t('Delete match day?')}
+                        description={t(
+                            'This removes the match day and all its fields.',
+                        )}
+                        action={MatchDayController.destroy.form([
+                            competition.id,
+                            matchDay.id,
+                        ])}
+                        confirmLabel={t('Delete match day')}
+                    />
                 </div>
             </div>
         </>

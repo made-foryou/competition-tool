@@ -1,4 +1,5 @@
-import { Form, Head } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
+import CompetitionController from '@/actions/App/Http/Controllers/CompetitionController';
 import type { CompetitionProps } from '@/components/competitions/competition-form';
 import CompetitionForm from '@/components/competitions/competition-form';
 import type { AvailabilityRow } from '@/components/competitions/availability-matrix';
@@ -11,17 +12,9 @@ import type {
 } from '@/components/competitions/participant-manager';
 import ParticipantManager from '@/components/competitions/participant-manager';
 import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogClose,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
+import ConfirmDialog from '@/components/confirm-dialog';
 import { useTranslations } from '@/hooks/use-translations';
-import { destroy, index, update } from '@/routes/competitions';
+import { index, update } from '@/routes/competitions';
 
 type Props = {
     competition: CompetitionProps;
@@ -70,44 +63,21 @@ export default function CompetitionsEdit({
                 />
 
                 <div className="max-w-xl border-t pt-6">
-                    <Dialog>
-                        <DialogTrigger asChild>
+                    <ConfirmDialog
+                        trigger={
                             <Button variant="destructive">
                                 {t('Delete competition')}
                             </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogTitle>
-                                {t('Delete competition?')}
-                            </DialogTitle>
-                            <DialogDescription>
-                                {t(
-                                    'This removes the competition and its participant list. User accounts are kept.',
-                                )}
-                            </DialogDescription>
-                            <DialogFooter>
-                                <DialogClose asChild>
-                                    <Button variant="secondary">
-                                        {t('Cancel')}
-                                    </Button>
-                                </DialogClose>
-                                <Form
-                                    action={destroy(competition.id).url}
-                                    method="delete"
-                                >
-                                    {({ processing }) => (
-                                        <Button
-                                            type="submit"
-                                            variant="destructive"
-                                            disabled={processing}
-                                        >
-                                            {t('Delete competition')}
-                                        </Button>
-                                    )}
-                                </Form>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                        }
+                        title={t('Delete competition?')}
+                        description={t(
+                            'This removes the competition and its participant list. User accounts are kept.',
+                        )}
+                        action={CompetitionController.destroy.form(
+                            competition.id,
+                        )}
+                        confirmLabel={t('Delete competition')}
+                    />
                 </div>
             </div>
         </>
