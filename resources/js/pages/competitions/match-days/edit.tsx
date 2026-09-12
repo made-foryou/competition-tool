@@ -38,7 +38,9 @@ export default function MatchDaysEdit({
             <div className="flex flex-col gap-6 p-4">
                 <div className="flex flex-col gap-1">
                     <Link
-                        href={editCompetition(competition.id)}
+                        href={editCompetition(competition.id, {
+                            query: { tab: 'match-days' },
+                        })}
                         className="text-muted-foreground flex items-center gap-1 text-sm hover:underline"
                     >
                         <ArrowLeft className="size-4" />
@@ -95,7 +97,9 @@ MatchDaysEdit.layout = ({
         { title: 'Competitions', href: index() },
         {
             title: competition.name,
-            href: editCompetition(competition.id),
+            href: editCompetition(competition.id, {
+                query: { tab: 'match-days' },
+            }),
             translate: false,
         },
         {

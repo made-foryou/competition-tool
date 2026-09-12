@@ -116,6 +116,7 @@ export default function CompetitionsIndex({ competitions, filters }: Props) {
                             onChange={(event) => setSearch(event.target.value)}
                             placeholder={t('Search by name…')}
                             aria-label={t('Search competitions')}
+                            maxLength={100}
                             className="pl-9"
                         />
                     </div>
@@ -141,18 +142,20 @@ export default function CompetitionsIndex({ competitions, filters }: Props) {
                 </div>
 
                 {competitions.data.length === 0 ? (
-                    hasActiveFilters ? (
+                    hasActiveFilters || competitions.total > 0 ? (
                         <EmptyState
                             icon={Search}
                             title={t('No competitions match these filters.')}
                             action={
-                                <Button
-                                    variant="outline"
-                                    onClick={resetFilters}
-                                >
-                                    <FilterX />
-                                    {t('Clear filters')}
-                                </Button>
+                                hasActiveFilters ? (
+                                    <Button
+                                        variant="outline"
+                                        onClick={resetFilters}
+                                    >
+                                        <FilterX />
+                                        {t('Clear filters')}
+                                    </Button>
+                                ) : undefined
                             }
                         />
                     ) : (
@@ -170,88 +173,81 @@ export default function CompetitionsIndex({ competitions, filters }: Props) {
                         />
                     )
                 ) : (
-                    <>
-                        <div className="rounded-xl border">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="px-3">
-                                            {t('Name')}
-                                        </TableHead>
-                                        <TableHead className="px-3">
-                                            {t('Status')}
-                                        </TableHead>
-                                        <TableHead className="px-3">
-                                            {t('Start date')}
-                                        </TableHead>
-                                        <TableHead className="px-3">
-                                            {t('Participants')}
-                                        </TableHead>
-                                        <TableHead className="px-3 text-right">
-                                            <span className="sr-only">
-                                                {t('Actions')}
-                                            </span>
-                                        </TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {competitions.data.map((competition) => (
-                                        <TableRow key={competition.id}>
-                                            <TableCell className="px-3">
+                    <div className="rounded-xl border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="px-3">
+                                        {t('Name')}
+                                    </TableHead>
+                                    <TableHead className="px-3">
+                                        {t('Status')}
+                                    </TableHead>
+                                    <TableHead className="px-3">
+                                        {t('Start date')}
+                                    </TableHead>
+                                    <TableHead className="px-3">
+                                        {t('Participants')}
+                                    </TableHead>
+                                    <TableHead className="px-3 text-right">
+                                        <span className="sr-only">
+                                            {t('Actions')}
+                                        </span>
+                                    </TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {competitions.data.map((competition) => (
+                                    <TableRow key={competition.id}>
+                                        <TableCell className="px-3">
+                                            <Link
+                                                href={edit(competition.id)}
+                                                className="font-medium hover:underline"
+                                            >
+                                                {competition.name}
+                                            </Link>
+                                        </TableCell>
+                                        <TableCell className="px-3">
+                                            <Badge variant="secondary">
+                                                {competitionStatusLabel(
+                                                    competition.status,
+                                                    t,
+                                                )}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="px-3">
+                                            {competition.starts_at}
+                                        </TableCell>
+                                        <TableCell className="px-3">
+                                            {competition.participants_count}
+                                        </TableCell>
+                                        <TableCell className="px-3 text-right">
+                                            <Button
+                                                asChild
+                                                variant="outline"
+                                                size="sm"
+                                            >
                                                 <Link
                                                     href={edit(competition.id)}
-                                                    className="font-medium hover:underline"
-                                                >
-                                                    {competition.name}
-                                                </Link>
-                                            </TableCell>
-                                            <TableCell className="px-3">
-                                                <Badge variant="secondary">
-                                                    {competitionStatusLabel(
-                                                        competition.status,
-                                                        t,
+                                                    aria-label={t(
+                                                        'Edit :name',
+                                                        {
+                                                            name: competition.name,
+                                                        },
                                                     )}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="px-3">
-                                                {competition.starts_at}
-                                            </TableCell>
-                                            <TableCell className="px-3">
-                                                {competition.participants_count}
-                                            </TableCell>
-                                            <TableCell className="px-3 text-right">
-                                                <Button
-                                                    asChild
-                                                    variant="outline"
-                                                    size="sm"
                                                 >
-                                                    <Link
-                                                        href={edit(
-                                                            competition.id,
-                                                        )}
-                                                        aria-label={t(
-                                                            'Edit :name',
-                                                            {
-                                                                name: competition.name,
-                                                            },
-                                                        )}
-                                                    >
-                                                        {t('Edit')}
-                                                    </Link>
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-
-                        <Pagination
-                            paginator={competitions}
-                            only={FILTER_PROPS}
-                        />
-                    </>
+                                                    {t('Edit')}
+                                                </Link>
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
                 )}
+
+                <Pagination paginator={competitions} only={FILTER_PROPS} />
             </div>
         </>
     );

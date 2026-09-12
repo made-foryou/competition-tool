@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileDeleteRequest;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
+use App\Models\User;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -49,6 +52,12 @@ class ProfileController extends Controller
     public function destroy(ProfileDeleteRequest $request): RedirectResponse
     {
         $user = $request->user();
+
+        if ($user->isAdmin() && User::query()->where('role', UserRole::Admin)->count() <= 1) {
+            throw ValidationException::withMessages([
+                'password' => __('You cannot delete the last administrator account.'),
+            ]);
+        }
 
         Auth::logout();
 

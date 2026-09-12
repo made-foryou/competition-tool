@@ -27,7 +27,7 @@ class CompetitionController extends Controller
 
         $competitions = Competition::query()
             ->withCount('participants')
-            ->when($search, fn (Builder $query, string $search) => $query->where('name', 'like', '%'.$search.'%'))
+            ->when($search, fn (Builder $query, string $search) => $query->where('name', 'like', '%'.addcslashes($search, '%_\\').'%'))
             ->when($status, fn (Builder $query, string $status) => $query->where('status', $status))
             ->orderByDesc('starts_at')
             ->paginate(15)
@@ -99,6 +99,8 @@ class CompetitionController extends Controller
     public function update(UpdateCompetitionRequest $request, Competition $competition): RedirectResponse
     {
         $competition->update($request->validated());
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Competition updated.')]);
 
         return redirect()->route('competitions.edit', $competition);
     }

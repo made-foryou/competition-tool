@@ -46,6 +46,38 @@ test('the index can be searched by name', function () {
         );
 });
 
+test('a search term with a like wildcard does not match everything', function () {
+    actingAsAdmin();
+    Competition::factory()->create(['name' => 'Voorjaarstoernooi', 'slug' => 'voorjaarstoernooi']);
+    Competition::factory()->create(['name' => 'Najaarstoernooi', 'slug' => 'najaarstoernooi']);
+
+    $this->get(route('competitions.index', ['search' => '%']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('competitions.data', 0)
+            ->etc(),
+        );
+});
+
+test('a search term longer than one hundred characters is rejected', function () {
+    actingAsAdmin();
+
+    $this->get(route('competitions.index', ['search' => str_repeat('a', 101)]))
+        ->assertSessionHasErrors('search');
+});
+
+test('pagination links preserve the active filters', function () {
+    actingAsAdmin();
+    Competition::factory()->count(16)->create(['name' => 'Voorjaarstoernooi']);
+
+    $this->get(route('competitions.index', ['search' => 'Voorjaar']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('competitions.links.2.url', fn (?string $url) => $url !== null && str_contains($url, 'search='))
+            ->etc(),
+        );
+});
+
 test('the index can be filtered by status', function () {
     actingAsAdmin();
     Competition::factory()->create(['name' => 'Actief', 'slug' => 'actief']);
@@ -155,7 +187,8 @@ test('admins can update a competition and keep its own slug', function () {
         'starts_at' => '2026-11-01',
         'ends_at' => null,
         'status' => CompetitionStatus::Active->value,
-    ])->assertRedirect(route('competitions.edit', $competition));
+    ])->assertRedirect(route('competitions.edit', $competition))
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Competition updated.')]);
 
     expect($competition->refresh()->description)->toBe('Bijgewerkt.')
         ->and($competition->status)->toBe(CompetitionStatus::Active);

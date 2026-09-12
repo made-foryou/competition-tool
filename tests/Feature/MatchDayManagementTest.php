@@ -16,12 +16,15 @@ beforeEach(function () {
 });
 
 test('admins can add a match day with automatically generated fields', function () {
-    $this->post(route('competitions.match-days.store', $this->competition), [
-        'date' => '2026-10-02',
-        'starts_at' => '09:00',
-        'ends_at' => '17:00',
-        'field_count' => 3,
-    ])->assertRedirect()
+    $editUrl = route('competitions.edit', $this->competition).'?tab=match-days';
+
+    $this->from($editUrl)
+        ->post(route('competitions.match-days.store', $this->competition), [
+            'date' => '2026-10-02',
+            'starts_at' => '09:00',
+            'ends_at' => '17:00',
+            'field_count' => 3,
+        ])->assertRedirect($editUrl)
         ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Match day added.')]);
 
     $matchDay = MatchDay::query()->firstOrFail();
@@ -96,7 +99,8 @@ test('admins can update the date and times of a match day', function () {
         'date' => '2026-10-05',
         'starts_at' => '10:15',
         'ends_at' => '16:45',
-    ])->assertRedirect();
+    ])->assertRedirect()
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Match day updated.')]);
 
     $matchDay->refresh();
 

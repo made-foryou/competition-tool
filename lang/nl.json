@@ -153,6 +153,7 @@
     "This removes the competition and its participant list. User accounts are kept.": "Dit verwijdert de competitie en de deelnemerslijst. Gebruikersaccounts blijven bestaan.",
     "Cancel": "Annuleren",
     "Competition created.": "Competitie aangemaakt.",
+    "Competition updated.": "Competitie bijgewerkt.",
     "Competition deleted.": "Competitie verwijderd.",
 
     "No participants yet.": "Nog geen deelnemers.",
@@ -203,6 +204,7 @@
     "This removes the field :name.": "Dit verwijdert het speelveld :name.",
     "Remove field": "Speelveld verwijderen",
     "Match day added.": "Speeldag toegevoegd.",
+    "Match day updated.": "Speeldag bijgewerkt.",
     "Match day removed.": "Speeldag verwijderd.",
     "Field added.": "Speelveld toegevoegd.",
     "Field removed.": "Speelveld verwijderd.",
@@ -321,5 +323,6 @@
     "Once your account is deleted, all of its resources and data will also be permanently deleted. Please enter your password to confirm you would like to permanently delete your account.": "Zodra je account is verwijderd, worden alle bijbehorende gegevens ook permanent verwijderd. Voer je wachtwoord in om te bevestigen dat je je account definitief wilt verwijderen.",
     "Show password": "Toon wachtwoord",
     "Hide password": "Verberg wachtwoord",
-    "Something went wrong.": "Er is iets misgegaan."
+    "Something went wrong.": "Er is iets misgegaan.",
+    "You cannot delete the last administrator account.": "Je kunt het laatste beheerdersaccount niet verwijderen."
 }
