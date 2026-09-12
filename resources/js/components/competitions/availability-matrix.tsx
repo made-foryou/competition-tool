@@ -22,15 +22,17 @@ export default function AvailabilityMatrix({ matchDays, availability }: Props) {
     const { locale } = usePage().props;
 
     if (matchDays.length === 0 || availability.length === 0) {
-        return null;
+        return (
+            <p className="text-muted-foreground text-sm">
+                {t(
+                    'Availability appears as soon as there are match days and participants.',
+                )}
+            </p>
+        );
     }
 
     return (
         <section className="flex flex-col gap-4">
-            <h2 className="text-lg font-semibold">
-                {t('Participant availability')}
-            </h2>
-
             <div className="overflow-x-auto rounded-xl border">
                 <table className="w-full text-sm">
                     <thead>

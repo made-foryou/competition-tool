@@ -42,9 +42,7 @@ export default function ParticipantManager({
     const [mode, setMode] = useState<'invite' | 'create'>('invite');
 
     return (
-        <section className="flex max-w-xl flex-col gap-4">
-            <h2 className="text-lg font-semibold">{t('Participants')}</h2>
-
+        <section className="flex flex-col gap-4">
             {participants.length === 0 ? (
                 <p className="text-muted-foreground text-sm">
                     {t('No participants yet.')}
@@ -126,7 +124,7 @@ export default function ParticipantManager({
                 action={storeParticipant(competitionId).url}
                 method="post"
                 resetOnSuccess
-                className="flex flex-col gap-4 rounded-xl border p-4"
+                className="flex max-w-xl flex-col gap-4 rounded-xl border p-4"
             >
                 {({ processing, errors }) => (
                     <>
