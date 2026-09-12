@@ -1,9 +1,29 @@
 import { usePage } from '@inertiajs/react';
-import { Check, Minus } from 'lucide-react';
+import { Check, ClipboardCheck, Minus } from 'lucide-react';
 import type { MatchDayProps } from '@/components/competitions/match-day-form';
+import EmptyState from '@/components/empty-state';
 import { Badge } from '@/components/ui/badge';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableFooter,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useTranslations } from '@/hooks/use-translations';
 import { formatDate } from '@/lib/format-date';
+import { cn } from '@/lib/utils';
+
+/**
+ * Achtergrond op de sticky eerste kolom, zodat de horizontaal scrollende
+ * inhoud er niet onderdoor schuift (ook niet in dark mode). De voettabel
+ * gebruikt een effen `bg-muted` in plaats van de halftransparante
+ * `bg-muted/50` van de rest van die rij, om dezelfde reden.
+ */
+const STICKY_COLUMN_CLASSES = 'sticky left-0 z-10 bg-background';
+const STICKY_FOOTER_COLUMN_CLASSES = 'sticky left-0 z-10 bg-muted';
 
 export type AvailabilityRow = {
     id: number;
@@ -23,23 +43,34 @@ export default function AvailabilityMatrix({ matchDays, availability }: Props) {
 
     if (matchDays.length === 0 || availability.length === 0) {
         return (
-            <p className="text-muted-foreground text-sm">
-                {t(
+            <EmptyState
+                icon={ClipboardCheck}
+                title={t('No availability yet.')}
+                description={t(
                     'Availability appears as soon as there are match days and participants.',
                 )}
-            </p>
+            />
         );
     }
 
     return (
         <section className="flex flex-col gap-4">
-            <div className="overflow-x-auto rounded-xl border">
-                <table className="w-full text-sm">
-                    <thead>
-                        <tr className="border-b text-left">
-                            <th className="p-3">{t('Name')}</th>
+            <div className="rounded-xl border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead
+                                scope="col"
+                                className={cn('p-3', STICKY_COLUMN_CLASSES)}
+                            >
+                                {t('Name')}
+                            </TableHead>
                             {matchDays.map((matchDay) => (
-                                <th key={matchDay.id} className="p-3">
+                                <TableHead
+                                    key={matchDay.id}
+                                    scope="col"
+                                    className="p-3"
+                                >
                                     <span className="block whitespace-nowrap">
                                         {formatDate(matchDay.date, locale)}
                                     </span>
@@ -47,17 +78,18 @@ export default function AvailabilityMatrix({ matchDays, availability }: Props) {
                                         {matchDay.starts_at} –{' '}
                                         {matchDay.ends_at}
                                     </span>
-                                </th>
+                                </TableHead>
                             ))}
-                        </tr>
-                    </thead>
-                    <tbody>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
                         {availability.map((row) => (
-                            <tr key={row.id} className="border-b last:border-0">
-                                <td className="p-3">
-                                    <span className="font-medium">
-                                        {row.name}
-                                    </span>
+                            <TableRow key={row.id}>
+                                <TableHead
+                                    scope="row"
+                                    className={cn('p-3', STICKY_COLUMN_CLASSES)}
+                                >
+                                    {row.name}
                                     {!row.submitted && (
                                         <Badge
                                             variant="secondary"
@@ -66,13 +98,16 @@ export default function AvailabilityMatrix({ matchDays, availability }: Props) {
                                             {t('Not filled in yet')}
                                         </Badge>
                                     )}
-                                </td>
+                                </TableHead>
                                 {matchDays.map((matchDay) => {
                                     const isAvailable =
                                         row.match_day_ids.includes(matchDay.id);
 
                                     return (
-                                        <td key={matchDay.id} className="p-3">
+                                        <TableCell
+                                            key={matchDay.id}
+                                            className="p-3"
+                                        >
                                             {isAvailable ? (
                                                 <Check className="size-4" />
                                             ) : (
@@ -83,19 +118,24 @@ export default function AvailabilityMatrix({ matchDays, availability }: Props) {
                                                     ? t('Available')
                                                     : t('Not available')}
                                             </span>
-                                        </td>
+                                        </TableCell>
                                     );
                                 })}
-                            </tr>
+                            </TableRow>
                         ))}
-                    </tbody>
-                    <tfoot>
-                        <tr className="border-t">
-                            <td className="text-muted-foreground p-3">
+                    </TableBody>
+                    <TableFooter>
+                        <TableRow>
+                            <TableCell
+                                className={cn(
+                                    'text-muted-foreground p-3',
+                                    STICKY_FOOTER_COLUMN_CLASSES,
+                                )}
+                            >
                                 {t('Available')}
-                            </td>
+                            </TableCell>
                             {matchDays.map((matchDay) => (
-                                <td
+                                <TableCell
                                     key={matchDay.id}
                                     className="p-3 font-medium"
                                 >
@@ -106,11 +146,11 @@ export default function AvailabilityMatrix({ matchDays, availability }: Props) {
                                             ),
                                         ).length
                                     }
-                                </td>
+                                </TableCell>
                             ))}
-                        </tr>
-                    </tfoot>
-                </table>
+                        </TableRow>
+                    </TableFooter>
+                </Table>
             </div>
         </section>
     );

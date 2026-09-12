@@ -54,8 +54,11 @@ export default function MatchDayForm({
                                 required
                                 defaultValue={matchDay?.date}
                                 aria-invalid={!!errors.date}
+                                aria-describedby={
+                                    errors.date ? 'date-error' : undefined
+                                }
                             />
-                            <InputError message={errors.date} />
+                            <InputError id="date-error" message={errors.date} />
                         </div>
 
                         {withFieldCount && (
@@ -71,8 +74,17 @@ export default function MatchDayForm({
                                     max={20}
                                     required
                                     defaultValue={4}
+                                    aria-invalid={!!errors.field_count}
+                                    aria-describedby={
+                                        errors.field_count
+                                            ? 'field_count-error'
+                                            : undefined
+                                    }
                                 />
-                                <InputError message={errors.field_count} />
+                                <InputError
+                                    id="field_count-error"
+                                    message={errors.field_count}
+                                />
                             </div>
                         )}
 
@@ -84,8 +96,17 @@ export default function MatchDayForm({
                                 type="time"
                                 required
                                 defaultValue={matchDay?.starts_at ?? ''}
+                                aria-invalid={!!errors.starts_at}
+                                aria-describedby={
+                                    errors.starts_at
+                                        ? 'starts_at-error'
+                                        : undefined
+                                }
                             />
-                            <InputError message={errors.starts_at} />
+                            <InputError
+                                id="starts_at-error"
+                                message={errors.starts_at}
+                            />
                         </div>
 
                         <div className="grid gap-2">
@@ -96,8 +117,15 @@ export default function MatchDayForm({
                                 type="time"
                                 required
                                 defaultValue={matchDay?.ends_at ?? ''}
+                                aria-invalid={!!errors.ends_at}
+                                aria-describedby={
+                                    errors.ends_at ? 'ends_at-error' : undefined
+                                }
                             />
-                            <InputError message={errors.ends_at} />
+                            <InputError
+                                id="ends_at-error"
+                                message={errors.ends_at}
+                            />
                         </div>
                     </div>
 

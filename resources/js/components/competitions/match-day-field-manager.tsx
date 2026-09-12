@@ -88,8 +88,19 @@ export default function MatchDayFieldManager({
                             <Label htmlFor="field-name">
                                 {t('Field name')}
                             </Label>
-                            <Input id="field-name" name="name" required />
-                            <InputError message={errors.name} />
+                            <Input
+                                id="field-name"
+                                name="name"
+                                required
+                                aria-invalid={!!errors.name}
+                                aria-describedby={
+                                    errors.name ? 'field-name-error' : undefined
+                                }
+                            />
+                            <InputError
+                                id="field-name-error"
+                                message={errors.name}
+                            />
                         </div>
 
                         <div>

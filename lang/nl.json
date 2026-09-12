@@ -117,6 +117,7 @@
     "New competition": "Nieuwe competitie",
     "No competitions yet.": "Nog geen competities.",
     "No competitions match these filters.": "Geen competities gevonden met deze filters.",
+    "Clear filters": "Filters wissen",
     "Search by name…": "Zoek op naam…",
     "Search competitions": "Zoek competities",
     "Filter by status": "Filter op status",
@@ -155,6 +156,7 @@
     "Competition deleted.": "Competitie verwijderd.",
 
     "No participants yet.": "Nog geen deelnemers.",
+    "Add the first participant below.": "Voeg hieronder de eerste deelnemer toe.",
     "Admin": "Beheerder",
     "Remove": "Verwijderen",
     "Remove :name": "Verwijder :name",
@@ -174,6 +176,7 @@
 
     "Match days": "Speeldagen",
     "No match days yet.": "Nog geen speeldagen.",
+    "Add the first match day below.": "Voeg hieronder de eerste speeldag toe.",
     "Date": "Datum",
     "Time": "Tijd",
     "Start time": "Starttijd",
@@ -228,6 +231,7 @@
     "Availability saved.": "Beschikbaarheid opgeslagen.",
     "Fill in your availability to continue.": "Vul je beschikbaarheid in om verder te gaan.",
     "You can change this at any time.": "Je kunt dit altijd wijzigen.",
+    "No availability yet.": "Nog geen beschikbaarheid.",
     "Availability appears as soon as there are match days and participants.": "Beschikbaarheid verschijnt zodra er speeldagen en deelnemers zijn.",
     "Not filled in yet": "Nog niet ingevuld",
     "Available": "Beschikbaar",

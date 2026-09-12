@@ -6,6 +6,7 @@ import {
     Trophy,
     Users,
 } from 'lucide-react';
+import EmptyState from '@/components/empty-state';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -106,9 +107,11 @@ export default function Dashboard({
                             fallback={<ListSkeleton />}
                         >
                             {upcomingMatchDays?.length === 0 ? (
-                                <p className="text-muted-foreground text-sm">
-                                    {t('No upcoming match days.')}
-                                </p>
+                                <EmptyState
+                                    icon={CalendarDays}
+                                    title={t('No upcoming match days.')}
+                                    size="sm"
+                                />
                             ) : (
                                 <ul className="divide-y rounded-xl border">
                                     {upcomingMatchDays?.map((matchDay) => (
@@ -174,9 +177,11 @@ export default function Dashboard({
                             fallback={<ListSkeleton />}
                         >
                             {recentCompetitions?.length === 0 ? (
-                                <p className="text-muted-foreground text-sm">
-                                    {t('No competitions yet.')}
-                                </p>
+                                <EmptyState
+                                    icon={Trophy}
+                                    title={t('No competitions yet.')}
+                                    size="sm"
+                                />
                             ) : (
                                 <ul className="divide-y rounded-xl border">
                                     {recentCompetitions?.map((competition) => (

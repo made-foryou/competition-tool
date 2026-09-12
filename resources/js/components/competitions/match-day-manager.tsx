@@ -1,8 +1,10 @@
 import { Link, usePage } from '@inertiajs/react';
+import { CalendarDays } from 'lucide-react';
 import MatchDayController from '@/actions/App/Http/Controllers/MatchDayController';
 import type { MatchDayProps } from '@/components/competitions/match-day-form';
 import MatchDayForm from '@/components/competitions/match-day-form';
 import ConfirmDialog from '@/components/confirm-dialog';
+import EmptyState from '@/components/empty-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/hooks/use-translations';
@@ -26,9 +28,11 @@ export default function MatchDayManager({ competitionId, matchDays }: Props) {
     return (
         <section className="flex flex-col gap-4">
             {matchDays.length === 0 ? (
-                <p className="text-muted-foreground text-sm">
-                    {t('No match days yet.')}
-                </p>
+                <EmptyState
+                    icon={CalendarDays}
+                    title={t('No match days yet.')}
+                    description={t('Add the first match day below.')}
+                />
             ) : (
                 <ul className="divide-y rounded-xl border">
                     {matchDays.map((matchDay) => {

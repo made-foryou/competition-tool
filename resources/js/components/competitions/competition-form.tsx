@@ -60,9 +60,18 @@ export default function CompetitionForm({
                             name="name"
                             required
                             defaultValue={competition?.name ?? ''}
+                            aria-invalid={!!errors.name || !!errors.slug}
+                            aria-describedby={
+                                [
+                                    errors.name && 'name-error',
+                                    errors.slug && 'slug-error',
+                                ]
+                                    .filter(Boolean)
+                                    .join(' ') || undefined
+                            }
                         />
-                        <InputError message={errors.name} />
-                        <InputError message={errors.slug} />
+                        <InputError id="name-error" message={errors.name} />
+                        <InputError id="slug-error" message={errors.slug} />
                         {competition && (
                             <p className="text-muted-foreground text-sm">
                                 {t('URL: :url', {
@@ -79,8 +88,17 @@ export default function CompetitionForm({
                             name="description"
                             rows={4}
                             defaultValue={competition?.description ?? ''}
+                            aria-invalid={!!errors.description}
+                            aria-describedby={
+                                errors.description
+                                    ? 'description-error'
+                                    : undefined
+                            }
                         />
-                        <InputError message={errors.description} />
+                        <InputError
+                            id="description-error"
+                            message={errors.description}
+                        />
                     </div>
 
                     <div className="grid gap-2">
@@ -89,8 +107,15 @@ export default function CompetitionForm({
                             id="location"
                             name="location"
                             defaultValue={competition?.location ?? ''}
+                            aria-invalid={!!errors.location}
+                            aria-describedby={
+                                errors.location ? 'location-error' : undefined
+                            }
                         />
-                        <InputError message={errors.location} />
+                        <InputError
+                            id="location-error"
+                            message={errors.location}
+                        />
                     </div>
 
                     <div className="grid gap-6 sm:grid-cols-2">
@@ -102,8 +127,16 @@ export default function CompetitionForm({
                                 required
                                 defaultValue={competition?.starts_at}
                                 aria-invalid={!!errors.starts_at}
+                                aria-describedby={
+                                    errors.starts_at
+                                        ? 'starts_at-error'
+                                        : undefined
+                                }
                             />
-                            <InputError message={errors.starts_at} />
+                            <InputError
+                                id="starts_at-error"
+                                message={errors.starts_at}
+                            />
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="ends_at">{t('End date')}</Label>
@@ -113,8 +146,14 @@ export default function CompetitionForm({
                                 clearable
                                 defaultValue={competition?.ends_at}
                                 aria-invalid={!!errors.ends_at}
+                                aria-describedby={
+                                    errors.ends_at ? 'ends_at-error' : undefined
+                                }
                             />
-                            <InputError message={errors.ends_at} />
+                            <InputError
+                                id="ends_at-error"
+                                message={errors.ends_at}
+                            />
                         </div>
                     </div>
 
@@ -124,7 +163,14 @@ export default function CompetitionForm({
                             name="status"
                             defaultValue={competition?.status ?? 'draft'}
                         >
-                            <SelectTrigger id="status" className="w-full">
+                            <SelectTrigger
+                                id="status"
+                                className="w-full"
+                                aria-invalid={!!errors.status}
+                                aria-describedby={
+                                    errors.status ? 'status-error' : undefined
+                                }
+                            >
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -135,7 +181,7 @@ export default function CompetitionForm({
                                 ))}
                             </SelectContent>
                         </Select>
-                        <InputError message={errors.status} />
+                        <InputError id="status-error" message={errors.status} />
                     </div>
 
                     <div>

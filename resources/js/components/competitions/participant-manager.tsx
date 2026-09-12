@@ -1,7 +1,9 @@
 import { Form } from '@inertiajs/react';
+import { Users } from 'lucide-react';
 import { useState } from 'react';
 import CompetitionParticipantController from '@/actions/App/Http/Controllers/CompetitionParticipantController';
 import ConfirmDialog from '@/components/confirm-dialog';
+import EmptyState from '@/components/empty-state';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,9 +45,11 @@ export default function ParticipantManager({
     return (
         <section className="flex flex-col gap-4">
             {participants.length === 0 ? (
-                <p className="text-muted-foreground text-sm">
-                    {t('No participants yet.')}
-                </p>
+                <EmptyState
+                    icon={Users}
+                    title={t('No participants yet.')}
+                    description={t('Add the first participant below.')}
+                />
             ) : (
                 <ul className="divide-y rounded-xl border">
                     {participants.map((participant) => {
@@ -144,8 +148,17 @@ export default function ParticipantManager({
                                 name="email"
                                 type="email"
                                 required
+                                aria-invalid={!!errors.email}
+                                aria-describedby={
+                                    errors.email
+                                        ? 'participant-email-error'
+                                        : undefined
+                                }
                             />
-                            <InputError message={errors.email} />
+                            <InputError
+                                id="participant-email-error"
+                                message={errors.email}
+                            />
                             <p className="text-muted-foreground text-sm">
                                 {t(
                                     'An existing account is linked directly. For a new email address, choose how the account is created.',
@@ -160,11 +173,18 @@ export default function ParticipantManager({
                                 setMode(value as 'invite' | 'create')
                             }
                             className="flex gap-4"
+                            aria-invalid={!!errors.mode}
+                            aria-describedby={
+                                errors.mode
+                                    ? 'participant-mode-error'
+                                    : undefined
+                            }
                         >
                             <div className="flex items-center gap-2">
                                 <RadioGroupItem
                                     value="invite"
                                     id="participant-mode-invite"
+                                    aria-invalid={!!errors.mode}
                                 />
                                 <Label
                                     htmlFor="participant-mode-invite"
@@ -177,6 +197,7 @@ export default function ParticipantManager({
                                 <RadioGroupItem
                                     value="create"
                                     id="participant-mode-create"
+                                    aria-invalid={!!errors.mode}
                                 />
                                 <Label
                                     htmlFor="participant-mode-create"
@@ -186,7 +207,10 @@ export default function ParticipantManager({
                                 </Label>
                             </div>
                         </RadioGroup>
-                        <InputError message={errors.mode} />
+                        <InputError
+                            id="participant-mode-error"
+                            message={errors.mode}
+                        />
 
                         {mode === 'create' && (
                             <div className="grid gap-4 sm:grid-cols-2">
@@ -194,8 +218,20 @@ export default function ParticipantManager({
                                     <Label htmlFor="participant-name">
                                         {t('Name')}
                                     </Label>
-                                    <Input id="participant-name" name="name" />
-                                    <InputError message={errors.name} />
+                                    <Input
+                                        id="participant-name"
+                                        name="name"
+                                        aria-invalid={!!errors.name}
+                                        aria-describedby={
+                                            errors.name
+                                                ? 'participant-name-error'
+                                                : undefined
+                                        }
+                                    />
+                                    <InputError
+                                        id="participant-name-error"
+                                        message={errors.name}
+                                    />
                                 </div>
                                 <div className="grid gap-2">
                                     <Label htmlFor="participant-password">
@@ -205,8 +241,17 @@ export default function ParticipantManager({
                                         id="participant-password"
                                         name="password"
                                         type="password"
+                                        aria-invalid={!!errors.password}
+                                        aria-describedby={
+                                            errors.password
+                                                ? 'participant-password-error'
+                                                : undefined
+                                        }
                                     />
-                                    <InputError message={errors.password} />
+                                    <InputError
+                                        id="participant-password-error"
+                                        message={errors.password}
+                                    />
                                 </div>
                             </div>
                         )}

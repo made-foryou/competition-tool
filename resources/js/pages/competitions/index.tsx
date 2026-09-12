@@ -1,7 +1,9 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Plus, Search } from 'lucide-react';
+import { FilterX, Plus, Search, Trophy } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { CompetitionProps } from '@/components/competitions/competition-form';
+import EmptyState from '@/components/empty-state';
+import Heading from '@/components/heading';
 import { Pagination, type Paginated } from '@/components/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -86,14 +88,17 @@ export default function CompetitionsIndex({ competitions, filters }: Props) {
 
     const hasActiveFilters = filters.search !== null || filters.status !== null;
 
+    function resetFilters() {
+        setSearch('');
+        setStatus(ANY_STATUS);
+    }
+
     return (
         <>
             <Head title={t('Competitions')} />
             <div className="flex flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
-                    <h1 className="text-xl font-semibold">
-                        {t('Competitions')}
-                    </h1>
+                    <Heading title={t('Competitions')} className="mb-0" />
                     <Button asChild>
                         <Link href={create()}>
                             <Plus />
@@ -136,11 +141,34 @@ export default function CompetitionsIndex({ competitions, filters }: Props) {
                 </div>
 
                 {competitions.data.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">
-                        {hasActiveFilters
-                            ? t('No competitions match these filters.')
-                            : t('No competitions yet.')}
-                    </p>
+                    hasActiveFilters ? (
+                        <EmptyState
+                            icon={Search}
+                            title={t('No competitions match these filters.')}
+                            action={
+                                <Button
+                                    variant="outline"
+                                    onClick={resetFilters}
+                                >
+                                    <FilterX />
+                                    {t('Clear filters')}
+                                </Button>
+                            }
+                        />
+                    ) : (
+                        <EmptyState
+                            icon={Trophy}
+                            title={t('No competitions yet.')}
+                            action={
+                                <Button asChild>
+                                    <Link href={create()}>
+                                        <Plus />
+                                        {t('New competition')}
+                                    </Link>
+                                </Button>
+                            }
+                        />
+                    )
                 ) : (
                     <>
                         <div className="rounded-xl border">
