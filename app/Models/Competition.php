@@ -25,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property CompetitionStatus $status
  * @property CompetitionType $type
  * @property CompetitionSettings $settings
+ * @property Carbon|null $availability_reminder_sent_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Collection<int, MatchDay> $matchDays
@@ -63,6 +64,46 @@ class Competition extends Model
         'user',
         'welcome',
     ];
+
+    /**
+     * Het anti-spamvenster per competitie: na het versturen van een
+     * beschikbaarheidsherinnering mag er dit aantal uren lang geen nieuwe
+     * ronde verstuurd worden.
+     */
+    public const int AVAILABILITY_REMINDER_INTERVAL_HOURS = 24;
+
+    /**
+     * Het moment waarop er weer een beschikbaarheidsherinnering verstuurd mag
+     * worden, of `null` wanneer dat nu al mag — dus wanneer er nog nooit een
+     * herinnering is verstuurd of het venster inmiddels verstreken is.
+     *
+     * `availability_reminder_sent_at` staat bewust niet in het `#[Fillable]`-
+     * attribuut: die timestamp wordt uitsluitend door de verzendactie gezet en
+     * nooit via mass assignment vanuit een request.
+     */
+    public function availabilityReminderAvailableAt(): ?Carbon
+    {
+        if ($this->availability_reminder_sent_at === null) {
+            return null;
+        }
+
+        $availableAt = $this->availability_reminder_sent_at->copy()
+            ->addHours(self::AVAILABILITY_REMINDER_INTERVAL_HOURS);
+
+        if ($availableAt->isPast()) {
+            return null;
+        }
+
+        return $availableAt;
+    }
+
+    /**
+     * Of er op dit moment een beschikbaarheidsherinnering verstuurd mag worden.
+     */
+    public function canSendAvailabilityReminder(): bool
+    {
+        return $this->availabilityReminderAvailableAt() === null;
+    }
 
     /**
      * @return BelongsToMany<User, $this>
@@ -109,6 +150,7 @@ class Competition extends Model
             'status' => CompetitionStatus::class,
             'type' => CompetitionType::class,
             'settings' => CompetitionSettings::class,
+            'availability_reminder_sent_at' => 'datetime',
         ];
     }
 }
