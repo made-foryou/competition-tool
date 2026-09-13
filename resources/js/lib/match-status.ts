@@ -1,3 +1,6 @@
+import type { badgeVariants } from '@/components/ui/badge';
+import type { VariantProps } from 'class-variance-authority';
+
 export const MATCH_STATUSES = ['pending', 'played'] as const;
 
 export type MatchStatusValue = (typeof MATCH_STATUSES)[number];
@@ -19,4 +22,27 @@ export function matchStatusLabel(status: string, t: Translate): string {
     };
 
     return (labels as Record<string, string>)[status] ?? status;
+}
+
+/**
+ * Kiest de badge-variant per wedstrijdstatus, zodat gespeeld en nog te
+ * spelen visueel te onderscheiden zijn. Onbekende statuswaarden vallen terug
+ * op `outline`.
+ */
+export function matchStatusBadgeVariant(
+    status: string,
+): NonNullable<VariantProps<typeof badgeVariants>['variant']> {
+    const variants: Record<
+        MatchStatusValue,
+        NonNullable<VariantProps<typeof badgeVariants>['variant']>
+    > = {
+        pending: 'outline',
+        played: 'default',
+    };
+
+    return (
+        (variants as Record<string, (typeof variants)[MatchStatusValue]>)[
+            status
+        ] ?? 'outline'
+    );
 }

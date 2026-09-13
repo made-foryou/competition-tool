@@ -167,79 +167,76 @@ export default function CompetitionForm({
                         </div>
                     </div>
 
-                    <div className="grid gap-6 sm:grid-cols-2">
-                        <div className="grid gap-2">
-                            <Label htmlFor="status">{t('Status')}</Label>
-                            <Select
-                                name="status"
-                                defaultValue={competition?.status ?? 'draft'}
-                            >
-                                <SelectTrigger
-                                    id="status"
-                                    className="w-full"
-                                    aria-invalid={!!errors.status}
-                                    aria-describedby={
-                                        errors.status
-                                            ? 'status-error'
-                                            : undefined
-                                    }
-                                >
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {COMPETITION_STATUSES.map((status) => (
-                                        <SelectItem key={status} value={status}>
-                                            {competitionStatusLabel(status, t)}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <InputError
-                                id="status-error"
-                                message={errors.status}
-                            />
-                            <p className="text-muted-foreground text-sm">
-                                {t(
-                                    'Draft competitions are only visible to administrators. Participants can only sign in when the competition is active.',
-                                )}
-                            </p>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="type">
-                                {t('Competition type')}
-                            </Label>
-                            <Select
-                                name="type"
-                                defaultValue={
-                                    competition?.type ??
-                                    'theo-schilthuizen-bokaal'
+                    <div className="grid gap-2">
+                        <Label htmlFor="status">{t('Status')}</Label>
+                        <Select
+                            name="status"
+                            defaultValue={competition?.status ?? 'draft'}
+                        >
+                            <SelectTrigger
+                                id="status"
+                                className="w-full"
+                                aria-invalid={!!errors.status}
+                                aria-describedby={
+                                    errors.status ? 'status-error' : undefined
                                 }
                             >
-                                <SelectTrigger
-                                    id="type"
-                                    className="w-full"
-                                    aria-invalid={!!errors.type}
-                                    aria-describedby={
-                                        errors.type ? 'type-error' : undefined
-                                    }
-                                >
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {COMPETITION_TYPES.map((type) => (
-                                        <SelectItem key={type} value={type}>
-                                            {competitionTypeLabel(type, t)}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <InputError id="type-error" message={errors.type} />
-                            <p className="text-muted-foreground text-sm">
-                                {t(
-                                    'The type determines how the match list is generated.',
-                                )}
-                            </p>
-                        </div>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {COMPETITION_STATUSES.map((status) => (
+                                    <SelectItem key={status} value={status}>
+                                        {competitionStatusLabel(status, t)}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <InputError id="status-error" message={errors.status} />
+                        <p className="text-muted-foreground text-sm">
+                            {t(
+                                'Draft competitions are only visible to administrators. Participants can only sign in when the competition is active.',
+                            )}
+                        </p>
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="type">{t('Competition type')}</Label>
+                        <Select
+                            name="type"
+                            defaultValue={
+                                competition?.type ?? COMPETITION_TYPES[0]
+                            }
+                        >
+                            <SelectTrigger
+                                id="type"
+                                className="w-full"
+                                aria-invalid={!!errors.type}
+                                aria-describedby={[
+                                    errors.type ? 'type-error' : null,
+                                    'type-description',
+                                ]
+                                    .filter(Boolean)
+                                    .join(' ')}
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {COMPETITION_TYPES.map((type) => (
+                                    <SelectItem key={type} value={type}>
+                                        {competitionTypeLabel(type, t)}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <InputError id="type-error" message={errors.type} />
+                        <p
+                            id="type-description"
+                            className="text-muted-foreground text-sm"
+                        >
+                            {t(
+                                'In the Theo Schilthuizen trophy every participant plays every other participant exactly once.',
+                            )}
+                        </p>
                     </div>
 
                     <div>

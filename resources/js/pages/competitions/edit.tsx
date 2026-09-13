@@ -1,5 +1,5 @@
 import { Deferred, Head, router, usePage } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import CompetitionController from '@/actions/App/Http/Controllers/CompetitionController';
 import type { AvailabilityRow } from '@/components/competitions/availability-matrix';
 import AvailabilityMatrix from '@/components/competitions/availability-matrix';
@@ -98,6 +98,7 @@ export default function CompetitionsEdit({
     const { url } = usePage();
 
     const [activeTab, setActiveTab] = useState<TabValue>(() => resolveTab(url));
+    const tabListContainerRef = useRef<HTMLDivElement>(null);
 
     /**
      * Houdt de querystring gelijk aan de actieve tab met een client-side visit,
@@ -115,6 +116,20 @@ export default function CompetitionsEdit({
             preserveScroll: true,
         });
     }, [url, activeTab]);
+
+    /**
+     * Op mobiel scrollt de tablijst horizontaal, waardoor de actieve tab na
+     * het wisselen buiten beeld kan vallen (bijvoorbeeld na terugkeer vanuit
+     * een andere tab). Scroll de actieve trigger dan in beeld, zonder de
+     * pagina zelf te laten scrollen.
+     */
+    useEffect(() => {
+        const activeTrigger = tabListContainerRef.current?.querySelector(
+            '[data-state="active"]',
+        );
+
+        activeTrigger?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+    }, [activeTab]);
 
     return (
         <>
@@ -136,7 +151,10 @@ export default function CompetitionsEdit({
                     onValueChange={(value) => setActiveTab(value as TabValue)}
                     className="gap-6"
                 >
-                    <div className="-mx-4 overflow-x-auto px-4">
+                    <div
+                        ref={tabListContainerRef}
+                        className="-mx-4 overflow-x-auto px-4"
+                    >
                         <TabsList className="w-max">
                             <TabsTrigger value="general" className="shrink-0">
                                 {t('General')}
@@ -199,7 +217,7 @@ export default function CompetitionsEdit({
                                 }
                                 title={t('Delete competition?')}
                                 description={t(
-                                    'This removes the competition and its participant list. User accounts are kept.',
+                                    'This removes the competition, its participant list and all its matches. User accounts are kept.',
                                 )}
                                 action={CompetitionController.destroy.form(
                                     competition.id,
@@ -245,7 +263,12 @@ export default function CompetitionsEdit({
                             data="matches"
                             fallback={<MatchListSkeleton />}
                         >
-                            <MatchList matches={matches ?? []} />
+                            <MatchList
+                                matches={matches ?? []}
+                                onNavigateToParticipants={() =>
+                                    setActiveTab('participants')
+                                }
+                            />
                         </Deferred>
                     </TabsContent>
 
