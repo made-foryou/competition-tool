@@ -77,7 +77,7 @@ test('token and accepted_at are not mass-assignable on invitation', function () 
         ->and($invitation->getAttributes())->not->toHaveKey('accepted_at');
 });
 
-test('handle stores an invitation with the hashed token belonging to the returned plain token and no accepted_at', function () {
+test('handle stores the hashed token and leaves accepted_at null', function () {
     Notification::fake();
 
     $plainToken = app(SendInvitation::class)->handle('deelnemer@example.com', UserRole::Participant);
