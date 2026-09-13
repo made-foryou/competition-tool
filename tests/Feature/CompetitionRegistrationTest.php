@@ -44,7 +44,7 @@ test('guests can view the registration page of an active competition', function 
         ->assertInertia(fn (Assert $page) => $page
             ->component('auth/competition-register')
             ->where('authenticated', false)
-            ->where('registrationOpen', true)
+            ->where('registrationState', 'open')
             ->has('matchDays', 2),
         );
 });
@@ -163,22 +163,29 @@ test('the pivot records when the availability was submitted', function () {
 
 test('guests cannot register on a finished competition', function () {
     $finished = Competition::factory()->finished()->create();
+    MatchDay::factory()->create(['competition_id' => $finished]);
+
+    // Een bestaande deelnemer, zodat een geslaagde registratie een tweede
+    // speler zou opleveren en de sync dus wel degelijk een wedstrijd zou
+    // schrijven -- anders bewijst de assertie hieronder niets.
+    $finished->participants()->attach(User::factory()->participant()->create());
 
     $this->post(route('competition.register.store', $finished), registrationPayload())
         ->assertNotFound();
 
     expect(User::query()->where('email', 'sanne@example.com')->exists())->toBeFalse()
-        ->and($finished->participants()->count())->toBe(0)
+        ->and($finished->participants()->count())->toBe(1)
         ->and(CompetitionMatch::query()->where('competition_id', $finished->id)->count())->toBe(0);
 });
 
 test('a logged in participant cannot register on a finished competition', function () {
     $finished = Competition::factory()->finished()->create();
+    $matchDay = MatchDay::factory()->create(['competition_id' => $finished]);
     $participant = User::factory()->participant()->create();
 
     $this->actingAs($participant)
         ->post(route('competition.register.store', $finished), [
-            'match_days' => [],
+            'match_days' => [$matchDay->id],
         ])
         ->assertNotFound();
 
@@ -201,24 +208,32 @@ test('an admin cannot register on a draft competition', function () {
 
 test('guests viewing the registration page of a finished competition see a closed state', function () {
     $finished = Competition::factory()->finished()->create();
+    MatchDay::factory()->count(2)->create(['competition_id' => $finished]);
 
     $this->get(route('competition.register.show', $finished))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('auth/competition-register')
-            ->where('registrationOpen', false)
+            ->where('registrationState', 'closed')
+            ->where('returnUrl', null)
+            ->where('passwordRules', '')
             ->has('matchDays', 0),
         );
 });
 
-test('an admin viewing the registration page of a draft competition sees a closed state', function () {
+test('an admin viewing the registration page of a draft competition sees an upcoming state', function () {
     $draft = Competition::factory()->draft()->create();
+    MatchDay::factory()->count(2)->create(['competition_id' => $draft]);
     $admin = User::factory()->withTwoFactor()->create();
 
     $this->actingAs($admin)
         ->get(route('competition.register.show', $draft))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->where('registrationOpen', false));
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('registrationState', 'upcoming')
+            ->where('returnUrl', route('dashboard'))
+            ->has('matchDays', 0),
+        );
 });
 
 test('a participant of a finished competition is sent to the dashboard when viewing the registration page', function () {
@@ -229,4 +244,22 @@ test('a participant of a finished competition is sent to the dashboard when view
     $this->actingAs($participant)
         ->get(route('competition.register.show', $finished))
         ->assertRedirect(route('competition.dashboard', $finished));
+});
+
+test('registration stays open on an active competition that has not started yet', function () {
+    $upcoming = Competition::factory()->create([
+        'starts_at' => now()->addMonth()->toDateString(),
+        'ends_at' => now()->addMonth()->addDay()->toDateString(),
+    ]);
+    $matchDay = MatchDay::factory()->create([
+        'competition_id' => $upcoming,
+        'date' => now()->addMonth()->toDateString(),
+    ]);
+
+    $this->post(route('competition.register.store', $upcoming), registrationPayload([
+        'email' => 'toekomst@example.com',
+        'match_days' => [$matchDay->id],
+    ]))->assertRedirect(route('competition.dashboard', $upcoming));
+
+    expect($upcoming->participants()->count())->toBe(1);
 });

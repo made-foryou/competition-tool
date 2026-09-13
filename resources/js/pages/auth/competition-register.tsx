@@ -13,69 +13,114 @@ import { useTranslations } from '@/hooks/use-translations';
 import { login } from '@/routes/competition';
 import { store } from '@/routes/competition/register';
 
+type RegistrationState = 'open' | 'upcoming' | 'closed';
+
 type Props = {
     competitionName: string;
     competitionSlug: string;
     authenticated: boolean;
-    registrationOpen: boolean;
+    registrationState: RegistrationState;
+    returnUrl: string | null;
     matchDays: MatchDayOption[];
     passwordRules: string;
+};
+
+const layoutLabelByState: Record<RegistrationState, string> = {
+    open: 'participant-signup',
+    upcoming: 'signup-upcoming',
+    closed: 'signup-closed',
 };
 
 export default function CompetitionRegister({
     competitionName,
     competitionSlug,
     authenticated,
-    registrationOpen,
+    registrationState,
+    returnUrl,
     matchDays,
     passwordRules,
 }: Props) {
     const { t } = useTranslations();
 
+    const isOpen = registrationState === 'open';
+
+    const copy = {
+        open: {
+            title: t('Sign up for :competition', {
+                competition: competitionName,
+            }),
+            typewriter: t('> participant signup'),
+            explanation: '',
+        },
+        upcoming: {
+            title: t('Sign up not yet open for :competition', {
+                competition: competitionName,
+            }),
+            typewriter: t('> signup not yet open'),
+            explanation: t(
+                'Registration for this competition has not opened yet.',
+            ),
+        },
+        closed: {
+            title: t('Sign up closed for :competition', {
+                competition: competitionName,
+            }),
+            typewriter: t('> signup closed'),
+            explanation: t(
+                'Registration for this competition is closed. Contact the organizer if you have any questions.',
+            ),
+        },
+    }[registrationState];
+
+    // Zonder uitweg is de niet-open pagina doodlopend: gasten krijgen de
+    // inloglink, ingelogde niet-deelnemers een link naar hun eigen omgeving.
+    // Als returnUrl onverhoopt ontbreekt, tonen we liever geen kapotte link.
+    const exitLink = authenticated
+        ? returnUrl
+            ? { href: returnUrl, label: t('Back to your dashboard') }
+            : null
+        : {
+              href: login(competitionSlug),
+              label: t('Already have an account? Log in'),
+          };
+
     return (
         <>
-            <Head
-                title={t('Sign up for :competition', {
-                    competition: competitionName,
-                })}
-            />
+            <Head title={copy.title} />
 
             <ConsoleHeading
                 title={competitionName}
-                typewriter={
-                    registrationOpen
-                        ? t('> participant signup')
-                        : t('> signup closed')
-                }
+                typewriter={copy.typewriter}
                 className="mb-[18px]"
             />
 
-            {!registrationOpen && (
+            {!isOpen && (
                 <>
                     <p
+                        role="status"
                         className="made-anim text-console-text/65 mb-6 text-sm leading-relaxed"
                         style={{ '--made-delay': '0.82s' }}
                     >
-                        {t('Registration for this competition is closed.')}
+                        {copy.explanation}
                     </p>
 
-                    {!authenticated && (
+                    {exitLink && (
                         <p
-                            className="made-anim text-console-text/65 text-center text-sm"
+                            className="made-anim text-console-text/65 text-sm"
                             style={{ '--made-delay': '0.94s' }}
                         >
                             <Link
-                                href={login(competitionSlug)}
+                                href={exitLink.href}
                                 className="hover:text-console-text underline"
                             >
-                                {t('Already have an account? Log in')}
+                                {exitLink.label}
                             </Link>
                         </p>
                     )}
                 </>
             )}
 
-            {registrationOpen && (
+            {isOpen && (
                 <>
                     <p
                         className="made-anim text-console-text/65 mb-6 text-sm leading-relaxed"
@@ -268,4 +313,6 @@ export default function CompetitionRegister({
     );
 }
 
-CompetitionRegister.layout = { label: 'participant-signup' };
+CompetitionRegister.layout = ({ registrationState }: Props) => ({
+    label: layoutLabelByState[registrationState],
+});
