@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\CompetitionStatus;
+use App\Enums\CompetitionType;
 use App\Support\CompetitionSettings;
 use Database\Factories\CompetitionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -22,12 +23,14 @@ use Illuminate\Support\Carbon;
  * @property Carbon $starts_at
  * @property Carbon|null $ends_at
  * @property CompetitionStatus $status
+ * @property CompetitionType $type
  * @property CompetitionSettings $settings
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Collection<int, MatchDay> $matchDays
+ * @property-read Collection<int, CompetitionMatch> $matches
  */
-#[Fillable(['name', 'slug', 'description', 'location', 'starts_at', 'ends_at', 'status', 'settings'])]
+#[Fillable(['name', 'slug', 'description', 'location', 'starts_at', 'ends_at', 'status', 'type', 'settings'])]
 class Competition extends Model
 {
     /** @use HasFactory<CompetitionFactory> */
@@ -86,6 +89,14 @@ class Competition extends Model
     }
 
     /**
+     * @return HasMany<CompetitionMatch, $this>
+     */
+    public function matches(): HasMany
+    {
+        return $this->hasMany(CompetitionMatch::class)->orderBy('id');
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -96,6 +107,7 @@ class Competition extends Model
             'starts_at' => 'date',
             'ends_at' => 'date',
             'status' => CompetitionStatus::class,
+            'type' => CompetitionType::class,
             'settings' => CompetitionSettings::class,
         ];
     }

@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\CompetitionStatus;
+use App\Enums\CompetitionType;
 use App\Models\Competition;
 use App\Support\CompetitionSettings;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -34,6 +35,7 @@ class CompetitionFactory extends Factory
             'starts_at' => now()->addWeek()->toDateString(),
             'ends_at' => now()->addWeek()->addDay()->toDateString(),
             'status' => CompetitionStatus::Active,
+            'type' => CompetitionType::TheoSchilthuizenBokaal,
         ];
     }
 
