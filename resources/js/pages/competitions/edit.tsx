@@ -12,6 +12,8 @@ import type {
 import CompetitionSettingsForm from '@/components/competitions/competition-settings-form';
 import type { MatchDayListItem } from '@/components/competitions/match-day-manager';
 import MatchDayManager from '@/components/competitions/match-day-manager';
+import type { MatchProps } from '@/components/competitions/match-list';
+import MatchList from '@/components/competitions/match-list';
 import type {
     ParticipantProps,
     PendingInvitationProps,
@@ -32,6 +34,7 @@ type Props = {
     participants: ParticipantProps[];
     matchDays: MatchDayListItem[];
     availability: AvailabilityRow[];
+    matches: MatchProps[];
     pendingInvitations: PendingInvitationProps[];
     settings: CompetitionSettingsProps;
     settingsLimits: CompetitionSettingsLimits;
@@ -42,6 +45,7 @@ const TABS = [
     'match-days',
     'participants',
     'availability',
+    'matches',
     'settings',
 ] as const;
 
@@ -84,6 +88,7 @@ export default function CompetitionsEdit({
     participants,
     matchDays,
     availability,
+    matches,
     pendingInvitations,
     settings,
     settingsLimits,
@@ -152,6 +157,9 @@ export default function CompetitionsEdit({
                                 className="shrink-0"
                             >
                                 {t('Availability')}
+                            </TabsTrigger>
+                            <TabsTrigger value="matches" className="shrink-0">
+                                {t('Matches')}
                             </TabsTrigger>
                             <TabsTrigger value="settings" className="shrink-0">
                                 {t('Planning')}
@@ -229,6 +237,10 @@ export default function CompetitionsEdit({
                                 setActiveTab('participants')
                             }
                         />
+                    </TabsContent>
+
+                    <TabsContent value="matches">
+                        <MatchList matches={matches} />
                     </TabsContent>
 
                     <TabsContent value="settings">

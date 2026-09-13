@@ -18,6 +18,10 @@ import {
     COMPETITION_STATUSES,
     competitionStatusLabel,
 } from '@/lib/competition-status';
+import {
+    COMPETITION_TYPES,
+    competitionTypeLabel,
+} from '@/lib/competition-type';
 
 export type CompetitionProps = {
     id: number;
@@ -28,6 +32,7 @@ export type CompetitionProps = {
     starts_at: string;
     ends_at: string | null;
     status: string;
+    type: string;
 };
 
 type Props = {
@@ -162,36 +167,79 @@ export default function CompetitionForm({
                         </div>
                     </div>
 
-                    <div className="grid gap-2">
-                        <Label htmlFor="status">{t('Status')}</Label>
-                        <Select
-                            name="status"
-                            defaultValue={competition?.status ?? 'draft'}
-                        >
-                            <SelectTrigger
-                                id="status"
-                                className="w-full"
-                                aria-invalid={!!errors.status}
-                                aria-describedby={
-                                    errors.status ? 'status-error' : undefined
+                    <div className="grid gap-6 sm:grid-cols-2">
+                        <div className="grid gap-2">
+                            <Label htmlFor="status">{t('Status')}</Label>
+                            <Select
+                                name="status"
+                                defaultValue={competition?.status ?? 'draft'}
+                            >
+                                <SelectTrigger
+                                    id="status"
+                                    className="w-full"
+                                    aria-invalid={!!errors.status}
+                                    aria-describedby={
+                                        errors.status
+                                            ? 'status-error'
+                                            : undefined
+                                    }
+                                >
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {COMPETITION_STATUSES.map((status) => (
+                                        <SelectItem key={status} value={status}>
+                                            {competitionStatusLabel(status, t)}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <InputError
+                                id="status-error"
+                                message={errors.status}
+                            />
+                            <p className="text-muted-foreground text-sm">
+                                {t(
+                                    'Draft competitions are only visible to administrators. Participants can only sign in when the competition is active.',
+                                )}
+                            </p>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="type">
+                                {t('Competition type')}
+                            </Label>
+                            <Select
+                                name="type"
+                                defaultValue={
+                                    competition?.type ??
+                                    'theo-schilthuizen-bokaal'
                                 }
                             >
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {COMPETITION_STATUSES.map((status) => (
-                                    <SelectItem key={status} value={status}>
-                                        {competitionStatusLabel(status, t)}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <InputError id="status-error" message={errors.status} />
-                        <p className="text-muted-foreground text-sm">
-                            {t(
-                                'Draft competitions are only visible to administrators. Participants can only sign in when the competition is active.',
-                            )}
-                        </p>
+                                <SelectTrigger
+                                    id="type"
+                                    className="w-full"
+                                    aria-invalid={!!errors.type}
+                                    aria-describedby={
+                                        errors.type ? 'type-error' : undefined
+                                    }
+                                >
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {COMPETITION_TYPES.map((type) => (
+                                        <SelectItem key={type} value={type}>
+                                            {competitionTypeLabel(type, t)}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <InputError id="type-error" message={errors.type} />
+                            <p className="text-muted-foreground text-sm">
+                                {t(
+                                    'The type determines how the match list is generated.',
+                                )}
+                            </p>
+                        </div>
                     </div>
 
                     <div>

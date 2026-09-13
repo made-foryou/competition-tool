@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Competitions\SyncCompetitionMatches;
 use App\Enums\CompetitionStatus;
 use App\Enums\CompetitionType;
 use App\Models\Competition;
@@ -295,5 +296,27 @@ test('the edit page shows the availability of each participant', function () {
             ->where('availability.1.name', 'Bob')
             ->where('availability.1.submitted', false)
             ->where('availability.1.match_day_ids', []),
+        );
+});
+
+test('the edit page shows the competition type and its synced matches', function () {
+    actingAsAdmin();
+
+    $competition = Competition::factory()->create(['type' => CompetitionType::TheoSchilthuizenBokaal]);
+    $participants = User::factory()->participant()->count(3)->create();
+    $competition->participants()->attach($participants);
+    app(SyncCompetitionMatches::class)->handle($competition);
+
+    $matches = $competition->matches()->with(['firstPlayer', 'secondPlayer'])->get();
+
+    $this->get(route('competitions.edit', $competition))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('competition.type', CompetitionType::TheoSchilthuizenBokaal->value)
+            ->has('matches', 3)
+            ->where('matches.0.id', $matches[0]->id)
+            ->where('matches.0.first_player', $matches[0]->firstPlayer->display_name)
+            ->where('matches.0.second_player', $matches[0]->secondPlayer->display_name)
+            ->where('matches.0.status', $matches[0]->status->value),
         );
 });

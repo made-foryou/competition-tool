@@ -7,6 +7,7 @@ use App\Http\Requests\Competitions\IndexCompetitionRequest;
 use App\Http\Requests\Competitions\StoreCompetitionRequest;
 use App\Http\Requests\Competitions\UpdateCompetitionRequest;
 use App\Models\Competition;
+use App\Models\CompetitionMatch;
 use App\Models\Invitation;
 use App\Models\MatchDay;
 use App\Models\MatchDayAvailability;
@@ -78,6 +79,7 @@ class CompetitionController extends Controller
                 ])
                 ->all(),
             'availability' => $this->availabilityRows($competition),
+            'matches' => $this->matchRows($competition),
             'matchDays' => $competition->matchDays()
                 ->withCount('fields')
                 ->get()
@@ -154,6 +156,27 @@ class CompetitionController extends Controller
     }
 
     /**
+     * De wedstrijdenlijst van de competitie, canoniek geordend op id. Wordt
+     * automatisch gesynchroniseerd met de deelnemerslijst; er is dus geen
+     * generate-actie voor deze props.
+     *
+     * @return list<array{id: int, first_player: string, second_player: string, status: string}>
+     */
+    protected function matchRows(Competition $competition): array
+    {
+        return array_values($competition->matches()
+            ->with(['firstPlayer', 'secondPlayer'])
+            ->get()
+            ->map(fn (CompetitionMatch $match): array => [
+                'id' => $match->id,
+                'first_player' => $match->firstPlayer->display_name,
+                'second_player' => $match->secondPlayer->display_name,
+                'status' => $match->status->value,
+            ])
+            ->all());
+    }
+
+    /**
      * @return array<string, mixed>
      */
     protected function competitionProps(Competition $competition): array
@@ -167,6 +190,7 @@ class CompetitionController extends Controller
             'starts_at' => $competition->starts_at->toDateString(),
             'ends_at' => $competition->ends_at?->toDateString(),
             'status' => $competition->status->value,
+            'type' => $competition->type->value,
         ];
     }
 }
