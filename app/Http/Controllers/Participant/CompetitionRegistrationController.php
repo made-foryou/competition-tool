@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Participant;
 use App\Actions\Competitions\SyncCompetitionMatches;
 use App\Concerns\SummarizesMatchDay;
 use App\Concerns\SyncsAvailability;
+use App\Enums\CompetitionStatus;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Participant\StoreCompetitionRegistrationRequest;
@@ -28,6 +29,11 @@ class CompetitionRegistrationController extends Controller
     use SummarizesMatchDay;
     use SyncsAvailability;
 
+    /**
+     * Alleen actieve competities tonen het inschrijfformulier; bij een concept-
+     * of afgeronde competitie rendert dezelfde pagina een gesloten-staat zonder
+     * speeldagen of wachtwoordregels.
+     */
     public function show(Request $request, Competition $competition): Response|RedirectResponse
     {
         $user = $request->user();
@@ -36,15 +42,22 @@ class CompetitionRegistrationController extends Controller
             return redirect()->route('competition.dashboard', $competition);
         }
 
+        $registrationOpen = $competition->status === CompetitionStatus::Active;
+
         return Inertia::render('auth/competition-register', [
             'competitionName' => $competition->name,
             'competitionSlug' => $competition->slug,
             'authenticated' => $user !== null,
-            'matchDays' => $competition->matchDays()
-                ->get()
-                ->map(fn (MatchDay $matchDay): array => $this->matchDayProps($matchDay))
-                ->all(),
-            'passwordRules' => Password::defaults()->toPasswordRulesString(),
+            'registrationOpen' => $registrationOpen,
+            'matchDays' => $registrationOpen
+                ? $competition->matchDays()
+                    ->get()
+                    ->map(fn (MatchDay $matchDay): array => $this->matchDayProps($matchDay))
+                    ->all()
+                : [],
+            'passwordRules' => $registrationOpen
+                ? Password::defaults()->toPasswordRulesString()
+                : '',
         ]);
     }
 
