@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Auth\SendInvitation;
+use App\Actions\Competitions\SyncCompetitionMatches;
 use App\Enums\UserRole;
 use App\Http\Requests\Competitions\StoreCompetitionParticipantRequest;
 use App\Models\Competition;
@@ -12,7 +13,7 @@ use Inertia\Inertia;
 
 class CompetitionParticipantController extends Controller
 {
-    public function store(StoreCompetitionParticipantRequest $request, Competition $competition, SendInvitation $sendInvitation): RedirectResponse
+    public function store(StoreCompetitionParticipantRequest $request, Competition $competition, SendInvitation $sendInvitation, SyncCompetitionMatches $syncCompetitionMatches): RedirectResponse
     {
         $email = $request->string('email')->toString();
 
@@ -20,6 +21,8 @@ class CompetitionParticipantController extends Controller
 
         if ($existing !== null) {
             $competition->participants()->syncWithoutDetaching([$existing->id]);
+
+            $syncCompetitionMatches->handle($competition);
 
             Inertia::flash('toast', ['type' => 'success', 'message' => __('Participant linked.')]);
 
@@ -44,14 +47,18 @@ class CompetitionParticipantController extends Controller
 
         $competition->participants()->attach($user);
 
+        $syncCompetitionMatches->handle($competition);
+
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Participant added.')]);
 
         return back();
     }
 
-    public function destroy(Competition $competition, User $user): RedirectResponse
+    public function destroy(Competition $competition, User $user, SyncCompetitionMatches $syncCompetitionMatches): RedirectResponse
     {
         $competition->participants()->detach($user);
+
+        $syncCompetitionMatches->handle($competition);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Participant removed.')]);
 

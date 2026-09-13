@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Participant;
 
+use App\Actions\Competitions\SyncCompetitionMatches;
 use App\Concerns\SummarizesMatchDay;
 use App\Concerns\SyncsAvailability;
 use App\Enums\UserRole;
@@ -47,16 +48,18 @@ class CompetitionRegistrationController extends Controller
         ]);
     }
 
-    public function store(StoreCompetitionRegistrationRequest $request, Competition $competition): RedirectResponse
+    public function store(StoreCompetitionRegistrationRequest $request, Competition $competition, SyncCompetitionMatches $syncCompetitionMatches): RedirectResponse
     {
         $existing = $request->user();
 
-        $user = DB::transaction(function () use ($request, $competition, $existing): User {
+        $user = DB::transaction(function () use ($request, $competition, $existing, $syncCompetitionMatches): User {
             $user = $existing ?? $this->createParticipant($request);
 
             $competition->participants()->syncWithoutDetaching([$user->id]);
 
             $this->syncAvailability($user, $competition, $request->validated('match_days') ?? []);
+
+            $syncCompetitionMatches->handle($competition);
 
             return $user;
         });

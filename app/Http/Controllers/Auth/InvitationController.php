@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Actions\Competitions\SyncCompetitionMatches;
 use App\Concerns\DeterminesLoginDestination;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\AcceptInvitationRequest;
@@ -44,7 +45,7 @@ class InvitationController extends Controller
     /**
      * Accepteer de uitnodiging: maak het account aan en log de gebruiker in.
      */
-    public function store(AcceptInvitationRequest $request, string $token): RedirectResponse
+    public function store(AcceptInvitationRequest $request, string $token, SyncCompetitionMatches $syncCompetitionMatches): RedirectResponse
     {
         $invitation = Invitation::findByToken($token);
 
@@ -54,7 +55,7 @@ class InvitationController extends Controller
             return redirect()->route('invitation.show', $token);
         }
 
-        $user = DB::transaction(function () use ($invitation, $request): User {
+        $user = DB::transaction(function () use ($invitation, $request, $syncCompetitionMatches): User {
             $invitation->forceFill(['accepted_at' => now()])->save();
 
             $user = User::create([
@@ -68,8 +69,13 @@ class InvitationController extends Controller
                 'role' => $invitation->role,
             ])->save();
 
-            if ($invitation->competition_id !== null) {
-                $user->competitions()->attach($invitation->competition_id);
+            if ($invitation->competition !== null) {
+                $user->competitions()->attach($invitation->competition->id);
+
+                // Binnen de bestaande transactie (genest is prima in
+                // Laravel), zodat account, koppeling en wedstrijdenlijst
+                // samen slagen of samen worden teruggedraaid.
+                $syncCompetitionMatches->handle($invitation->competition);
             }
 
             return $user;
