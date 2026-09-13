@@ -6,7 +6,7 @@ import type { MatchDayProps } from '@/components/competitions/match-day-form';
 import ConfirmDialog from '@/components/confirm-dialog';
 import EmptyState from '@/components/empty-state';
 import { Badge } from '@/components/ui/badge';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import {
     Table,
     TableBody,
@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/table';
 import { useTranslations } from '@/hooks/use-translations';
 import { formatDate } from '@/lib/format-date';
+import { pluralize } from '@/lib/plural';
 import { cn } from '@/lib/utils';
 
 /**
@@ -43,6 +44,9 @@ const STICKY_COLUMN_CLASSES =
     'sticky left-0 z-10 bg-background group-hover:bg-muted';
 const STICKY_FOOTER_COLUMN_CLASSES = 'sticky left-0 z-10 bg-muted';
 
+/** Koppelt de uitleg onder de herinneringsknop aan die knop via `aria-describedby`. */
+const REMINDER_DISABLED_REASON_ID = 'availability-reminder-hint';
+
 export type AvailabilityRow = {
     id: number;
     name: string;
@@ -54,6 +58,12 @@ export type AvailabilityReminderProps = {
     pending_count: number;
     can_send: boolean;
     available_at: string | null;
+    blocked_reason:
+        | 'inactive'
+        | 'no_match_days'
+        | 'window'
+        | 'none_pending'
+        | null;
 };
 
 type Props = {
@@ -78,99 +88,138 @@ export default function AvailabilityMatrix({
     const { t } = useTranslations();
     const { locale } = usePage().props;
 
-    const reminderDisabledReason = reminder.can_send
-        ? null
-        : reminder.pending_count === 0
-          ? t('Everyone has filled in their availability.')
-          : reminder.available_at !== null
-            ? t(
-                  'A reminder was already sent. You can send a new one from :time.',
-                  { time: formatDateTime(reminder.available_at, locale) },
-              )
-            : t('Reminders can only be sent for an active competition.');
+    const reminderDisabledReason = (() => {
+        switch (reminder.blocked_reason) {
+            case 'inactive':
+                return t(
+                    'Reminders can only be sent for an active competition.',
+                );
+            case 'no_match_days':
+                return t('Add match days before sending a reminder.');
+            case 'window':
+                return reminder.available_at
+                    ? t(
+                          'A reminder was already sent. You can send a new one from :time.',
+                          {
+                              time: formatDateTime(
+                                  reminder.available_at,
+                                  locale,
+                              ),
+                          },
+                      )
+                    : null;
+            case 'none_pending':
+                return t('Everyone has filled in their availability.');
+            default:
+                return null;
+        }
+    })();
 
-    if (matchDays.length === 0 || availability.length === 0) {
-        return (
-            <EmptyState
-                icon={ClipboardCheck}
-                title={t('No availability yet.')}
-                description={t(
-                    'Availability appears as soon as there are match days and participants.',
+    const actionBar = (
+        <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap gap-2">
+                {reminder.can_send ? (
+                    <ConfirmDialog
+                        trigger={
+                            <Button variant="outline" size="sm">
+                                <BellRing />
+                                {t('Send reminder')}
+                            </Button>
+                        }
+                        title={t('Send reminder?')}
+                        description={`${pluralize(
+                            t,
+                            reminder.pending_count,
+                            'This emails the :count participant who has not filled in their availability yet.',
+                            'This emails the :count participants who have not filled in their availability yet.',
+                        )} ${t('You can send a new reminder after 24 hours.')}`}
+                        action={CompetitionAvailabilityReminderController.form(
+                            competitionId,
+                        )}
+                        confirmLabel={t('Send reminder')}
+                        confirmVariant="default"
+                    />
+                ) : (
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        aria-disabled="true"
+                        aria-describedby={
+                            reminderDisabledReason
+                                ? REMINDER_DISABLED_REASON_ID
+                                : undefined
+                        }
+                        className="aria-disabled:pointer-events-auto aria-disabled:opacity-50"
+                        onClick={(event) => event.preventDefault()}
+                    >
+                        <BellRing />
+                        {t('Send reminder')}
+                    </Button>
                 )}
-                action={
-                    (onNavigateToMatchDays || onNavigateToParticipants) && (
-                        <div className="flex gap-2">
-                            {onNavigateToMatchDays && (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={onNavigateToMatchDays}
-                                >
-                                    {t('Go to match days')}
-                                </Button>
-                            )}
-                            {onNavigateToParticipants && (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={onNavigateToParticipants}
-                                >
-                                    {t('Go to participants')}
-                                </Button>
-                            )}
-                        </div>
-                    )
-                }
-            />
-        );
-    }
-
-    return (
-        <section className="flex flex-col gap-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-muted-foreground text-sm">
-                    {reminderDisabledReason}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                    {reminder.can_send ? (
-                        <ConfirmDialog
-                            trigger={
-                                <Button variant="outline" size="sm">
-                                    <BellRing />
-                                    {t('Send reminder')}
-                                </Button>
-                            }
-                            title={t('Send reminder?')}
-                            description={t(
-                                'This emails the :count participants who have not filled in their availability yet.',
-                                { count: reminder.pending_count },
-                            )}
-                            action={CompetitionAvailabilityReminderController.form(
-                                competitionId,
-                            )}
-                            confirmLabel={t('Send reminder')}
-                            confirmVariant="default"
-                        />
-                    ) : (
-                        <Button variant="outline" size="sm" disabled>
-                            <BellRing />
-                            {t('Send reminder')}
-                        </Button>
-                    )}
+                <Button asChild variant="outline" size="sm">
                     <a
                         href={CompetitionAvailabilityExportController.url(
                             competitionId,
-                        )}
-                        download
-                        className={cn(
-                            buttonVariants({ variant: 'outline', size: 'sm' }),
                         )}
                     >
                         <Download />
                         {t('Export CSV')}
                     </a>
-                </div>
+                </Button>
             </div>
+            {reminderDisabledReason && (
+                <p
+                    id={REMINDER_DISABLED_REASON_ID}
+                    className="text-muted-foreground text-sm"
+                >
+                    {reminderDisabledReason}
+                </p>
+            )}
+        </div>
+    );
+
+    if (matchDays.length === 0 || availability.length === 0) {
+        return (
+            <section className="flex flex-col gap-4">
+                {actionBar}
+                <EmptyState
+                    icon={ClipboardCheck}
+                    title={t('No availability yet.')}
+                    description={t(
+                        'Availability appears as soon as there are match days and participants.',
+                    )}
+                    action={
+                        (onNavigateToMatchDays || onNavigateToParticipants) && (
+                            <div className="flex gap-2">
+                                {onNavigateToMatchDays && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={onNavigateToMatchDays}
+                                    >
+                                        {t('Go to match days')}
+                                    </Button>
+                                )}
+                                {onNavigateToParticipants && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={onNavigateToParticipants}
+                                    >
+                                        {t('Go to participants')}
+                                    </Button>
+                                )}
+                            </div>
+                        )
+                    }
+                />
+            </section>
+        );
+    }
+
+    return (
+        <section className="flex flex-col gap-4">
+            {actionBar}
 
             <div className="rounded-xl border">
                 <Table>
