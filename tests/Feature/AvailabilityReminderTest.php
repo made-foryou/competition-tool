@@ -361,3 +361,28 @@ test('the edit page reports why a reminder is blocked', function (string $reason
             ->etc(),
         );
 })->with(['inactive', 'no_match_days', 'window', 'none_pending']);
+
+test('a window claimed by a simultaneous request reports the same error as the window guard', function () {
+    Notification::fake();
+
+    $competition = Competition::factory()->create();
+    MatchDay::factory()->for($competition)->create();
+    $competition->participants()->attach(User::factory()->participant()->create());
+
+    // De venstercheck in de controller komt door, maar de action claimt het
+    // venster niet: dat is precies wat een gelijktijdig verzoek oplevert dat er
+    // net eerder bij was.
+    $this->mock(SendAvailabilityReminders::class)
+        ->shouldReceive('handle')
+        ->once()
+        ->andReturn(null);
+
+    $this->post(route('competitions.availability.reminders', $competition))
+        ->assertRedirect()
+        ->assertInertiaFlash('toast', [
+            'type' => 'error',
+            'message' => __('A reminder was already sent in the past 24 hours.'),
+        ]);
+
+    Notification::assertNothingSent();
+});
