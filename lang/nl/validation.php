@@ -183,6 +183,13 @@ return [
         'password' => 'wachtwoord',
         'current_password' => 'huidige wachtwoord',
         'code' => 'code',
+        'match_duration_minutes' => 'wedstrijdduur',
+        'buffer_minutes' => 'wisseltijd',
+        'min_rest_minutes' => 'minimale rusttijd',
+        'break_duration_minutes' => 'pauzeduur',
+        'use_pools' => 'poules',
+        'pool_size' => 'poulegrootte',
+        'max_matches_per_player_per_day' => 'maximaal aantal wedstrijden per speler per dag',
     ],
 
 ];

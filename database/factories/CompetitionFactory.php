@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Enums\CompetitionStatus;
 use App\Models\Competition;
+use App\Support\CompetitionSettings;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -44,5 +45,10 @@ class CompetitionFactory extends Factory
     public function finished(): static
     {
         return $this->state(fn (array $attributes) => ['status' => CompetitionStatus::Finished]);
+    }
+
+    public function withSettings(CompetitionSettings $settings): static
+    {
+        return $this->state(fn (array $attributes) => ['settings' => $settings]);
     }
 }
