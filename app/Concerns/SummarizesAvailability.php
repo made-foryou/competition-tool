@@ -6,6 +6,7 @@ use App\Models\Competition;
 use App\Models\MatchDayAvailability;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -50,6 +51,24 @@ trait SummarizesAvailability
     }
 
     /**
+     * De query op de deelnemers van de competitie die hun beschikbaarheid nog
+     * niet hebben ingediend (geen `availability_submitted_at` op de
+     * koppeltabel).
+     *
+     * Apart van `pendingAvailabilityParticipants()` zodat een aanroeper die
+     * alleen het aantal nodig heeft `count()` op de query kan doen, in plaats
+     * van alle modellen op te halen om ze daarna te tellen.
+     *
+     * @return BelongsToMany<User, Competition>
+     */
+    protected function pendingAvailabilityParticipantsQuery(Competition $competition): BelongsToMany
+    {
+        return $competition->participants()
+            ->wherePivotNull('availability_submitted_at')
+            ->orderByRaw('COALESCE(NULLIF(users.nickname, ?), users.name)', ['']);
+    }
+
+    /**
      * De deelnemers van de competitie die hun beschikbaarheid nog niet
      * hebben ingediend (geen `availability_submitted_at` op de koppeltabel).
      *
@@ -57,9 +76,6 @@ trait SummarizesAvailability
      */
     protected function pendingAvailabilityParticipants(Competition $competition): Collection
     {
-        return $competition->participants()
-            ->wherePivotNull('availability_submitted_at')
-            ->orderByRaw('COALESCE(NULLIF(users.nickname, ?), users.name)', [''])
-            ->get();
+        return $this->pendingAvailabilityParticipantsQuery($competition)->get();
     }
 }

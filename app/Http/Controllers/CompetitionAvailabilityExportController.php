@@ -13,6 +13,11 @@ class CompetitionAvailabilityExportController extends Controller
     use SummarizesAvailability;
 
     /**
+     * Tekens waarmee een spreadsheet een celwaarde als formule opvat.
+     */
+    private const array FORMULA_PREFIXES = ['=', '+', '-', '@', "\t", "\r"];
+
+    /**
      * Levert de beschikbaarheidsmatrix van een competitie als CSV-download.
      *
      * De inhoud komt uit `availabilityRows()`, dezelfde bron als de matrix in
@@ -28,10 +33,10 @@ class CompetitionAvailabilityExportController extends Controller
      * beide is het bestand met dubbelklikken direct goed leesbaar.
      *
      * Een deelnemer die het formulier nog niet heeft ingediend krijgt in elke
-     * speeldagkolom "nog niet ingevuld" in plaats van "niet beschikbaar". Zijn
-     * ontbrekende vinkjes zijn immers geen antwoord: ze betekenen alleen dat
-     * hij nog niets heeft doorgegeven. "Niet beschikbaar" zou de beheerder
-     * laten denken dat hij die dag is afgevallen.
+     * speeldagkolom "nog niet ingevuld" in plaats van "niet beschikbaar".
+     * Ontbrekende vinkjes zijn immers geen antwoord: ze betekenen alleen dat
+     * deze deelnemer nog niets heeft doorgegeven. "Niet beschikbaar" zou de
+     * beheerder laten denken dat de deelnemer die dag is afgevallen.
      */
     public function __invoke(Competition $competition): StreamedResponse
     {
@@ -79,13 +84,22 @@ class CompetitionAvailabilityExportController extends Controller
                 ]);
             }
 
-            // Dezelfde telling als de voettekst van de matrix in de
-            // interface: puur op `match_day_ids`, los van `submitted`.
+            // Dezelfde `submitted`-voorwaarde als de cellen hierboven: de CSV
+            // telt bewust alleen beschikbaarheid die ook echt is ingediend.
+            // Zonder die voorwaarde kan één bestand zichzelf tegenspreken —
+            // een deelnemer met achtergebleven beschikbaarheidsrijen maar
+            // zonder indienmoment staat in elke kolom op "nog niet ingevuld"
+            // en zou tegelijk in de totalen meetellen.
+            //
+            // Let op: de voettekst van de matrix in de interface telt die
+            // verouderde rijen op dit moment wél mee, dus in dat randgeval
+            // wijken CSV en scherm van elkaar af. Dat verschil is apart als
+            // issue vastgelegd.
             $this->writeRow($handle, [
                 __('Available count'),
                 ...$matchDays->map(fn (MatchDay $matchDay): string => (string) count(array_filter(
                     $rows,
-                    fn (array $row): bool => in_array($matchDay->id, $row['match_day_ids'], true),
+                    fn (array $row): bool => $row['submitted'] && in_array($matchDay->id, $row['match_day_ids'], true),
                 )))->all(),
             ]);
 
@@ -101,11 +115,38 @@ class CompetitionAvailabilityExportController extends Controller
      * parameter volgt een deprecation-melding die midden in de
      * download-stream terecht zou komen.
      *
+     * Elke waarde gaat langs `neutralizeFormula()`, zodat de bescherming
+     * centraal staat en ook voor kolommen geldt die hier later bij komen.
+     *
      * @param  resource  $handle
      * @param  list<string>  $values
      */
     private function writeRow($handle, array $values): void
     {
-        fputcsv($handle, $values, separator: ';', escape: '');
+        fputcsv($handle, array_map($this->neutralizeFormula(...), $values), separator: ';', escape: '');
+    }
+
+    /**
+     * Zet een enkele quote voor waarden die een spreadsheet als formule zou
+     * uitvoeren.
+     *
+     * Excel en LibreOffice voeren een cel die begint met `=`, `+`, `-`, `@`,
+     * een tab of een carriage return uit als formule zodra het bestand wordt
+     * geopend. De namen in deze export komen uit `display_name` en kiest de
+     * deelnemer zelf; een naam als `=HYPERLINK("https://...")` zou dus bij de
+     * beheerder tot uitvoering komen. De export is juist voor Excel bedoeld,
+     * dus dat is een reëel pad van deelnemer naar beheerder.
+     *
+     * De apostrof vooraan dwingt de cel naar tekst zonder de weergegeven
+     * waarde te veranderen: de beheerder ziet gewoon de naam die de deelnemer
+     * heeft ingesteld.
+     */
+    private function neutralizeFormula(string $value): string
+    {
+        if ($value === '' || ! in_array($value[0], self::FORMULA_PREFIXES, true)) {
+            return $value;
+        }
+
+        return "'".$value;
     }
 }

@@ -161,24 +161,41 @@ class CompetitionController extends Controller
     /**
      * De staat van de beschikbaarheidsherinnering voor de beheerder: hoeveel
      * deelnemers nog moeten invullen, of er nu verstuurd mag worden en zo niet,
-     * vanaf wanneer weer wel.
+     * waarom niet.
      *
-     * `available_at` is bewust een ISO-string en geen kant-en-klare zin: de
-     * frontend formatteert het moment zelf in de tijdzone van de beheerder.
+     * De server bepaalt de reden, zodat het scherm geen eigen afleiding hoeft
+     * te maken die in een andere volgorde uitkomt dan de server. `blocked_reason`
+     * volgt daarom exact de volgorde van de guards in
+     * `CompetitionAvailabilityReminderController`: eerst de status, dan de
+     * speeldagen, dan het venster van 24 uur, dan de openstaande deelnemers.
+     * Wijkt die volgorde hier af, dan toont het scherm een andere reden dan de
+     * melding die de beheerder krijgt zodra hij op de knop drukt.
      *
-     * @return array{pending_count: int, can_send: bool, available_at: string|null}
+     * `available_at` is alleen gevuld bij `'window'` en is bewust een
+     * ISO-string en geen kant-en-klare zin: de frontend formatteert het moment
+     * zelf in de tijdzone van de beheerder. De server heeft geen tijdzone van
+     * de beheerder en zou hier UTC tonen.
+     *
+     * @return array{pending_count: int, can_send: bool, available_at: string|null, blocked_reason: 'inactive'|'no_match_days'|'window'|'none_pending'|null}
      */
     protected function availabilityReminderProps(Competition $competition): array
     {
-        $pendingCount = $this->pendingAvailabilityParticipants($competition)->count();
+        $pendingCount = $this->pendingAvailabilityParticipantsQuery($competition)->count();
         $availableAt = $competition->availabilityReminderAvailableAt();
+
+        $blockedReason = match (true) {
+            $competition->status !== CompetitionStatus::Active => 'inactive',
+            $competition->matchDays()->exists() === false => 'no_match_days',
+            $competition->availabilityReminderWindowIsOpen() === false => 'window',
+            $pendingCount === 0 => 'none_pending',
+            default => null,
+        };
 
         return [
             'pending_count' => $pendingCount,
-            'can_send' => $competition->status === CompetitionStatus::Active
-                && $pendingCount > 0
-                && $availableAt === null,
+            'can_send' => $blockedReason === null,
             'available_at' => $availableAt?->toIso8601String(),
+            'blocked_reason' => $blockedReason,
         ];
     }
 

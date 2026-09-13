@@ -156,3 +156,69 @@ test('guests are redirected to the login page', function () {
     $this->get(route('competitions.availability.export', $competition))
         ->assertRedirect(route('login'));
 });
+
+test('a name that a spreadsheet would read as a formula is neutralised', function () {
+    $competition = Competition::factory()->create();
+    MatchDay::factory()->create(['competition_id' => $competition, 'date' => '2026-10-02']);
+
+    $participant = User::factory()->participant()->create(['name' => '=1+1']);
+    $competition->participants()->attach($participant, ['availability_submitted_at' => now()]);
+
+    $rows = availabilityExportRows(
+        $this->get(route('competitions.availability.export', $competition))->streamedContent(),
+    );
+
+    expect($rows[1])->toBe(["'=1+1", 'Niet beschikbaar']);
+});
+
+test('a name with a semicolon or a quote stays intact in its own column', function () {
+    $competition = Competition::factory()->create();
+    MatchDay::factory()->create(['competition_id' => $competition, 'date' => '2026-10-02']);
+
+    $participant = User::factory()->participant()->create(['name' => 'De Vries; "Piet"']);
+    $competition->participants()->attach($participant, ['availability_submitted_at' => now()]);
+
+    $rows = availabilityExportRows(
+        $this->get(route('competitions.availability.export', $competition))->streamedContent(),
+    );
+
+    expect($rows[1])->toBe(['De Vries; "Piet"', 'Niet beschikbaar']);
+});
+
+test('a participant with leftover availability but no submission is not counted', function () {
+    $competition = Competition::factory()->create();
+    $firstDay = MatchDay::factory()->create(['competition_id' => $competition, 'date' => '2026-10-02']);
+    MatchDay::factory()->create(['competition_id' => $competition, 'date' => '2026-10-03']);
+
+    // Bereikbaar via verwijderen en opnieuw toevoegen van een deelnemer: de
+    // beschikbaarheidsrijen blijven staan, het indienmoment verdwijnt.
+    $participant = User::factory()->participant()->create(['name' => 'Anna']);
+    $competition->participants()->attach($participant);
+    MatchDayAvailability::factory()->create([
+        'match_day_id' => $firstDay,
+        'user_id' => $participant,
+    ]);
+
+    $rows = availabilityExportRows(
+        $this->get(route('competitions.availability.export', $competition))->streamedContent(),
+    );
+
+    expect($rows[1])->toBe(['Anna', 'Nog niet ingevuld', 'Nog niet ingevuld'])
+        ->and(end($rows))->toBe(['Aantal beschikbaar', '0', '0']);
+});
+
+test('a participant who submitted an empty form is not available on any match day', function () {
+    $competition = Competition::factory()->create();
+    MatchDay::factory()->create(['competition_id' => $competition, 'date' => '2026-10-02']);
+    MatchDay::factory()->create(['competition_id' => $competition, 'date' => '2026-10-03']);
+
+    $participant = User::factory()->participant()->create(['name' => 'Bob']);
+    $competition->participants()->attach($participant, ['availability_submitted_at' => now()]);
+
+    $rows = availabilityExportRows(
+        $this->get(route('competitions.availability.export', $competition))->streamedContent(),
+    );
+
+    expect($rows[1])->toBe(['Bob', 'Niet beschikbaar', 'Niet beschikbaar'])
+        ->and(end($rows))->toBe(['Aantal beschikbaar', '0', '0']);
+});

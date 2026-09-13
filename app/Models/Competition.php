@@ -103,9 +103,14 @@ class Competition extends Model
     }
 
     /**
-     * Of er op dit moment een beschikbaarheidsherinnering verstuurd mag worden.
+     * Of het anti-spamvenster van 24 uur op dit moment open staat.
+     *
+     * Dit zegt uitsluitend iets over het tijdvenster: niet over de status van
+     * de competitie, of er speeldagen zijn, en niet of er überhaupt nog
+     * deelnemers openstaan. Die voorwaarden staan als aparte checks in
+     * CompetitionAvailabilityReminderController.
      */
-    public function canSendAvailabilityReminder(): bool
+    public function availabilityReminderWindowIsOpen(): bool
     {
         return $this->availabilityReminderAvailableAt() === null;
     }
