@@ -1,10 +1,14 @@
 <?php
 
+use App\Actions\Competitions\SyncCompetitionMatches;
 use App\Enums\CompetitionStatus;
+use App\Enums\CompetitionType;
 use App\Models\Competition;
 use App\Models\MatchDay;
 use App\Models\MatchDayAvailability;
 use App\Models\User;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 
 function actingAsAdmin(): User
@@ -147,12 +151,14 @@ test('admins can create a competition with an auto-generated slug', function () 
         'starts_at' => '2026-10-01',
         'ends_at' => '2026-10-02',
         'status' => CompetitionStatus::Draft->value,
+        'type' => CompetitionType::TheoSchilthuizenBokaal->value,
     ])->assertRedirect()
         ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Competition created.')]);
 
     $competition = Competition::query()->firstOrFail();
     expect($competition->slug)->toBe('voorjaarstoernooi-2026')
-        ->and($competition->status)->toBe(CompetitionStatus::Draft);
+        ->and($competition->status)->toBe(CompetitionStatus::Draft)
+        ->and($competition->type)->toBe(CompetitionType::TheoSchilthuizenBokaal);
 });
 
 test('a competition name resulting in a reserved slug is rejected', function () {
@@ -162,6 +168,7 @@ test('a competition name resulting in a reserved slug is rejected', function () 
         'name' => 'Dashboard',
         'starts_at' => '2026-10-01',
         'status' => CompetitionStatus::Draft->value,
+        'type' => CompetitionType::TheoSchilthuizenBokaal->value,
     ])->assertSessionHasErrors('slug');
 });
 
@@ -173,6 +180,7 @@ test('a duplicate slug is rejected', function () {
         'name' => 'Voorjaarstoernooi 2026',
         'starts_at' => '2026-10-01',
         'status' => CompetitionStatus::Draft->value,
+        'type' => CompetitionType::TheoSchilthuizenBokaal->value,
     ])->assertSessionHasErrors('slug');
 });
 
@@ -187,6 +195,7 @@ test('admins can update a competition and keep its own slug', function () {
         'starts_at' => '2026-11-01',
         'ends_at' => null,
         'status' => CompetitionStatus::Active->value,
+        'type' => CompetitionType::TheoSchilthuizenBokaal->value,
     ])->assertRedirect(route('competitions.edit', $competition))
         ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Competition updated.')]);
 
@@ -202,7 +211,52 @@ test('the end date may not be before the start date', function () {
         'starts_at' => '2026-10-02',
         'ends_at' => '2026-10-01',
         'status' => CompetitionStatus::Draft->value,
+        'type' => CompetitionType::TheoSchilthuizenBokaal->value,
     ])->assertSessionHasErrors('ends_at');
+});
+
+test('an existing competition without an explicit type defaults to the Theo Schilthuizen bokaal', function () {
+    actingAsAdmin();
+    $attributes = Arr::except(Competition::factory()->raw(), ['type']);
+    $id = DB::table('competitions')->insertGetId($attributes);
+
+    expect(Competition::query()->findOrFail($id)->type)->toBe(CompetitionType::TheoSchilthuizenBokaal);
+});
+
+test('admins can store a competition with an explicit type', function () {
+    actingAsAdmin();
+
+    $this->post(route('competitions.store'), [
+        'name' => 'Zomertoernooi 2026',
+        'starts_at' => '2026-10-01',
+        'status' => CompetitionStatus::Draft->value,
+        'type' => CompetitionType::TheoSchilthuizenBokaal->value,
+    ])->assertRedirect();
+
+    expect(Competition::query()->firstOrFail()->type)->toBe(CompetitionType::TheoSchilthuizenBokaal);
+});
+
+test('an invalid type is rejected on store', function () {
+    actingAsAdmin();
+
+    $this->post(route('competitions.store'), [
+        'name' => 'Zomertoernooi 2026',
+        'starts_at' => '2026-10-01',
+        'status' => CompetitionStatus::Draft->value,
+        'type' => 'foo',
+    ])->assertSessionHasErrors('type');
+});
+
+test('an invalid type is rejected on update', function () {
+    actingAsAdmin();
+    $competition = Competition::factory()->create();
+
+    $this->put(route('competitions.update', $competition), [
+        'name' => $competition->name,
+        'starts_at' => $competition->starts_at->toDateString(),
+        'status' => CompetitionStatus::Draft->value,
+        'type' => 'foo',
+    ])->assertSessionHasErrors('type');
 });
 
 test('admins can delete a competition', function () {
@@ -242,5 +296,34 @@ test('the edit page shows the availability of each participant', function () {
             ->where('availability.1.name', 'Bob')
             ->where('availability.1.submitted', false)
             ->where('availability.1.match_day_ids', []),
+        );
+});
+
+test('the edit page shows the competition type and its synced matches', function () {
+    actingAsAdmin();
+
+    $competition = Competition::factory()->create(['type' => CompetitionType::TheoSchilthuizenBokaal]);
+    $participants = User::factory()->participant()->count(3)->create();
+    $competition->participants()->attach($participants);
+    app(SyncCompetitionMatches::class)->handle($competition);
+
+    $matches = $competition->matches()->with(['firstPlayer', 'secondPlayer'])->get();
+
+    // De matches-prop is deferred: hij ontbreekt in de eerste response en
+    // wordt via loadDeferredProps in een partial reload opgehaald.
+    $this->get(route('competitions.edit', $competition))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('competition.type', CompetitionType::TheoSchilthuizenBokaal->value)
+            ->missing('matches')
+            ->loadDeferredProps(fn (Assert $reload) => $reload
+                ->has('matches', 3)
+                ->where('matches.0.id', $matches[0]->id)
+                ->where('matches.0.first_player', $matches[0]->firstPlayer->display_name)
+                ->where('matches.0.first_player_is_participant', true)
+                ->where('matches.0.second_player', $matches[0]->secondPlayer->display_name)
+                ->where('matches.0.second_player_is_participant', true)
+                ->where('matches.0.status', $matches[0]->status->value),
+            ),
         );
 });

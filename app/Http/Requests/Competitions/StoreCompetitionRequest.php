@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Competitions;
 
 use App\Enums\CompetitionStatus;
+use App\Enums\CompetitionType;
 use App\Models\Competition;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
@@ -31,6 +32,7 @@ class StoreCompetitionRequest extends FormRequest
             'starts_at' => ['required', 'date'],
             'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
             'status' => ['required', Rule::enum(CompetitionStatus::class)],
+            'type' => ['required', Rule::enum(CompetitionType::class)],
         ];
     }
 

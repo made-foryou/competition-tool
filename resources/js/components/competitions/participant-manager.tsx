@@ -115,7 +115,7 @@ export default function ParticipantManager({
                                     }
                                     title={t('Remove participant?')}
                                     description={t(
-                                        'This removes :name from the competition. Their availability answers for this competition will no longer be shown.',
+                                        'This removes :name from the competition. Their availability answers and unplayed matches are removed; played matches are kept.',
                                         { name: displayName },
                                     )}
                                     action={CompetitionParticipantController.destroy.form(

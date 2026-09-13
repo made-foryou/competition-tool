@@ -1,5 +1,5 @@
-import { Head, router, usePage } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { Deferred, Head, router, usePage } from '@inertiajs/react';
+import { useEffect, useRef, useState } from 'react';
 import CompetitionController from '@/actions/App/Http/Controllers/CompetitionController';
 import type { AvailabilityRow } from '@/components/competitions/availability-matrix';
 import AvailabilityMatrix from '@/components/competitions/availability-matrix';
@@ -12,6 +12,8 @@ import type {
 import CompetitionSettingsForm from '@/components/competitions/competition-settings-form';
 import type { MatchDayListItem } from '@/components/competitions/match-day-manager';
 import MatchDayManager from '@/components/competitions/match-day-manager';
+import type { MatchProps } from '@/components/competitions/match-list';
+import MatchList from '@/components/competitions/match-list';
 import type {
     ParticipantProps,
     PendingInvitationProps,
@@ -21,6 +23,7 @@ import ConfirmDialog from '@/components/confirm-dialog';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslations } from '@/hooks/use-translations';
 import { competitionStatusLabel } from '@/lib/competition-status';
@@ -32,6 +35,7 @@ type Props = {
     participants: ParticipantProps[];
     matchDays: MatchDayListItem[];
     availability: AvailabilityRow[];
+    matches?: MatchProps[];
     pendingInvitations: PendingInvitationProps[];
     settings: CompetitionSettingsProps;
     settingsLimits: CompetitionSettingsLimits;
@@ -42,6 +46,7 @@ const TABS = [
     'match-days',
     'participants',
     'availability',
+    'matches',
     'settings',
 ] as const;
 
@@ -84,6 +89,7 @@ export default function CompetitionsEdit({
     participants,
     matchDays,
     availability,
+    matches,
     pendingInvitations,
     settings,
     settingsLimits,
@@ -92,6 +98,7 @@ export default function CompetitionsEdit({
     const { url } = usePage();
 
     const [activeTab, setActiveTab] = useState<TabValue>(() => resolveTab(url));
+    const tabListContainerRef = useRef<HTMLDivElement>(null);
 
     /**
      * Houdt de querystring gelijk aan de actieve tab met een client-side visit,
@@ -109,6 +116,20 @@ export default function CompetitionsEdit({
             preserveScroll: true,
         });
     }, [url, activeTab]);
+
+    /**
+     * Op mobiel scrollt de tablijst horizontaal, waardoor de actieve tab na
+     * het wisselen buiten beeld kan vallen (bijvoorbeeld na terugkeer vanuit
+     * een andere tab). Scroll de actieve trigger dan in beeld, zonder de
+     * pagina zelf te laten scrollen.
+     */
+    useEffect(() => {
+        const activeTrigger = tabListContainerRef.current?.querySelector(
+            '[data-state="active"]',
+        );
+
+        activeTrigger?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+    }, [activeTab]);
 
     return (
         <>
@@ -130,7 +151,10 @@ export default function CompetitionsEdit({
                     onValueChange={(value) => setActiveTab(value as TabValue)}
                     className="gap-6"
                 >
-                    <div className="-mx-4 overflow-x-auto px-4">
+                    <div
+                        ref={tabListContainerRef}
+                        className="-mx-4 overflow-x-auto px-4"
+                    >
                         <TabsList className="w-max">
                             <TabsTrigger value="general" className="shrink-0">
                                 {t('General')}
@@ -152,6 +176,9 @@ export default function CompetitionsEdit({
                                 className="shrink-0"
                             >
                                 {t('Availability')}
+                            </TabsTrigger>
+                            <TabsTrigger value="matches" className="shrink-0">
+                                {t('Matches')}
                             </TabsTrigger>
                             <TabsTrigger value="settings" className="shrink-0">
                                 {t('Planning')}
@@ -190,7 +217,7 @@ export default function CompetitionsEdit({
                                 }
                                 title={t('Delete competition?')}
                                 description={t(
-                                    'This removes the competition and its participant list. User accounts are kept.',
+                                    'This removes the competition, its participant list and all its matches. User accounts are kept.',
                                 )}
                                 action={CompetitionController.destroy.form(
                                     competition.id,
@@ -231,6 +258,20 @@ export default function CompetitionsEdit({
                         />
                     </TabsContent>
 
+                    <TabsContent value="matches">
+                        <Deferred
+                            data="matches"
+                            fallback={<MatchListSkeleton />}
+                        >
+                            <MatchList
+                                matches={matches ?? []}
+                                onNavigateToParticipants={() =>
+                                    setActiveTab('participants')
+                                }
+                            />
+                        </Deferred>
+                    </TabsContent>
+
                     <TabsContent value="settings">
                         <CompetitionSettingsForm
                             settings={settings}
@@ -241,6 +282,33 @@ export default function CompetitionsEdit({
                 </Tabs>
             </div>
         </>
+    );
+}
+
+/**
+ * Placeholder in dezelfde tabelvorm als de geladen wedstrijdenlijst, zodat
+ * het uitgesteld laden van de matches-prop geen layout shift veroorzaakt.
+ */
+function MatchListSkeleton({ rows = 6 }: { rows?: number }) {
+    const { t } = useTranslations();
+
+    return (
+        <div
+            className="divide-y rounded-xl border"
+            aria-label={t('Loading…')}
+            aria-busy="true"
+        >
+            {Array.from({ length: rows }, (_, index) => (
+                <div
+                    key={index}
+                    className="flex items-center justify-between gap-3 p-3"
+                >
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-5 w-20 rounded-md" />
+                </div>
+            ))}
+        </div>
     );
 }
 

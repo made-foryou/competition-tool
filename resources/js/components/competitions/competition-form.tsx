@@ -18,6 +18,10 @@ import {
     COMPETITION_STATUSES,
     competitionStatusLabel,
 } from '@/lib/competition-status';
+import {
+    COMPETITION_TYPES,
+    competitionTypeLabel,
+} from '@/lib/competition-type';
 
 export type CompetitionProps = {
     id: number;
@@ -28,6 +32,7 @@ export type CompetitionProps = {
     starts_at: string;
     ends_at: string | null;
     status: string;
+    type: string;
 };
 
 type Props = {
@@ -190,6 +195,46 @@ export default function CompetitionForm({
                         <p className="text-muted-foreground text-sm">
                             {t(
                                 'Draft competitions are only visible to administrators. Participants can only sign in when the competition is active.',
+                            )}
+                        </p>
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="type">{t('Competition type')}</Label>
+                        <Select
+                            name="type"
+                            defaultValue={
+                                competition?.type ?? COMPETITION_TYPES[0]
+                            }
+                        >
+                            <SelectTrigger
+                                id="type"
+                                className="w-full"
+                                aria-invalid={!!errors.type}
+                                aria-describedby={[
+                                    errors.type ? 'type-error' : null,
+                                    'type-description',
+                                ]
+                                    .filter(Boolean)
+                                    .join(' ')}
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {COMPETITION_TYPES.map((type) => (
+                                    <SelectItem key={type} value={type}>
+                                        {competitionTypeLabel(type, t)}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <InputError id="type-error" message={errors.type} />
+                        <p
+                            id="type-description"
+                            className="text-muted-foreground text-sm"
+                        >
+                            {t(
+                                'In the Theo Schilthuizen trophy every participant plays every other participant exactly once.',
                             )}
                         </p>
                     </div>
