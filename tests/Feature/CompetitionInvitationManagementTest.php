@@ -35,13 +35,54 @@ test('resending an invitation sends the mail again and extends the expiry', func
         ->assertRedirect()
         ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Invitation sent again. The previous link no longer works.')]);
 
-    Notification::assertSentOnDemand(InvitationNotification::class);
-
-    $invitations = Invitation::query()->where('email', $invitation->email)->get();
+    $invitations = Invitation::query()
+        ->where('email', $invitation->email)
+        ->where('competition_id', $competition->id)
+        ->get();
 
     expect($invitations)->toHaveCount(1)
         ->and($invitations->first()->id)->not->toBe($invitation->id)
         ->and($invitations->first()->expires_at->isAfter($invitation->expires_at))->toBeTrue();
+
+    // Bewijst dat de mail naar het juiste adres gaat en de nieuwe uitnodiging
+    // meekrijgt: zonder deze closure slaagt de assertie ook op een mail met de
+    // inmiddels verwijderde uitnodiging of een verkeerde ontvanger.
+    Notification::assertSentOnDemand(
+        InvitationNotification::class,
+        fn (InvitationNotification $notification, array $channels, object $notifiable): bool => $notifiable->routes['mail'] === $invitation->email
+            && $notification->invitation->is($invitations->first())
+    );
+});
+
+test('an expired invitation can still be withdrawn and resent', function (string $method, string $routeName) {
+    Notification::fake();
+
+    $competition = Competition::factory()->create();
+    $invitation = Invitation::factory()->expired()->create(['competition_id' => $competition->id]);
+
+    $this->{$method}(route($routeName, [$competition, $invitation]))->assertRedirect();
+})->with([
+    ['delete', 'competitions.invitations.destroy'],
+    ['post', 'competitions.invitations.resend'],
+]);
+
+test('resending an invitation for an email that already has an account sends no mail', function () {
+    Notification::fake();
+
+    $competition = Competition::factory()->create();
+    $invitation = Invitation::factory()->create(['competition_id' => $competition->id]);
+    User::factory()->create(['email' => $invitation->email]);
+
+    $this->post(route('competitions.invitations.resend', [$competition, $invitation]))
+        ->assertRedirect()
+        ->assertInertiaFlash('toast', [
+            'type' => 'error',
+            'message' => __('There is already an account for :email. Withdraw the invitation and add them as a participant.', ['email' => $invitation->email]),
+        ]);
+
+    Notification::assertNothingSent();
+
+    expect(Invitation::query()->whereKey($invitation->id)->exists())->toBeTrue();
 });
 
 test('resending an invitation keeps its original role', function () {

@@ -1,6 +1,7 @@
 import { Form, usePage } from '@inertiajs/react';
 import { Check, Copy, Users } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import CompetitionInvitationController from '@/actions/App/Http/Controllers/CompetitionInvitationController';
 import CompetitionParticipantController from '@/actions/App/Http/Controllers/CompetitionParticipantController';
 import ConfirmDialog from '@/components/confirm-dialog';
@@ -135,31 +136,41 @@ export default function ParticipantManager({
                     <h3 className="text-sm font-medium">
                         {t('Pending invitations')}
                     </h3>
+                    <p className="text-muted-foreground text-sm">
+                        {t(
+                            'Resending creates a new link. The previous link stops working.',
+                        )}
+                    </p>
                     <ul className="divide-y rounded-xl border">
                         {pendingInvitations.map((invitation) => (
                             <li
-                                key={invitation.id}
-                                className="flex items-center justify-between p-3 text-sm"
+                                key={invitation.email}
+                                className="flex flex-col gap-2 p-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                             >
-                                <div className="flex min-w-0 items-center gap-3">
-                                    <span className="min-w-0 truncate">
+                                <div className="min-w-0">
+                                    <p className="truncate">
                                         {invitation.email}
-                                    </span>
-                                    <span className="text-muted-foreground shrink-0">
+                                    </p>
+                                    <p className="text-muted-foreground">
                                         {t('Valid until :date', {
                                             date: formatDate(
                                                 invitation.expires_at,
                                                 locale,
                                             ),
                                         })}
-                                    </span>
+                                    </p>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex shrink-0 items-center gap-2">
                                     <Form
                                         {...CompetitionInvitationController.resend.form(
                                             [competitionId, invitation.id],
                                         )}
                                         options={{ preserveScroll: true }}
+                                        onError={() =>
+                                            toast.error(
+                                                t('Something went wrong.'),
+                                            )
+                                        }
                                     >
                                         {({ processing }) => (
                                             <Button

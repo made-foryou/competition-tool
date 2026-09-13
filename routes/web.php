@@ -68,7 +68,11 @@ Route::middleware(['auth', 'verified', EnsureUserIsAdmin::class])->group(functio
             // 404 oplevert.
             Route::delete('invitations/{invitation}', [CompetitionInvitationController::class, 'destroy'])
                 ->name('invitations.destroy');
+            // Throttle omdat dit endpoint synchroon mail verstuurt: zonder
+            // limiet levert doorklikken een stapel mails op bij de genodigde,
+            // waarvan alleen de laatste link nog werkt.
             Route::post('invitations/{invitation}/resend', [CompetitionInvitationController::class, 'resend'])
+                ->middleware('throttle:6,1')
                 ->name('invitations.resend');
 
             Route::put('settings', CompetitionSettingsController::class)
