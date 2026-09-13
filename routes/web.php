@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\InvitationController;
 use App\Http\Controllers\Auth\PasskeyChallengeController;
 use App\Http\Controllers\Auth\TwoFactorSetupController;
+use App\Http\Controllers\CompetitionAvailabilityExportController;
 use App\Http\Controllers\CompetitionAvailabilityReminderController;
 use App\Http\Controllers\CompetitionController;
 use App\Http\Controllers\CompetitionInvitationController;
@@ -83,6 +84,9 @@ Route::middleware(['auth', 'verified', EnsureUserIsAdmin::class])->group(functio
             Route::post('availability/reminders', CompetitionAvailabilityReminderController::class)
                 ->middleware('throttle:6,1')
                 ->name('availability.reminders');
+
+            Route::get('availability/export', CompetitionAvailabilityExportController::class)
+                ->name('availability.export');
 
             Route::put('settings', CompetitionSettingsController::class)
                 ->name('settings.update');
