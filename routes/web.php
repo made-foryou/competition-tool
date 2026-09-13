@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\InvitationController;
 use App\Http\Controllers\Auth\PasskeyChallengeController;
 use App\Http\Controllers\Auth\TwoFactorSetupController;
 use App\Http\Controllers\CompetitionController;
+use App\Http\Controllers\CompetitionInvitationController;
 use App\Http\Controllers\CompetitionParticipantController;
 use App\Http\Controllers\CompetitionSettingsController;
 use App\Http\Controllers\DashboardController;
@@ -61,6 +62,14 @@ Route::middleware(['auth', 'verified', EnsureUserIsAdmin::class])->group(functio
             // resolven en andere users een 404 opleveren.
             Route::delete('participants/{participant}', [CompetitionParticipantController::class, 'destroy'])
                 ->name('participants.destroy');
+
+            // {invitation} resolvet via de scoped binding op invitations(),
+            // zodat een uitnodiging van een andere competitie automatisch een
+            // 404 oplevert.
+            Route::delete('invitations/{invitation}', [CompetitionInvitationController::class, 'destroy'])
+                ->name('invitations.destroy');
+            Route::post('invitations/{invitation}/resend', [CompetitionInvitationController::class, 'resend'])
+                ->name('invitations.resend');
 
             Route::put('settings', CompetitionSettingsController::class)
                 ->name('settings.update');
