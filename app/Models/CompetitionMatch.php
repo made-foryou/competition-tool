@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use InvalidArgumentException;
 
 /**
  * Eén wedstrijd tussen twee deelnemers binnen een competitie. De
@@ -17,6 +18,12 @@ use Illuminate\Support\Carbon;
  * Played) wordt door die sync nooit verwijderd. Het registreren van
  * uitslagen zelf volgt in een later issue — de score-kolommen liggen hier
  * alvast klaar.
+ *
+ * Alleen de score-kolommen zijn fillable: dat is de verdediging voor het
+ * toekomstige uitslagen-issue, zodat request-invoer nooit per ongeluk de
+ * competitie- of spelerskoppeling kan overschrijven. De sync schrijft via
+ * insertOrIgnore en factories omzeilen de guarding, dus die raken deze
+ * beperking niet.
  *
  * @property int $id
  * @property int $competition_id
@@ -35,11 +42,34 @@ use Illuminate\Support\Carbon;
  * @property-read MatchDay|null $matchDay
  * @property-read MatchDayField|null $matchDayField
  */
-#[Fillable(['competition_id', 'first_player_id', 'second_player_id', 'match_day_id', 'match_day_field_id', 'status', 'first_player_score', 'second_player_score'])]
+#[Fillable(['first_player_score', 'second_player_score'])]
 class CompetitionMatch extends Model
 {
     /** @use HasFactory<CompetitionMatchFactory> */
     use HasFactory;
+
+    /**
+     * Normaliseert elk spelerspaar naar zijn canonieke vorm (laagste user-id
+     * als first player) vóór het opslaan. De unique-index op
+     * (competition_id, first_player_id, second_player_id) kan spiegelparen
+     * (A-B naast B-A) namelijk niet uitsluiten; deze hook garandeert de
+     * canoniciteit voor alle toekomstige schrijvers via het model (zoals het
+     * latere uitslagen-issue). Let op: SyncCompetitionMatches schrijft via
+     * insertOrIgnore en raakt deze model-events dus niet — dat is oké, want
+     * de sync bouwt zijn paren zelf al canoniek op.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (CompetitionMatch $match): void {
+            if ($match->first_player_id === $match->second_player_id) {
+                throw new InvalidArgumentException('A match cannot pair a player against themselves.');
+            }
+
+            if ($match->first_player_id > $match->second_player_id) {
+                [$match->first_player_id, $match->second_player_id] = [$match->second_player_id, $match->first_player_id];
+            }
+        });
+    }
 
     /**
      * Laravel zou van deze modelnaam `competition_matches` afleiden; de

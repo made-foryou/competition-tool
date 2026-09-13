@@ -1,12 +1,16 @@
 <?php
 
 use App\Actions\Competitions\SyncCompetitionMatches;
+use App\Enums\CompetitionStatus;
+use App\Enums\CompetitionType;
 use App\Enums\MatchStatus;
 use App\Enums\UserRole;
 use App\Models\Competition;
 use App\Models\CompetitionMatch;
 use App\Models\Invitation;
 use App\Models\User;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 
 /**
@@ -214,4 +218,130 @@ test('adding five participants one by one yields exactly ten matches', function 
     expect($competition->matches()->count())->toBe(10)
         ->and($competition->matches()->where('status', MatchStatus::Pending)->count())->toBe(10);
     expectValidRoundRobin($competition);
+});
+
+test('an open invitation does not create matches yet', function () {
+    Notification::fake();
+    $this->actingAs(User::factory()->withTwoFactor()->create());
+    $competition = Competition::factory()->create();
+    $competition->participants()->attach(User::factory()->participant()->create());
+
+    $this->post(route('competitions.participants.store', $competition), [
+        'email' => 'uitgenodigd@example.com',
+        'mode' => 'invite',
+    ])->assertRedirect();
+
+    expect($competition->matches()->count())->toBe(0);
+});
+
+test('running the sync twice is idempotent and keeps the same match ids', function () {
+    $competition = Competition::factory()->create();
+    $competition->participants()->attach(User::factory()->participant()->count(4)->create());
+
+    app(SyncCompetitionMatches::class)->handle($competition);
+    $firstRunIds = $competition->matches()->pluck('id')->all();
+
+    app(SyncCompetitionMatches::class)->handle($competition);
+
+    expect($competition->matches()->pluck('id')->all())->toBe($firstRunIds);
+});
+
+test('removing a participant from one competition does not touch matches in another', function () {
+    $this->actingAs(User::factory()->withTwoFactor()->create());
+    $participants = User::factory()->participant()->count(3)->create();
+
+    $competitionA = Competition::factory()->create();
+    $competitionA->participants()->attach($participants);
+    app(SyncCompetitionMatches::class)->handle($competitionA);
+
+    $competitionB = Competition::factory()->create();
+    $competitionB->participants()->attach($participants);
+    app(SyncCompetitionMatches::class)->handle($competitionB);
+
+    $matchIdsB = $competitionB->matches()->pluck('id')->all();
+
+    $this->delete(route('competitions.participants.destroy', [$competitionA, $participants->first()]))
+        ->assertRedirect();
+
+    expect($competitionB->matches()->pluck('id')->all())->toBe($matchIdsB)
+        ->and($competitionA->matches()->count())->toBe(1);
+});
+
+test('deleting a competition deletes its matches through the cascade', function () {
+    $competition = Competition::factory()->create();
+    $competition->participants()->attach(User::factory()->participant()->count(3)->create());
+    app(SyncCompetitionMatches::class)->handle($competition);
+
+    expect($competition->matches()->count())->toBe(3);
+
+    $competition->delete();
+
+    expect(CompetitionMatch::query()->where('competition_id', $competition->id)->count())->toBe(0);
+});
+
+/**
+ * Er bestaat momenteel maar één competitietype, dus wasChanged('type') kan
+ * via het update-endpoint nooit true worden — het positieve pad (sync ná een
+ * typewijziging) is daardoor nog niet zinnig testbaar. Deze test legt in
+ * plaats daarvan de guard vast: een update zónder typewijziging draait de
+ * sync niet en laat de bestaande lijst intact. Zodra er een tweede type
+ * bijkomt, hoort hier een positieve variant bij.
+ */
+test('updating a competition without a type change does not resync the match list', function () {
+    $this->actingAs(User::factory()->withTwoFactor()->create());
+    $competition = Competition::factory()->create(['type' => CompetitionType::TheoSchilthuizenBokaal]);
+    $competition->participants()->attach(User::factory()->participant()->count(2)->create());
+    app(SyncCompetitionMatches::class)->handle($competition);
+
+    $matchIds = $competition->matches()->pluck('id')->all();
+
+    $spy = $this->spy(SyncCompetitionMatches::class);
+
+    $this->put(route('competitions.update', $competition), [
+        'name' => $competition->name,
+        'slug' => $competition->slug,
+        'description' => 'Bijgewerkt.',
+        'location' => null,
+        'starts_at' => $competition->starts_at->toDateString(),
+        'ends_at' => null,
+        'status' => CompetitionStatus::Active->value,
+        'type' => CompetitionType::TheoSchilthuizenBokaal->value,
+    ])->assertRedirect(route('competitions.edit', $competition));
+
+    $spy->shouldNotHaveReceived('handle');
+    expect($competition->matches()->pluck('id')->all())->toBe($matchIds);
+});
+
+test('saving a match with reversed player ids stores the canonical pair', function () {
+    $competition = Competition::factory()->create();
+    [$low, $high] = User::factory()->participant()->count(2)->create()->sortBy('id')->values()->all();
+
+    $match = (new CompetitionMatch)->forceFill([
+        'competition_id' => $competition->id,
+        'first_player_id' => $high->id,
+        'second_player_id' => $low->id,
+    ]);
+    $match->save();
+
+    expect($match->refresh()->first_player_id)->toBe($low->id)
+        ->and($match->second_player_id)->toBe($high->id);
+});
+
+test('saving a match that pairs a player against themselves throws', function () {
+    $competition = Competition::factory()->create();
+    $player = User::factory()->participant()->create();
+
+    $match = (new CompetitionMatch)->forceFill([
+        'competition_id' => $competition->id,
+        'first_player_id' => $player->id,
+        'second_player_id' => $player->id,
+    ]);
+
+    expect(fn () => $match->save())->toThrow(InvalidArgumentException::class);
+});
+
+test('deleting a user with matches is blocked by the restrict constraint', function () {
+    $match = CompetitionMatch::factory()->create();
+
+    expect(fn () => $match->firstPlayer->delete())->toThrow(QueryException::class);
 });

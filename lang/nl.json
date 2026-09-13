@@ -187,10 +187,10 @@
     "Create account directly": "Account direct aanmaken",
     "You set the password and share it yourself.": "Jij stelt het wachtwoord in en geeft het door.",
     "Add participant": "Deelnemer toevoegen",
-    "Participant linked.": "Deelnemer gekoppeld.",
+    "Participant linked. The match list has been updated.": "Deelnemer gekoppeld. De wedstrijdenlijst is bijgewerkt.",
     "Invitation sent.": "Uitnodiging verstuurd.",
-    "Participant added.": "Deelnemer toegevoegd.",
-    "Participant removed.": "Deelnemer verwijderd.",
+    "Participant added. The match list has been updated.": "Deelnemer toegevoegd. De wedstrijdenlijst is bijgewerkt.",
+    "Participant removed. The match list has been updated.": "Deelnemer verwijderd. De wedstrijdenlijst is bijgewerkt.",
 
     "Match days": "Speeldagen",
     "No match days yet.": "Nog geen speeldagen.",

@@ -16,7 +16,9 @@ import { pluralize } from '@/lib/plural';
 export type MatchProps = {
     id: number;
     first_player: string;
+    first_player_is_participant: boolean;
     second_player: string;
+    second_player_is_participant: boolean;
     status: string;
 };
 

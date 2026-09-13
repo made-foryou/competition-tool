@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Competitions\SyncCompetitionMatches;
 use App\Concerns\SummarizesMatchDay;
 use App\Http\Requests\Competitions\IndexCompetitionRequest;
 use App\Http\Requests\Competitions\StoreCompetitionRequest;
@@ -79,7 +80,7 @@ class CompetitionController extends Controller
                 ])
                 ->all(),
             'availability' => $this->availabilityRows($competition),
-            'matches' => $this->matchRows($competition),
+            'matches' => Inertia::defer(fn (): array => $this->matchRows($competition)),
             'matchDays' => $competition->matchDays()
                 ->withCount('fields')
                 ->get()
@@ -102,9 +103,17 @@ class CompetitionController extends Controller
         ]);
     }
 
-    public function update(UpdateCompetitionRequest $request, Competition $competition): RedirectResponse
+    public function update(UpdateCompetitionRequest $request, Competition $competition, SyncCompetitionMatches $syncCompetitionMatches): RedirectResponse
     {
         $competition->update($request->validated());
+
+        // Het type bepaalt hoe de wedstrijdenlijst wordt opgebouwd, dus een
+        // typewijziging moet de lijst hersynchroniseren. Met één type is dit
+        // nog latent (wasChanged('type') kan niet true worden), maar zodra er
+        // een tweede type bijkomt herbouwt deze aanroep de lijst automatisch.
+        if ($competition->wasChanged('type')) {
+            $syncCompetitionMatches->handle($competition);
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Competition updated.')]);
 
@@ -158,19 +167,26 @@ class CompetitionController extends Controller
     /**
      * De wedstrijdenlijst van de competitie, canoniek geordend op id. Wordt
      * automatisch gesynchroniseerd met de deelnemerslijst; er is dus geen
-     * generate-actie voor deze props.
+     * generate-actie voor deze props. De is_participant-vlaggen laten de UI
+     * spelers markeren die inmiddels uit de competitie zijn vertrokken (hun
+     * gespeelde wedstrijden blijven immers staan).
      *
-     * @return list<array{id: int, first_player: string, second_player: string, status: string}>
+     * @return list<array{id: int, first_player: string, first_player_is_participant: bool, second_player: string, second_player_is_participant: bool, status: string}>
      */
     protected function matchRows(Competition $competition): array
     {
+        /** @var list<int> $participantIds */
+        $participantIds = $competition->participants()->pluck('users.id')->all();
+
         return array_values($competition->matches()
             ->with(['firstPlayer', 'secondPlayer'])
             ->get()
             ->map(fn (CompetitionMatch $match): array => [
                 'id' => $match->id,
                 'first_player' => $match->firstPlayer->display_name,
+                'first_player_is_participant' => in_array($match->first_player_id, $participantIds, true),
                 'second_player' => $match->secondPlayer->display_name,
+                'second_player_is_participant' => in_array($match->second_player_id, $participantIds, true),
                 'status' => $match->status->value,
             ])
             ->all());

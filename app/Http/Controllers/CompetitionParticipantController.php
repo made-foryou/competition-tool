@@ -9,6 +9,7 @@ use App\Http\Requests\Competitions\StoreCompetitionParticipantRequest;
 use App\Models\Competition;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class CompetitionParticipantController extends Controller
@@ -20,11 +21,16 @@ class CompetitionParticipantController extends Controller
         $existing = User::query()->where('email', $email)->first();
 
         if ($existing !== null) {
-            $competition->participants()->syncWithoutDetaching([$existing->id]);
+            // Pivot-mutatie en wedstrijdensync atomair, consistent met de
+            // invitation- en registratieflow: geen deelnemer zonder
+            // bijbehorende wedstrijdenlijst.
+            DB::transaction(function () use ($competition, $existing, $syncCompetitionMatches): void {
+                $competition->participants()->syncWithoutDetaching([$existing->id]);
 
-            $syncCompetitionMatches->handle($competition);
+                $syncCompetitionMatches->handle($competition);
+            });
 
-            Inertia::flash('toast', ['type' => 'success', 'message' => __('Participant linked.')]);
+            Inertia::flash('toast', ['type' => 'success', 'message' => __('Participant linked. The match list has been updated.')]);
 
             return back();
         }
@@ -37,30 +43,34 @@ class CompetitionParticipantController extends Controller
             return back();
         }
 
-        $user = User::create([
-            'name' => $request->string('name')->toString(),
-            'email' => $email,
-            'password' => $request->string('password')->toString(),
-        ]);
+        DB::transaction(function () use ($request, $email, $competition, $syncCompetitionMatches): void {
+            $user = User::create([
+                'name' => $request->string('name')->toString(),
+                'email' => $email,
+                'password' => $request->string('password')->toString(),
+            ]);
 
-        $user->forceFill(['email_verified_at' => now()])->save();
+            $user->forceFill(['email_verified_at' => now()])->save();
 
-        $competition->participants()->attach($user);
+            $competition->participants()->attach($user);
 
-        $syncCompetitionMatches->handle($competition);
+            $syncCompetitionMatches->handle($competition);
+        });
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Participant added.')]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Participant added. The match list has been updated.')]);
 
         return back();
     }
 
-    public function destroy(Competition $competition, User $user, SyncCompetitionMatches $syncCompetitionMatches): RedirectResponse
+    public function destroy(Competition $competition, User $participant, SyncCompetitionMatches $syncCompetitionMatches): RedirectResponse
     {
-        $competition->participants()->detach($user);
+        DB::transaction(function () use ($competition, $participant, $syncCompetitionMatches): void {
+            $competition->participants()->detach($participant);
 
-        $syncCompetitionMatches->handle($competition);
+            $syncCompetitionMatches->handle($competition);
+        });
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Participant removed.')]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Participant removed. The match list has been updated.')]);
 
         return back();
     }

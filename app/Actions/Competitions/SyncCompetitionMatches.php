@@ -20,9 +20,23 @@ use Illuminate\Support\Facades\DB;
  */
 class SyncCompetitionMatches
 {
+    /**
+     * Aantal rijen per bulk-insert, zodat een grote eerste sync nooit tegen
+     * packet- of placeholder-limieten van de database aanloopt.
+     */
+    private const int INSERT_CHUNK_SIZE = 500;
+
     public function handle(Competition $competition): void
     {
         DB::transaction(function () use ($competition): void {
+            // Serialiseert gelijktijdige syncs voor dezelfde competitie: twee
+            // spelers die zich tegelijk aanmelden lezen anders elk een
+            // deelnemerslijst zonder de ander, waardoor het onderlinge paar in
+            // beide syncs zou ontbreken. Het rijlock op de competitie laat de
+            // tweede sync wachten tot de eerste klaar is, zodat die de
+            // volledige lijst ziet.
+            Competition::query()->whereKey($competition->id)->lockForUpdate()->first();
+
             /** @var list<int> $participantIds */
             $participantIds = $competition->participants()
                 ->orderBy('users.id')
@@ -62,8 +76,12 @@ class SyncCompetitionMatches
                 fn (array $pair): bool => ! isset($existingKeys[$pair[0].'-'.$pair[1]]),
             ));
 
-            if ($missing !== []) {
-                CompetitionMatch::query()->insert($this->rowsFor($competition, $missing));
+            // insertOrIgnore als vangnet: mocht een concurrent proces toch al
+            // een paar geschreven hebben, dan slaat de unique-index de rij
+            // stilletjes over in plaats van met een duplicate-key-fout te
+            // crashen. Chunks houden de statement-grootte begrensd.
+            foreach (array_chunk($this->rowsFor($competition, $missing), self::INSERT_CHUNK_SIZE) as $rows) {
+                CompetitionMatch::query()->insertOrIgnore($rows);
             }
         });
     }

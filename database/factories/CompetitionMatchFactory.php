@@ -31,6 +31,20 @@ class CompetitionMatchFactory extends Factory
     }
 
     /**
+     * Sorteert de twee user-ids zodat de factory altijd canonieke paren
+     * bouwt (laagste id als first player), ook als een test de ids in
+     * omgekeerde volgorde meegeeft.
+     */
+    public function configure(): static
+    {
+        return $this->afterMaking(function (CompetitionMatch $match): void {
+            if ($match->first_player_id > $match->second_player_id) {
+                [$match->first_player_id, $match->second_player_id] = [$match->second_player_id, $match->first_player_id];
+            }
+        });
+    }
+
+    /**
      * Een wedstrijd waarvan de uitslag al geregistreerd is.
      */
     public function played(): static

@@ -309,14 +309,21 @@ test('the edit page shows the competition type and its synced matches', function
 
     $matches = $competition->matches()->with(['firstPlayer', 'secondPlayer'])->get();
 
+    // De matches-prop is deferred: hij ontbreekt in de eerste response en
+    // wordt via loadDeferredProps in een partial reload opgehaald.
     $this->get(route('competitions.edit', $competition))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('competition.type', CompetitionType::TheoSchilthuizenBokaal->value)
-            ->has('matches', 3)
-            ->where('matches.0.id', $matches[0]->id)
-            ->where('matches.0.first_player', $matches[0]->firstPlayer->display_name)
-            ->where('matches.0.second_player', $matches[0]->secondPlayer->display_name)
-            ->where('matches.0.status', $matches[0]->status->value),
+            ->missing('matches')
+            ->loadDeferredProps(fn (Assert $reload) => $reload
+                ->has('matches', 3)
+                ->where('matches.0.id', $matches[0]->id)
+                ->where('matches.0.first_player', $matches[0]->firstPlayer->display_name)
+                ->where('matches.0.first_player_is_participant', true)
+                ->where('matches.0.second_player', $matches[0]->secondPlayer->display_name)
+                ->where('matches.0.second_player_is_participant', true)
+                ->where('matches.0.status', $matches[0]->status->value),
+            ),
         );
 });

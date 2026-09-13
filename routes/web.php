@@ -48,15 +48,20 @@ Route::middleware(['auth', 'verified', EnsureUserIsAdmin::class])->group(functio
 
     Route::resource('competitions', CompetitionController::class)->except(['show']);
 
-    Route::post('competitions/{competition}/participants', [CompetitionParticipantController::class, 'store'])
-        ->name('competitions.participants.store');
-    Route::delete('competitions/{competition}/participants/{user}', [CompetitionParticipantController::class, 'destroy'])
-        ->name('competitions.participants.destroy');
-
     Route::prefix('competitions/{competition}')
         ->name('competitions.')
         ->scopeBindings()
         ->group(function () {
+            Route::post('participants', [CompetitionParticipantController::class, 'store'])
+                ->name('participants.store');
+
+            // {participant} in plaats van {user}: de scoped binding zoekt de
+            // relatie op via de parameternaam (participant -> participants()),
+            // zodat alleen daadwerkelijke deelnemers van deze competitie
+            // resolven en andere users een 404 opleveren.
+            Route::delete('participants/{participant}', [CompetitionParticipantController::class, 'destroy'])
+                ->name('participants.destroy');
+
             Route::put('settings', CompetitionSettingsController::class)
                 ->name('settings.update');
 

@@ -15,8 +15,13 @@ return new class extends Migration
         Schema::create('matches', function (Blueprint $table) {
             $table->id();
             $table->foreignId('competition_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('first_player_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('second_player_id')->constrained('users')->cascadeOnDelete();
+
+            // restrictOnDelete: gespeelde wedstrijden zijn historisch
+            // resultaat. Het latere gebruikersbeheer moet bij het verwijderen
+            // van een speler een bewuste keuze maken over diens wedstrijden
+            // in plaats van ze stilzwijgend mee te wissen.
+            $table->foreignId('first_player_id')->constrained('users')->restrictOnDelete();
+            $table->foreignId('second_player_id')->constrained('users')->restrictOnDelete();
             $table->foreignId('match_day_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('match_day_field_id')->nullable()->constrained()->nullOnDelete();
             $table->string('status')->default(MatchStatus::Pending->value);
@@ -24,9 +29,11 @@ return new class extends Migration
             $table->unsignedTinyInteger('second_player_score')->nullable();
             $table->timestamps();
 
-            // Spelersparen worden canoniek opgeslagen (laagste user-id als
-            // first_player_id), zodat deze unique-index dubbele paren in
-            // beide richtingen uitsluit.
+            // Deze unique-index weert exacte duplicaten, maar kan
+            // spiegelparen (A-B naast B-A) níét uitsluiten. De canoniciteit
+            // (laagste user-id als first_player_id) wordt afgedwongen door de
+            // saving-hook op CompetitionMatch en door SyncCompetitionMatches,
+            // die zijn paren zelf canoniek opbouwt.
             $table->unique(['competition_id', 'first_player_id', 'second_player_id']);
         });
     }

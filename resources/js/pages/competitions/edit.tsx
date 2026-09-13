@@ -1,4 +1,4 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Deferred, Head, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import CompetitionController from '@/actions/App/Http/Controllers/CompetitionController';
 import type { AvailabilityRow } from '@/components/competitions/availability-matrix';
@@ -23,6 +23,7 @@ import ConfirmDialog from '@/components/confirm-dialog';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslations } from '@/hooks/use-translations';
 import { competitionStatusLabel } from '@/lib/competition-status';
@@ -34,7 +35,7 @@ type Props = {
     participants: ParticipantProps[];
     matchDays: MatchDayListItem[];
     availability: AvailabilityRow[];
-    matches: MatchProps[];
+    matches?: MatchProps[];
     pendingInvitations: PendingInvitationProps[];
     settings: CompetitionSettingsProps;
     settingsLimits: CompetitionSettingsLimits;
@@ -240,7 +241,12 @@ export default function CompetitionsEdit({
                     </TabsContent>
 
                     <TabsContent value="matches">
-                        <MatchList matches={matches} />
+                        <Deferred
+                            data="matches"
+                            fallback={<MatchListSkeleton />}
+                        >
+                            <MatchList matches={matches ?? []} />
+                        </Deferred>
                     </TabsContent>
 
                     <TabsContent value="settings">
@@ -253,6 +259,33 @@ export default function CompetitionsEdit({
                 </Tabs>
             </div>
         </>
+    );
+}
+
+/**
+ * Placeholder in dezelfde tabelvorm als de geladen wedstrijdenlijst, zodat
+ * het uitgesteld laden van de matches-prop geen layout shift veroorzaakt.
+ */
+function MatchListSkeleton({ rows = 6 }: { rows?: number }) {
+    const { t } = useTranslations();
+
+    return (
+        <div
+            className="divide-y rounded-xl border"
+            aria-label={t('Loading…')}
+            aria-busy="true"
+        >
+            {Array.from({ length: rows }, (_, index) => (
+                <div
+                    key={index}
+                    className="flex items-center justify-between gap-3 p-3"
+                >
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-5 w-20 rounded-md" />
+                </div>
+            ))}
+        </div>
     );
 }
 
