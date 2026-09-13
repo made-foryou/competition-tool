@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Participant;
 
 use App\Actions\Competitions\SyncCompetitionMatches;
+use App\Concerns\DeterminesLoginDestination;
 use App\Concerns\SummarizesMatchDay;
 use App\Concerns\SyncsAvailability;
+use App\Enums\CompetitionStatus;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Participant\StoreCompetitionRegistrationRequest;
@@ -25,9 +27,16 @@ use Inertia\Response;
  */
 class CompetitionRegistrationController extends Controller
 {
+    use DeterminesLoginDestination;
     use SummarizesMatchDay;
     use SyncsAvailability;
 
+    /**
+     * Alleen actieve competities tonen het inschrijfformulier. Een concept-
+     * competitie ("upcoming", alleen zichtbaar voor admins) en een afgeronde
+     * competitie ("closed") krijgen dezelfde pagina zonder speeldagen of
+     * wachtwoordregels, met een per staat passende uitleg.
+     */
     public function show(Request $request, Competition $competition): Response|RedirectResponse
     {
         $user = $request->user();
@@ -36,15 +45,34 @@ class CompetitionRegistrationController extends Controller
             return redirect()->route('competition.dashboard', $competition);
         }
 
+        $registrationState = match ($competition->status) {
+            CompetitionStatus::Active => 'open',
+            CompetitionStatus::Draft => 'upcoming',
+            CompetitionStatus::Finished => 'closed',
+        };
+
+        $isOpen = $registrationState === 'open';
+
         return Inertia::render('auth/competition-register', [
             'competitionName' => $competition->name,
             'competitionSlug' => $competition->slug,
             'authenticated' => $user !== null,
-            'matchDays' => $competition->matchDays()
-                ->get()
-                ->map(fn (MatchDay $matchDay): array => $this->matchDayProps($matchDay))
-                ->all(),
-            'passwordRules' => Password::defaults()->toPasswordRulesString(),
+            'registrationState' => $registrationState,
+            // Zonder uitweg is de gesloten pagina doodlopend voor wie al
+            // ingelogd is: de competitie-login stuurt hem terug naar een
+            // dashboard waar hij geen deelnemer van is.
+            'returnUrl' => $isOpen || $user === null
+                ? null
+                : $this->defaultUrlFor($user),
+            'matchDays' => $isOpen
+                ? $competition->matchDays()
+                    ->get()
+                    ->map(fn (MatchDay $matchDay): array => $this->matchDayProps($matchDay))
+                    ->all()
+                : [],
+            'passwordRules' => $isOpen
+                ? Password::defaults()->toPasswordRulesString()
+                : '',
         ]);
     }
 
