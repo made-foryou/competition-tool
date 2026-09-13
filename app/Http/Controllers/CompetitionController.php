@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Competitions\SyncCompetitionMatches;
+use App\Concerns\SummarizesAvailability;
 use App\Concerns\SummarizesMatchDay;
 use App\Http\Requests\Competitions\IndexCompetitionRequest;
 use App\Http\Requests\Competitions\StoreCompetitionRequest;
@@ -11,18 +12,16 @@ use App\Models\Competition;
 use App\Models\CompetitionMatch;
 use App\Models\Invitation;
 use App\Models\MatchDay;
-use App\Models\MatchDayAvailability;
 use App\Models\User;
 use App\Support\CompetitionSettings;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class CompetitionController extends Controller
 {
-    use SummarizesMatchDay;
+    use SummarizesAvailability, SummarizesMatchDay;
 
     public function index(IndexCompetitionRequest $request): Response
     {
@@ -127,41 +126,6 @@ class CompetitionController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Competition deleted.')]);
 
         return redirect()->route('competitions.index');
-    }
-
-    /**
-     * Per deelnemer op welke speeldagen hij beschikbaar is, plus of hij het
-     * formulier uberhaupt al heeft ingediend.
-     *
-     * @return list<array{id: int, name: string, submitted: bool, match_day_ids: list<int>}>
-     */
-    protected function availabilityRows(Competition $competition): array
-    {
-        $matchDayIds = $competition->matchDays()->pluck('id');
-
-        $availableByUser = MatchDayAvailability::query()
-            ->whereIn('match_day_id', $matchDayIds)
-            ->get()
-            ->groupBy('user_id');
-
-        $submittedUserIds = DB::table('competition_user')
-            ->where('competition_id', $competition->id)
-            ->whereNotNull('availability_submitted_at')
-            ->pluck('user_id')
-            ->all();
-
-        return array_values($competition->participants()
-            ->orderByRaw('COALESCE(NULLIF(users.nickname, ?), users.name)', [''])
-            ->get()
-            ->map(fn (User $user): array => [
-                'id' => $user->id,
-                'name' => $user->display_name,
-                'submitted' => in_array($user->id, $submittedUserIds, true),
-                'match_day_ids' => array_values($availableByUser->get($user->id, collect())
-                    ->pluck('match_day_id')
-                    ->all()),
-            ])
-            ->all());
     }
 
     /**
