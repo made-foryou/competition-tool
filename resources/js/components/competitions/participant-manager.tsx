@@ -1,6 +1,8 @@
 import { Form, usePage } from '@inertiajs/react';
 import { Check, Copy, Users } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
+import CompetitionInvitationController from '@/actions/App/Http/Controllers/CompetitionInvitationController';
 import CompetitionParticipantController from '@/actions/App/Http/Controllers/CompetitionParticipantController';
 import ConfirmDialog from '@/components/confirm-dialog';
 import EmptyState from '@/components/empty-state';
@@ -134,21 +136,82 @@ export default function ParticipantManager({
                     <h3 className="text-sm font-medium">
                         {t('Pending invitations')}
                     </h3>
+                    <p className="text-muted-foreground text-sm">
+                        {t(
+                            'Resending creates a new link. The previous link stops working.',
+                        )}
+                    </p>
                     <ul className="divide-y rounded-xl border">
                         {pendingInvitations.map((invitation) => (
                             <li
-                                key={invitation.id}
-                                className="flex items-center justify-between p-3 text-sm"
+                                key={invitation.email}
+                                className="flex flex-col gap-2 p-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                             >
-                                <span>{invitation.email}</span>
-                                <span className="text-muted-foreground">
-                                    {t('Valid until :date', {
-                                        date: formatDate(
-                                            invitation.expires_at,
-                                            locale,
-                                        ),
-                                    })}
-                                </span>
+                                <div className="min-w-0">
+                                    <p className="truncate">
+                                        {invitation.email}
+                                    </p>
+                                    <p className="text-muted-foreground">
+                                        {t('Valid until :date', {
+                                            date: formatDate(
+                                                invitation.expires_at,
+                                                locale,
+                                            ),
+                                        })}
+                                    </p>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-2">
+                                    <Form
+                                        {...CompetitionInvitationController.resend.form(
+                                            [competitionId, invitation.id],
+                                        )}
+                                        options={{ preserveScroll: true }}
+                                        onError={() =>
+                                            toast.error(
+                                                t('Something went wrong.'),
+                                            )
+                                        }
+                                    >
+                                        {({ processing }) => (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                type="submit"
+                                                disabled={processing}
+                                                aria-label={t(
+                                                    'Resend invitation to :email',
+                                                    { email: invitation.email },
+                                                )}
+                                            >
+                                                {processing && <Spinner />}
+                                                {t('Resend')}
+                                            </Button>
+                                        )}
+                                    </Form>
+                                    <ConfirmDialog
+                                        trigger={
+                                            <Button
+                                                variant="ghostDestructive"
+                                                size="sm"
+                                                aria-label={t(
+                                                    'Withdraw invitation for :email',
+                                                    { email: invitation.email },
+                                                )}
+                                            >
+                                                {t('Withdraw')}
+                                            </Button>
+                                        }
+                                        title={t('Withdraw invitation?')}
+                                        description={t(
+                                            'This withdraws the invitation for :email. The invitation link stops working.',
+                                            { email: invitation.email },
+                                        )}
+                                        action={CompetitionInvitationController.destroy.form(
+                                            [competitionId, invitation.id],
+                                        )}
+                                        confirmLabel={t('Withdraw invitation')}
+                                    />
+                                </div>
                             </li>
                         ))}
                     </ul>
