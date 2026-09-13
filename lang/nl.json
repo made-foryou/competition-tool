@@ -277,7 +277,9 @@
     ":played of :total played": ":played van :total gespeeld",
 
     "> participant signup": "> deelnemer aanmelden",
+    "> signup closed": "> aanmelden gesloten",
     "Sign up for :competition": "Aanmelden voor :competition",
+    "Registration for this competition is closed.": "Aanmelden voor deze competitie is gesloten.",
     "Sign up": "Aanmelden",
     "Create your account and let us know which match days you can attend.": "Maak je account aan en geef aan op welke speeldagen je kunt.",
     "Let us know which match days you can attend.": "Geef aan op welke speeldagen je kunt.",
