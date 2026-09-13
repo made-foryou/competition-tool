@@ -1,9 +1,12 @@
 import { usePage } from '@inertiajs/react';
-import { Check, ClipboardCheck, Minus } from 'lucide-react';
+import { BellRing, Check, ClipboardCheck, Download, Minus } from 'lucide-react';
+import CompetitionAvailabilityExportController from '@/actions/App/Http/Controllers/CompetitionAvailabilityExportController';
+import CompetitionAvailabilityReminderController from '@/actions/App/Http/Controllers/CompetitionAvailabilityReminderController';
 import type { MatchDayProps } from '@/components/competitions/match-day-form';
+import ConfirmDialog from '@/components/confirm-dialog';
 import EmptyState from '@/components/empty-state';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
     Table,
     TableBody,
@@ -16,6 +19,19 @@ import {
 import { useTranslations } from '@/hooks/use-translations';
 import { formatDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
+
+/**
+ * Formatteert een volledige ISO-8601-timestamp (datum + tijd + offset) zoals
+ * `available_at`. In tegenstelling tot `formatDate` hoeft hier niet handmatig
+ * op lokale middernacht geparsed te worden: de timestamp bevat al een
+ * tijdzone-offset, dus `new Date()` geeft geen dagverschuiving.
+ */
+function formatDateTime(isoDateTime: string, locale: string): string {
+    return new Intl.DateTimeFormat(locale, {
+        dateStyle: 'long',
+        timeStyle: 'short',
+    }).format(new Date(isoDateTime));
+}
 
 /**
  * Achtergrond op de sticky eerste kolom, zodat de horizontaal scrollende
@@ -34,9 +50,17 @@ export type AvailabilityRow = {
     match_day_ids: number[];
 };
 
+export type AvailabilityReminderProps = {
+    pending_count: number;
+    can_send: boolean;
+    available_at: string | null;
+};
+
 type Props = {
+    competitionId: number;
     matchDays: MatchDayProps[];
     availability: AvailabilityRow[];
+    reminder: AvailabilityReminderProps;
     /** Springt naar de tab Speeldagen. Toont een CTA in de lege staat wanneer meegegeven. */
     onNavigateToMatchDays?: () => void;
     /** Springt naar de tab Deelnemers. Toont een CTA in de lege staat wanneer meegegeven. */
@@ -44,13 +68,26 @@ type Props = {
 };
 
 export default function AvailabilityMatrix({
+    competitionId,
     matchDays,
     availability,
+    reminder,
     onNavigateToMatchDays,
     onNavigateToParticipants,
 }: Props) {
     const { t } = useTranslations();
     const { locale } = usePage().props;
+
+    const reminderDisabledReason = reminder.can_send
+        ? null
+        : reminder.pending_count === 0
+          ? t('Everyone has filled in their availability.')
+          : reminder.available_at !== null
+            ? t(
+                  'A reminder was already sent. You can send a new one from :time.',
+                  { time: formatDateTime(reminder.available_at, locale) },
+              )
+            : t('Reminders can only be sent for an active competition.');
 
     if (matchDays.length === 0 || availability.length === 0) {
         return (
@@ -90,6 +127,51 @@ export default function AvailabilityMatrix({
 
     return (
         <section className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-muted-foreground text-sm">
+                    {reminderDisabledReason}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                    {reminder.can_send ? (
+                        <ConfirmDialog
+                            trigger={
+                                <Button variant="outline" size="sm">
+                                    <BellRing />
+                                    {t('Send reminder')}
+                                </Button>
+                            }
+                            title={t('Send reminder?')}
+                            description={t(
+                                'This emails the :count participants who have not filled in their availability yet.',
+                                { count: reminder.pending_count },
+                            )}
+                            action={CompetitionAvailabilityReminderController.form(
+                                competitionId,
+                            )}
+                            confirmLabel={t('Send reminder')}
+                            confirmVariant="default"
+                        />
+                    ) : (
+                        <Button variant="outline" size="sm" disabled>
+                            <BellRing />
+                            {t('Send reminder')}
+                        </Button>
+                    )}
+                    <a
+                        href={CompetitionAvailabilityExportController.url(
+                            competitionId,
+                        )}
+                        download
+                        className={cn(
+                            buttonVariants({ variant: 'outline', size: 'sm' }),
+                        )}
+                    >
+                        <Download />
+                        {t('Export CSV')}
+                    </a>
+                </div>
+            </div>
+
             <div className="rounded-xl border">
                 <Table>
                     <TableHeader>

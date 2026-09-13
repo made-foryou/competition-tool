@@ -1,7 +1,10 @@
 import { Deferred, Head, router, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import CompetitionController from '@/actions/App/Http/Controllers/CompetitionController';
-import type { AvailabilityRow } from '@/components/competitions/availability-matrix';
+import type {
+    AvailabilityReminderProps,
+    AvailabilityRow,
+} from '@/components/competitions/availability-matrix';
 import AvailabilityMatrix from '@/components/competitions/availability-matrix';
 import type { CompetitionProps } from '@/components/competitions/competition-form';
 import CompetitionForm from '@/components/competitions/competition-form';
@@ -35,6 +38,7 @@ type Props = {
     participants: ParticipantProps[];
     matchDays: MatchDayListItem[];
     availability: AvailabilityRow[];
+    availabilityReminder: AvailabilityReminderProps;
     matches?: MatchProps[];
     pendingInvitations: PendingInvitationProps[];
     settings: CompetitionSettingsProps;
@@ -89,6 +93,7 @@ export default function CompetitionsEdit({
     participants,
     matchDays,
     availability,
+    availabilityReminder,
     matches,
     pendingInvitations,
     settings,
@@ -247,8 +252,10 @@ export default function CompetitionsEdit({
 
                     <TabsContent value="availability">
                         <AvailabilityMatrix
+                            competitionId={competition.id}
                             matchDays={matchDays}
                             availability={availability}
+                            reminder={availabilityReminder}
                             onNavigateToMatchDays={() =>
                                 setActiveTab('match-days')
                             }
