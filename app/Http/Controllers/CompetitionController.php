@@ -11,6 +11,7 @@ use App\Models\Invitation;
 use App\Models\MatchDay;
 use App\Models\MatchDayAvailability;
 use App\Models\User;
+use App\Support\CompetitionSettings;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
@@ -94,6 +95,8 @@ class CompetitionController extends Controller
                     'expires_at' => $invitation->expires_at->toDateString(),
                 ])
                 ->all(),
+            'settings' => $competition->settings->toArray(),
+            'settingsLimits' => CompetitionSettings::limits(),
         ]);
     }
 

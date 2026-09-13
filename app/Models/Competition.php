@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\CompetitionStatus;
+use App\Support\CompetitionSettings;
 use Database\Factories\CompetitionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Collection;
@@ -21,11 +22,12 @@ use Illuminate\Support\Carbon;
  * @property Carbon $starts_at
  * @property Carbon|null $ends_at
  * @property CompetitionStatus $status
+ * @property CompetitionSettings $settings
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Collection<int, MatchDay> $matchDays
  */
-#[Fillable(['name', 'slug', 'description', 'location', 'starts_at', 'ends_at', 'status'])]
+#[Fillable(['name', 'slug', 'description', 'location', 'starts_at', 'ends_at', 'status', 'settings'])]
 class Competition extends Model
 {
     /** @use HasFactory<CompetitionFactory> */
@@ -94,6 +96,7 @@ class Competition extends Model
             'starts_at' => 'date',
             'ends_at' => 'date',
             'status' => CompetitionStatus::class,
+            'settings' => CompetitionSettings::class,
         ];
     }
 }

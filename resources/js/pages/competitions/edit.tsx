@@ -5,6 +5,11 @@ import type { AvailabilityRow } from '@/components/competitions/availability-mat
 import AvailabilityMatrix from '@/components/competitions/availability-matrix';
 import type { CompetitionProps } from '@/components/competitions/competition-form';
 import CompetitionForm from '@/components/competitions/competition-form';
+import type {
+    CompetitionSettingsLimits,
+    CompetitionSettingsProps,
+} from '@/components/competitions/competition-settings-form';
+import CompetitionSettingsForm from '@/components/competitions/competition-settings-form';
 import type { MatchDayListItem } from '@/components/competitions/match-day-manager';
 import MatchDayManager from '@/components/competitions/match-day-manager';
 import type {
@@ -20,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslations } from '@/hooks/use-translations';
 import { competitionStatusLabel } from '@/lib/competition-status';
 import { edit, index, update } from '@/routes/competitions';
+import { update as updateSettings } from '@/routes/competitions/settings';
 
 type Props = {
     competition: CompetitionProps;
@@ -27,9 +33,17 @@ type Props = {
     matchDays: MatchDayListItem[];
     availability: AvailabilityRow[];
     pendingInvitations: PendingInvitationProps[];
+    settings: CompetitionSettingsProps;
+    settingsLimits: CompetitionSettingsLimits;
 };
 
-const TABS = ['general', 'match-days', 'participants', 'availability'] as const;
+const TABS = [
+    'general',
+    'match-days',
+    'participants',
+    'availability',
+    'settings',
+] as const;
 
 type TabValue = (typeof TABS)[number];
 
@@ -71,6 +85,8 @@ export default function CompetitionsEdit({
     matchDays,
     availability,
     pendingInvitations,
+    settings,
+    settingsLimits,
 }: Props) {
     const { t } = useTranslations();
     const { url } = usePage();
@@ -114,20 +130,34 @@ export default function CompetitionsEdit({
                     onValueChange={(value) => setActiveTab(value as TabValue)}
                     className="gap-6"
                 >
-                    <TabsList>
-                        <TabsTrigger value="general">
-                            {t('General')}
-                        </TabsTrigger>
-                        <TabsTrigger value="match-days">
-                            {t('Match days')}
-                        </TabsTrigger>
-                        <TabsTrigger value="participants">
-                            {t('Participants')}
-                        </TabsTrigger>
-                        <TabsTrigger value="availability">
-                            {t('Availability')}
-                        </TabsTrigger>
-                    </TabsList>
+                    <div className="-mx-4 overflow-x-auto px-4">
+                        <TabsList className="w-max">
+                            <TabsTrigger value="general" className="shrink-0">
+                                {t('General')}
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="match-days"
+                                className="shrink-0"
+                            >
+                                {t('Match days')}
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="participants"
+                                className="shrink-0"
+                            >
+                                {t('Participants')}
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="availability"
+                                className="shrink-0"
+                            >
+                                {t('Availability')}
+                            </TabsTrigger>
+                            <TabsTrigger value="settings" className="shrink-0">
+                                {t('Planning')}
+                            </TabsTrigger>
+                        </TabsList>
+                    </div>
 
                     <TabsContent
                         value="general"
@@ -198,6 +228,14 @@ export default function CompetitionsEdit({
                             onNavigateToParticipants={() =>
                                 setActiveTab('participants')
                             }
+                        />
+                    </TabsContent>
+
+                    <TabsContent value="settings">
+                        <CompetitionSettingsForm
+                            settings={settings}
+                            limits={settingsLimits}
+                            action={updateSettings(competition.id).url}
                         />
                     </TabsContent>
                 </Tabs>

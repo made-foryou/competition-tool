@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\PasskeyChallengeController;
 use App\Http\Controllers\Auth\TwoFactorSetupController;
 use App\Http\Controllers\CompetitionController;
 use App\Http\Controllers\CompetitionParticipantController;
+use App\Http\Controllers\CompetitionSettingsController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MatchDayController;
 use App\Http\Controllers\MatchDayFieldController;
@@ -56,6 +57,9 @@ Route::middleware(['auth', 'verified', EnsureUserIsAdmin::class])->group(functio
         ->name('competitions.')
         ->scopeBindings()
         ->group(function () {
+            Route::put('settings', CompetitionSettingsController::class)
+                ->name('settings.update');
+
             Route::post('match-days', [MatchDayController::class, 'store'])
                 ->name('match-days.store');
             Route::get('match-days/{matchDay}/edit', [MatchDayController::class, 'edit'])
