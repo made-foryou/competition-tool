@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Competitions\SyncCompetitionMatches;
+use App\Concerns\SummarizesAvailability;
 use App\Concerns\SummarizesMatchDay;
+use App\Enums\CompetitionStatus;
 use App\Http\Requests\Competitions\IndexCompetitionRequest;
 use App\Http\Requests\Competitions\StoreCompetitionRequest;
 use App\Http\Requests\Competitions\UpdateCompetitionRequest;
@@ -11,18 +13,16 @@ use App\Models\Competition;
 use App\Models\CompetitionMatch;
 use App\Models\Invitation;
 use App\Models\MatchDay;
-use App\Models\MatchDayAvailability;
 use App\Models\User;
 use App\Support\CompetitionSettings;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class CompetitionController extends Controller
 {
-    use SummarizesMatchDay;
+    use SummarizesAvailability, SummarizesMatchDay;
 
     public function index(IndexCompetitionRequest $request): Response
     {
@@ -80,6 +80,7 @@ class CompetitionController extends Controller
                 ])
                 ->all(),
             'availability' => $this->availabilityRows($competition),
+            'availabilityReminder' => $this->availabilityReminderProps($competition),
             'matches' => Inertia::defer(fn (): array => $this->matchRows($competition)),
             'matchDays' => $competition->matchDays()
                 ->withCount('fields')
@@ -130,41 +131,6 @@ class CompetitionController extends Controller
     }
 
     /**
-     * Per deelnemer op welke speeldagen hij beschikbaar is, plus of hij het
-     * formulier uberhaupt al heeft ingediend.
-     *
-     * @return list<array{id: int, name: string, submitted: bool, match_day_ids: list<int>}>
-     */
-    protected function availabilityRows(Competition $competition): array
-    {
-        $matchDayIds = $competition->matchDays()->pluck('id');
-
-        $availableByUser = MatchDayAvailability::query()
-            ->whereIn('match_day_id', $matchDayIds)
-            ->get()
-            ->groupBy('user_id');
-
-        $submittedUserIds = DB::table('competition_user')
-            ->where('competition_id', $competition->id)
-            ->whereNotNull('availability_submitted_at')
-            ->pluck('user_id')
-            ->all();
-
-        return array_values($competition->participants()
-            ->orderByRaw('COALESCE(NULLIF(users.nickname, ?), users.name)', [''])
-            ->get()
-            ->map(fn (User $user): array => [
-                'id' => $user->id,
-                'name' => $user->display_name,
-                'submitted' => in_array($user->id, $submittedUserIds, true),
-                'match_day_ids' => array_values($availableByUser->get($user->id, collect())
-                    ->pluck('match_day_id')
-                    ->all()),
-            ])
-            ->all());
-    }
-
-    /**
      * De wedstrijdenlijst van de competitie, canoniek geordend op id. Wordt
      * automatisch gesynchroniseerd met de deelnemerslijst; er is dus geen
      * generate-actie voor deze props. De is_participant-vlaggen laten de UI
@@ -190,6 +156,47 @@ class CompetitionController extends Controller
                 'status' => $match->status->value,
             ])
             ->all());
+    }
+
+    /**
+     * De staat van de beschikbaarheidsherinnering voor de beheerder: hoeveel
+     * deelnemers nog moeten invullen, of er nu verstuurd mag worden en zo niet,
+     * waarom niet.
+     *
+     * De server bepaalt de reden, zodat het scherm geen eigen afleiding hoeft
+     * te maken die in een andere volgorde uitkomt dan de server. `blocked_reason`
+     * volgt daarom exact de volgorde van de guards in
+     * `CompetitionAvailabilityReminderController`: eerst de status, dan de
+     * speeldagen, dan het venster van 24 uur, dan de openstaande deelnemers.
+     * Wijkt die volgorde hier af, dan toont het scherm een andere reden dan de
+     * melding die de beheerder krijgt zodra hij op de knop drukt.
+     *
+     * `available_at` is alleen gevuld bij `'window'` en is bewust een
+     * ISO-string en geen kant-en-klare zin: de frontend formatteert het moment
+     * zelf in de tijdzone van de beheerder. De server heeft geen tijdzone van
+     * de beheerder en zou hier UTC tonen.
+     *
+     * @return array{pending_count: int, can_send: bool, available_at: string|null, blocked_reason: 'inactive'|'no_match_days'|'window'|'none_pending'|null}
+     */
+    protected function availabilityReminderProps(Competition $competition): array
+    {
+        $pendingCount = $this->pendingAvailabilityParticipantsQuery($competition)->count();
+        $availableAt = $competition->availabilityReminderAvailableAt();
+
+        $blockedReason = match (true) {
+            $competition->status !== CompetitionStatus::Active => 'inactive',
+            $competition->matchDays()->exists() === false => 'no_match_days',
+            $competition->availabilityReminderWindowIsOpen() === false => 'window',
+            $pendingCount === 0 => 'none_pending',
+            default => null,
+        };
+
+        return [
+            'pending_count' => $pendingCount,
+            'can_send' => $blockedReason === null,
+            'available_at' => $availableAt?->toIso8601String(),
+            'blocked_reason' => $blockedReason,
+        ];
     }
 
     /**

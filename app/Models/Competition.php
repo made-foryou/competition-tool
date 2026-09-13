@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\CompetitionStatus;
 use App\Enums\CompetitionType;
 use App\Support\CompetitionSettings;
+use Carbon\CarbonInterface;
 use Database\Factories\CompetitionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Collection;
@@ -25,6 +26,7 @@ use Illuminate\Support\Carbon;
  * @property CompetitionStatus $status
  * @property CompetitionType $type
  * @property CompetitionSettings $settings
+ * @property Carbon|null $availability_reminder_sent_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Collection<int, MatchDay> $matchDays
@@ -63,6 +65,55 @@ class Competition extends Model
         'user',
         'welcome',
     ];
+
+    /**
+     * Het anti-spamvenster per competitie: na het versturen van een
+     * beschikbaarheidsherinnering mag er dit aantal uren lang geen nieuwe
+     * ronde verstuurd worden.
+     */
+    public const int AVAILABILITY_REMINDER_INTERVAL_HOURS = 24;
+
+    /**
+     * Het moment waarop er weer een beschikbaarheidsherinnering verstuurd mag
+     * worden, of `null` wanneer dat nu al mag — dus wanneer er nog nooit een
+     * herinnering is verstuurd of het venster inmiddels verstreken is.
+     *
+     * `availability_reminder_sent_at` staat bewust niet in het `#[Fillable]`-
+     * attribuut: die timestamp wordt uitsluitend door de verzendactie gezet en
+     * nooit via mass assignment vanuit een request.
+     *
+     * Het retourtype is `CarbonInterface` en niet `Carbon`: de applicatie zet
+     * met `Date::use(CarbonImmutable::class)` alle datumcasts op
+     * `CarbonImmutable`, en dat is geen subklasse van `Illuminate\Support\Carbon`.
+     */
+    public function availabilityReminderAvailableAt(): ?CarbonInterface
+    {
+        if ($this->availability_reminder_sent_at === null) {
+            return null;
+        }
+
+        $availableAt = $this->availability_reminder_sent_at->copy()
+            ->addHours(self::AVAILABILITY_REMINDER_INTERVAL_HOURS);
+
+        if ($availableAt->isPast()) {
+            return null;
+        }
+
+        return $availableAt;
+    }
+
+    /**
+     * Of het anti-spamvenster van 24 uur op dit moment open staat.
+     *
+     * Dit zegt uitsluitend iets over het tijdvenster: niet over de status van
+     * de competitie, of er speeldagen zijn, en niet of er überhaupt nog
+     * deelnemers openstaan. Die voorwaarden staan als aparte checks in
+     * CompetitionAvailabilityReminderController.
+     */
+    public function availabilityReminderWindowIsOpen(): bool
+    {
+        return $this->availabilityReminderAvailableAt() === null;
+    }
 
     /**
      * @return BelongsToMany<User, $this>
@@ -109,6 +160,7 @@ class Competition extends Model
             'status' => CompetitionStatus::class,
             'type' => CompetitionType::class,
             'settings' => CompetitionSettings::class,
+            'availability_reminder_sent_at' => 'datetime',
         ];
     }
 }
