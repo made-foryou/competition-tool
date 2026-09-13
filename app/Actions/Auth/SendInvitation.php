@@ -33,14 +33,16 @@ class SendInvitation
 
         $plainToken = Str::random(64);
 
-        $invitation = Invitation::create([
+        $invitation = Invitation::query()->make([
             'email' => $email,
-            'token' => hash('sha256', $plainToken),
             'invited_by' => $inviter?->id,
             'competition_id' => $competition?->id,
             'role' => $role,
             'expires_at' => now()->addDays($this->expiresAfterDays),
         ]);
+
+        // Token is bewust niet mass-assignable, dus expliciet zetten met forceFill().
+        $invitation->forceFill(['token' => hash('sha256', $plainToken)])->save();
 
         Notification::route('mail', $email)
             ->notify(new InvitationNotification($invitation, $plainToken));

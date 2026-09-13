@@ -64,3 +64,26 @@ test('an admin invitation does not touch a pending participant invitation for th
 
     Notification::assertSentOnDemandTimes(InvitationNotification::class, 2);
 });
+
+test('token and accepted_at are not mass-assignable on invitation', function () {
+    $invitation = (new Invitation)->fill([
+        'email' => 'deelnemer@example.com',
+        'token' => 'gekozen-token',
+        'accepted_at' => now(),
+    ]);
+
+    expect($invitation->getAttributes())->toHaveKey('email')
+        ->and($invitation->getAttributes())->not->toHaveKey('token')
+        ->and($invitation->getAttributes())->not->toHaveKey('accepted_at');
+});
+
+test('handle stores the hashed token and leaves accepted_at null', function () {
+    Notification::fake();
+
+    $plainToken = app(SendInvitation::class)->handle('deelnemer@example.com', UserRole::Participant);
+
+    $invitation = Invitation::query()->where('email', 'deelnemer@example.com')->firstOrFail();
+
+    expect($invitation->token)->toBe(hash('sha256', $plainToken))
+        ->and($invitation->accepted_at)->toBeNull();
+});
