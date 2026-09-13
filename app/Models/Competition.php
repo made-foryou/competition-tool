@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\CompetitionStatus;
 use App\Enums\CompetitionType;
 use App\Support\CompetitionSettings;
+use Carbon\CarbonInterface;
 use Database\Factories\CompetitionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Collection;
@@ -80,8 +81,12 @@ class Competition extends Model
      * `availability_reminder_sent_at` staat bewust niet in het `#[Fillable]`-
      * attribuut: die timestamp wordt uitsluitend door de verzendactie gezet en
      * nooit via mass assignment vanuit een request.
+     *
+     * Het retourtype is `CarbonInterface` en niet `Carbon`: de applicatie zet
+     * met `Date::use(CarbonImmutable::class)` alle datumcasts op
+     * `CarbonImmutable`, en dat is geen subklasse van `Illuminate\Support\Carbon`.
      */
-    public function availabilityReminderAvailableAt(): ?Carbon
+    public function availabilityReminderAvailableAt(): ?CarbonInterface
     {
         if ($this->availability_reminder_sent_at === null) {
             return null;
