@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Actions\Competitions\SyncCompetitionMatches;
 use App\Concerns\SummarizesAvailability;
 use App\Concerns\SummarizesMatchDay;
+use App\Enums\CompetitionStatus;
 use App\Http\Requests\Competitions\IndexCompetitionRequest;
 use App\Http\Requests\Competitions\StoreCompetitionRequest;
 use App\Http\Requests\Competitions\UpdateCompetitionRequest;
@@ -79,6 +80,7 @@ class CompetitionController extends Controller
                 ])
                 ->all(),
             'availability' => $this->availabilityRows($competition),
+            'availabilityReminder' => $this->availabilityReminderProps($competition),
             'matches' => Inertia::defer(fn (): array => $this->matchRows($competition)),
             'matchDays' => $competition->matchDays()
                 ->withCount('fields')
@@ -154,6 +156,30 @@ class CompetitionController extends Controller
                 'status' => $match->status->value,
             ])
             ->all());
+    }
+
+    /**
+     * De staat van de beschikbaarheidsherinnering voor de beheerder: hoeveel
+     * deelnemers nog moeten invullen, of er nu verstuurd mag worden en zo niet,
+     * vanaf wanneer weer wel.
+     *
+     * `available_at` is bewust een ISO-string en geen kant-en-klare zin: de
+     * frontend formatteert het moment zelf in de tijdzone van de beheerder.
+     *
+     * @return array{pending_count: int, can_send: bool, available_at: string|null}
+     */
+    protected function availabilityReminderProps(Competition $competition): array
+    {
+        $pendingCount = $this->pendingAvailabilityParticipants($competition)->count();
+        $availableAt = $competition->availabilityReminderAvailableAt();
+
+        return [
+            'pending_count' => $pendingCount,
+            'can_send' => $competition->status === CompetitionStatus::Active
+                && $pendingCount > 0
+                && $availableAt === null,
+            'available_at' => $availableAt?->toIso8601String(),
+        ];
     }
 
     /**

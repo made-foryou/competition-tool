@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\InvitationController;
 use App\Http\Controllers\Auth\PasskeyChallengeController;
 use App\Http\Controllers\Auth\TwoFactorSetupController;
+use App\Http\Controllers\CompetitionAvailabilityReminderController;
 use App\Http\Controllers\CompetitionController;
 use App\Http\Controllers\CompetitionInvitationController;
 use App\Http\Controllers\CompetitionParticipantController;
@@ -74,6 +75,14 @@ Route::middleware(['auth', 'verified', EnsureUserIsAdmin::class])->group(functio
             Route::post('invitations/{invitation}/resend', [CompetitionInvitationController::class, 'resend'])
                 ->middleware('throttle:6,1')
                 ->name('invitations.resend');
+
+            // Throttle omdat dit endpoint een ronde herinneringsmails in gang
+            // zet: het 24-uursvenster op de competitie dekt herhaald verzenden
+            // al af, maar de limiet houdt ook het aantal mislukte pogingen (en
+            // dus queries) bij doorklikken in toom.
+            Route::post('availability/reminders', CompetitionAvailabilityReminderController::class)
+                ->middleware('throttle:6,1')
+                ->name('availability.reminders');
 
             Route::put('settings', CompetitionSettingsController::class)
                 ->name('settings.update');
