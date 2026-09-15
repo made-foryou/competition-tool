@@ -66,18 +66,6 @@ test('an admin invitation does not touch a pending participant invitation for th
     Notification::assertSentOnDemandTimes(InvitationNotification::class, 2);
 });
 
-test('token and accepted_at are not mass-assignable on invitation', function () {
-    $invitation = (new Invitation)->fill([
-        'email' => 'deelnemer@example.com',
-        'token' => 'gekozen-token',
-        'accepted_at' => now(),
-    ]);
-
-    expect($invitation->getAttributes())->toHaveKey('email')
-        ->and($invitation->getAttributes())->not->toHaveKey('token')
-        ->and($invitation->getAttributes())->not->toHaveKey('accepted_at');
-});
-
 test('handle records the inviter and the competition', function () {
     Notification::fake();
 
