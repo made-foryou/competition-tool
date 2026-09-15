@@ -35,7 +35,9 @@ class CompetitionRegistrationController extends Controller
      * Alleen actieve competities tonen het inschrijfformulier. Een concept-
      * competitie ("upcoming", alleen zichtbaar voor admins) en een afgeronde
      * competitie ("closed") krijgen dezelfde pagina zonder speeldagen of
-     * wachtwoordregels, met een per staat passende uitleg.
+     * wachtwoordregels, met een per staat passende uitleg. Een ingelogde
+     * gebruiker krijgt altijd een returnUrl mee, ongeacht de registratiestaat,
+     * zodat de pagina nooit doodloopt.
      */
     public function show(Request $request, Competition $competition): Response|RedirectResponse
     {
@@ -57,13 +59,16 @@ class CompetitionRegistrationController extends Controller
             'competitionName' => $competition->name,
             'competitionSlug' => $competition->slug,
             'authenticated' => $user !== null,
+            'account' => $user !== null
+                ? ['name' => $user->display_name, 'email' => $user->email]
+                : null,
             'registrationState' => $registrationState,
-            // Zonder uitweg is de gesloten pagina doodlopend voor wie al
-            // ingelogd is: de competitie-login stuurt hem terug naar een
-            // dashboard waar hij geen deelnemer van is.
-            'returnUrl' => $isOpen || $user === null
-                ? null
-                : $this->defaultUrlFor($user),
+            // Zonder uitweg is de pagina doodlopend voor wie al ingelogd is:
+            // hij belandt hier ook via een oude link of doordat hij zijn
+            // koppeling met de competitie kwijt is, en de competitie-login
+            // stuurt hem terug naar een dashboard waar hij geen deelnemer van
+            // is.
+            'returnUrl' => $user === null ? null : $this->defaultUrlFor($user),
             'matchDays' => $isOpen
                 ? $competition->matchDays()
                     ->get()

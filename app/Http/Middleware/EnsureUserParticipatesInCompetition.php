@@ -46,10 +46,10 @@ class EnsureUserParticipatesInCompetition
     }
 
     /**
-     * Een omleiding op een PUT/PATCH/DELETE hoort 303 te zijn, anders mag de
-     * client zijn methode meenemen naar de GET-route waar hij op uitkomt.
-     * Inertia corrigeert dat alleen voor zijn eigen requests, dus zetten we de
-     * status hier zelf.
+     * Een omleiding op een niet-veilige methode (POST, PUT, PATCH, DELETE)
+     * hoort 303 te zijn, anders mag de client zijn methode meenemen naar de
+     * GET-route waar hij op uitkomt. Inertia corrigeert dat alleen voor zijn
+     * eigen requests, dus zetten we de status hier zelf.
      */
     private function redirectTo(Request $request, string $route, Competition $competition): RedirectResponse
     {

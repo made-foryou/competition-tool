@@ -7,6 +7,7 @@ use App\Actions\Competitions\SyncCompetitionMatches;
 use App\Enums\UserRole;
 use App\Http\Requests\Competitions\StoreCompetitionParticipantRequest;
 use App\Models\Competition;
+use App\Models\MatchDay;
 use App\Models\MatchDayAvailability;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -75,7 +76,7 @@ class CompetitionParticipantController extends Controller
 
             MatchDayAvailability::query()
                 ->where('user_id', $participant->id)
-                ->whereIn('match_day_id', $competition->matchDays()->select('id'))
+                ->whereIn('match_day_id', MatchDay::query()->where('competition_id', $competition->id)->select('id'))
                 ->delete();
 
             $syncCompetitionMatches->handle($competition);

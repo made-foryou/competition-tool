@@ -10,6 +10,7 @@ import type { MatchDayOption } from '@/components/match-day-checklist';
 import MatchDayChecklist from '@/components/match-day-checklist';
 import { Spinner } from '@/components/ui/spinner';
 import { useTranslations } from '@/hooks/use-translations';
+import { logout } from '@/routes';
 import { login } from '@/routes/competition';
 import { store } from '@/routes/competition/register';
 
@@ -19,6 +20,7 @@ type Props = {
     competitionName: string;
     competitionSlug: string;
     authenticated: boolean;
+    account: { name: string; email: string } | null;
     registrationState: RegistrationState;
     returnUrl: string | null;
     matchDays: MatchDayOption[];
@@ -35,6 +37,7 @@ export default function CompetitionRegister({
     competitionName,
     competitionSlug,
     authenticated,
+    account,
     registrationState,
     returnUrl,
     matchDays,
@@ -127,7 +130,10 @@ export default function CompetitionRegister({
                         style={{ '--made-delay': '0.82s' }}
                     >
                         {authenticated
-                            ? t('Let us know which match days you can attend.')
+                            ? t(
+                                  'You are not taking part in :competition yet. Sign up below and let us know which match days you can attend.',
+                                  { competition: competitionName },
+                              )
                             : t(
                                   'Create your account and let us know which match days you can attend.',
                               )}
@@ -302,6 +308,47 @@ export default function CompetitionRegister({
                                                 )}
                                             </Link>
                                         </p>
+                                    )}
+
+                                    {authenticated && account && (
+                                        <div className="text-console-text/65 flex flex-col gap-1 text-center text-sm">
+                                            <p>
+                                                {t(
+                                                    'Signed in as :name (:email).',
+                                                    {
+                                                        name: account.name,
+                                                        email: account.email,
+                                                    },
+                                                )}
+                                            </p>
+                                            <div className="flex items-center justify-center gap-3">
+                                                {returnUrl && (
+                                                    <Link
+                                                        href={returnUrl}
+                                                        className="hover:text-console-text underline"
+                                                    >
+                                                        {t(
+                                                            'Back to your dashboard',
+                                                        )}
+                                                    </Link>
+                                                )}
+                                                <Form
+                                                    action={logout().url}
+                                                    method="post"
+                                                >
+                                                    {() => (
+                                                        <button
+                                                            type="submit"
+                                                            className="hover:text-console-text underline"
+                                                        >
+                                                            {t(
+                                                                'Not you? Log out',
+                                                            )}
+                                                        </button>
+                                                    )}
+                                                </Form>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             </>
