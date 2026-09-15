@@ -39,7 +39,9 @@ test('a context foreign key is not mass-assignable', function (string $model, st
  * Hetzelfde net voor attributen die geen foreign key zijn maar wel rechten of
  * procesvoortgang bepalen. `ProfileController` vult het profiel met
  * `fill($request->validated())`, dus een rol die per ongeluk fillable wordt,
- * is direct een escalatie naar beheerder.
+ * is direct een escalatie naar beheerder. Een uitnodigingstoken dat de
+ * genodigde zelf mag meesturen, is hetzelfde probleem een laag verderop: de
+ * sleutel waarmee de uitnodiging wordt opgezocht, komt dan uit de request.
  */
 test('a privilege or process attribute is not mass-assignable', function (string $model, string $attribute, mixed $value) {
     expect(fn () => (new $model)->fill([$attribute => $value]))
@@ -47,4 +49,6 @@ test('a privilege or process attribute is not mass-assignable', function (string
 })->with([
     'a user cannot promote themselves' => [User::class, 'role', UserRole::Admin],
     'a reminder timestamp is set by the send action only' => [Competition::class, 'availability_reminder_sent_at', '2026-01-01 00:00:00'],
+    'an invitee cannot choose their own token' => [Invitation::class, 'token', 'gekozen-token'],
+    'an invitation is marked accepted by the accept flow only' => [Invitation::class, 'accepted_at', '2026-01-01 00:00:00'],
 ]);

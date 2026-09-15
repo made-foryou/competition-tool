@@ -6,7 +6,6 @@ use App\Models\Competition;
 use App\Models\Invitation;
 use App\Models\User;
 use App\Notifications\InvitationNotification;
-use Illuminate\Database\Eloquent\MassAssignmentException;
 use Illuminate\Support\Facades\Notification;
 
 test('a second invitation for the same email but a different competition leaves the first intact', function () {
@@ -65,14 +64,6 @@ test('an admin invitation does not touch a pending participant invitation for th
     expect(Invitation::query()->where('email', 'dubbelrol@example.com')->count())->toBe(2);
 
     Notification::assertSentOnDemandTimes(InvitationNotification::class, 2);
-});
-
-test('token and accepted_at are not mass-assignable on invitation', function () {
-    expect(fn () => (new Invitation)->fill([
-        'email' => 'deelnemer@example.com',
-        'token' => 'gekozen-token',
-        'accepted_at' => now(),
-    ]))->toThrow(MassAssignmentException::class, 'token, accepted_at');
 });
 
 test('handle records the inviter and the competition', function () {
