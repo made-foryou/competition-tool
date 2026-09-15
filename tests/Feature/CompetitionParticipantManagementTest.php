@@ -3,6 +3,8 @@
 use App\Enums\UserRole;
 use App\Models\Competition;
 use App\Models\Invitation;
+use App\Models\MatchDay;
+use App\Models\MatchDayAvailability;
 use App\Models\User;
 use App\Notifications\InvitationNotification;
 use Illuminate\Support\Facades\Notification;
@@ -109,6 +111,25 @@ test('a participant can be detached', function () {
 
     expect($competition->participants()->count())->toBe(0)
         ->and(User::query()->whereKey($user->id)->exists())->toBeTrue();
+});
+
+test('detaching a participant removes their availability for that competition', function () {
+    $competition = Competition::factory()->create();
+    $matchDay = MatchDay::factory()->create(['competition_id' => $competition]);
+    $other = Competition::factory()->create();
+    $otherMatchDay = MatchDay::factory()->create(['competition_id' => $other]);
+
+    $user = User::factory()->participant()->create();
+    $competition->participants()->attach($user);
+    $other->participants()->attach($user);
+
+    MatchDayAvailability::create(['user_id' => $user->id, 'match_day_id' => $matchDay->id]);
+    MatchDayAvailability::create(['user_id' => $user->id, 'match_day_id' => $otherMatchDay->id]);
+
+    $this->delete(route('competitions.participants.destroy', [$competition, $user]))
+        ->assertRedirect();
+
+    expect($user->matchDayAvailabilities()->pluck('match_day_id')->all())->toBe([$otherMatchDay->id]);
 });
 
 test('participants cannot manage the participant list', function () {

@@ -7,6 +7,7 @@ use App\Actions\Competitions\SyncCompetitionMatches;
 use App\Enums\UserRole;
 use App\Http\Requests\Competitions\StoreCompetitionParticipantRequest;
 use App\Models\Competition;
+use App\Models\MatchDayAvailability;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
@@ -62,10 +63,20 @@ class CompetitionParticipantController extends Controller
         return back();
     }
 
+    /**
+     * De beschikbaarheid van de deelnemer gaat mee met de ontkoppeling.
+     * Anders staan er bij opnieuw toevoegen vinkjes op speeldagen zonder dat
+     * de deelnemer ooit iets heeft ingediend.
+     */
     public function destroy(Competition $competition, User $participant, SyncCompetitionMatches $syncCompetitionMatches): RedirectResponse
     {
         DB::transaction(function () use ($competition, $participant, $syncCompetitionMatches): void {
             $competition->participants()->detach($participant);
+
+            MatchDayAvailability::query()
+                ->where('user_id', $participant->id)
+                ->whereIn('match_day_id', $competition->matchDays()->select('id'))
+                ->delete();
 
             $syncCompetitionMatches->handle($competition);
         });
