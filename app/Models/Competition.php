@@ -124,6 +124,14 @@ class Competition extends Model
     }
 
     /**
+     * Of deze gebruiker aan de competitie gekoppeld is als deelnemer.
+     */
+    public function hasParticipant(User $user): bool
+    {
+        return $this->participants()->whereKey($user->getKey())->exists();
+    }
+
+    /**
      * @return HasMany<Invitation, $this>
      */
     public function invitations(): HasMany

@@ -4,6 +4,7 @@ use App\Models\Competition;
 use App\Models\MatchDay;
 use App\Models\MatchDayAvailability;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
@@ -104,4 +105,105 @@ test('guests are redirected to the competition login page', function () {
 
     $this->get(route('competition.availability.edit', $this->competition))
         ->assertRedirect(route('competition.login', $this->competition));
+});
+
+test('a participant of a finished competition can no longer change their availability', function () {
+    $competition = Competition::factory()->finished()->create();
+    $matchDay = MatchDay::factory()->create(['competition_id' => $competition]);
+    $user = User::factory()->participant()->create();
+    $submittedAt = now()->subWeek();
+    $competition->participants()->attach($user, ['availability_submitted_at' => $submittedAt]);
+
+    $this->actingAs($user)
+        ->put(route('competition.availability.update', $competition), [
+            'match_days' => [$matchDay->id],
+        ])
+        ->assertForbidden();
+
+    expect(MatchDayAvailability::query()->where('user_id', $user->id)->count())->toBe(0)
+        ->and(DB::table('competition_user')
+            ->where('competition_id', $competition->id)
+            ->where('user_id', $user->id)
+            ->value('availability_submitted_at'))
+        ->toEqual($submittedAt->toDateTimeString());
+});
+
+test('an admin who is a participant of a draft competition cannot save their availability', function () {
+    $competition = Competition::factory()->draft()->create();
+    $admin = User::factory()->withTwoFactor()->create();
+    $competition->participants()->attach($admin);
+
+    $this->actingAs($admin)
+        ->put(route('competition.availability.update', $competition), [
+            'match_days' => [],
+        ])
+        ->assertForbidden();
+
+    expect(MatchDayAvailability::query()->where('user_id', $admin->id)->count())->toBe(0);
+});
+
+test('an admin who does not participate in an active competition cannot save their availability', function () {
+    $competition = Competition::factory()->create();
+    $matchDay = MatchDay::factory()->create(['competition_id' => $competition]);
+    $admin = User::factory()->withTwoFactor()->create();
+
+    // De middleware laat een niet-gekoppelde admin door (die mag meekijken),
+    // terwijl een niet-gekoppelde deelnemer daar al een 303 naar de
+    // inschrijfpagina krijgt -- zie CompetitionAccessTest. Dat de admin hier
+    // wél op de pagina komt maar op de 403 uit `authorize()` stuit, is dus
+    // geen tegenspraak: de middleware regelt toegang tot de pagina, de
+    // FormRequest regelt of er geschreven mag worden.
+    $this->actingAs($admin)
+        ->put(route('competition.availability.update', $competition), [
+            'match_days' => [$matchDay->id],
+        ])
+        ->assertForbidden();
+
+    expect(MatchDayAvailability::query()->where('user_id', $admin->id)->count())->toBe(0);
+});
+
+test('a finished competition shows the availability page as closed', function () {
+    $competition = Competition::factory()->finished()->create();
+    $user = User::factory()->participant()->create();
+    $competition->participants()->attach($user, ['availability_submitted_at' => now()]);
+
+    $this->actingAs($user)
+        ->get(route('competition.availability.edit', $competition))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('availabilityState', 'closed'),
+        );
+});
+
+test('a non-participating admin sees the availability page as not participating', function () {
+    $competition = Competition::factory()->create();
+    $admin = User::factory()->withTwoFactor()->create();
+
+    $this->actingAs($admin)
+        ->get(route('competition.availability.edit', $competition))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('availabilityState', 'not-participating'),
+        );
+});
+
+test('a draft competition shows the availability page as upcoming', function () {
+    $competition = Competition::factory()->draft()->create();
+    $admin = User::factory()->withTwoFactor()->create();
+    $competition->participants()->attach($admin);
+
+    $this->actingAs($admin)
+        ->get(route('competition.availability.edit', $competition))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('availabilityState', 'upcoming'),
+        );
+});
+
+test('a participant of the active competition sees the availability page as open', function () {
+    $this->get(route('competition.availability.edit', $this->competition))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('availabilityState', 'open'),
+        );
 });
