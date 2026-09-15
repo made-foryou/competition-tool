@@ -238,6 +238,12 @@ class CompetitionController extends Controller
             'ends_at' => $competition->ends_at?->toDateString(),
             'status' => $competition->status->value,
             'type' => $competition->type->value,
+            // Of de deelnemerslinks nog ergens toe leiden. Beide regels staan
+            // op de enum, zodat het scherm dezelfde grens hanteert als de
+            // routes zelf: inschrijven kan alleen op een actieve competitie
+            // en een concept-competitie geeft deelnemers een 404.
+            'allows_sign_up' => $competition->status->allowsSignUp(),
+            'is_visible_to_participants' => $competition->status->isVisibleToParticipants(),
         ];
     }
 }

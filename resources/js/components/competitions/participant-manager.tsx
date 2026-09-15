@@ -46,6 +46,10 @@ export type PendingInvitationProps = {
 type Props = {
     competitionId: number;
     competitionSlug: string;
+    /** Of de inschrijfpagina aanmeldingen aanneemt: alleen op een actieve competitie. */
+    allowsSignUp: boolean;
+    /** Of deelnemers de competitie kunnen zien: een concept geeft hun een 404. */
+    isVisibleToParticipants: boolean;
     participants: ParticipantProps[];
     pendingInvitations: PendingInvitationProps[];
 };
@@ -80,6 +84,8 @@ function normalize(value: string): string {
 export default function ParticipantManager({
     competitionId,
     competitionSlug,
+    allowsSignUp,
+    isVisibleToParticipants,
     participants,
     pendingInvitations,
 }: Props) {
@@ -185,11 +191,26 @@ export default function ParticipantManager({
                 <h3 className="text-sm font-medium">
                     {t('Links for participants')}
                 </h3>
-                <CopyableLink
-                    label={t('Registration link')}
-                    url={registrationUrl}
-                />
-                <CopyableLink label={t('Login link')} url={loginUrl} />
+                {allowsSignUp && (
+                    <CopyableLink
+                        label={t('Registration link')}
+                        url={registrationUrl}
+                    />
+                )}
+                {isVisibleToParticipants && (
+                    <CopyableLink label={t('Login link')} url={loginUrl} />
+                )}
+                {!allowsSignUp && (
+                    <p className="text-muted-foreground text-sm">
+                        {isVisibleToParticipants
+                            ? t(
+                                  'The registration link only works while the competition is active.',
+                              )
+                            : t(
+                                  'These links only work once the competition is active. A draft competition is not visible to participants.',
+                              )}
+                    </p>
+                )}
             </div>
 
             {participants.length === 0 ? (

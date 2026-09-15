@@ -26,6 +26,18 @@ enum CompetitionStatus: string
     }
 
     /**
+     * Of deelnemers deze competitie mogen zien. Een concept-competitie is nog
+     * niet aangekondigd: de deelnemerspagina's geven daar een 404 voor
+     * iedereen behalve beheerders. Dezelfde regel bepaalt of het zinvol is om
+     * een deelnemerslink te delen -- een link naar een concept-competitie
+     * loopt voor de ontvanger dood.
+     */
+    public function isVisibleToParticipants(): bool
+    {
+        return $this !== self::Draft;
+    }
+
+    /**
      * Of een deelnemer zijn beschikbaarheid voor deze competitie nog mag
      * wijzigen -- alleen op een actieve competitie. Op een afgeronde
      * competitie zou dat de historie van een afgesloten toernooi aanpassen,

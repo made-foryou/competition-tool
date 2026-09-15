@@ -33,6 +33,8 @@ export type CompetitionProps = {
     ends_at: string | null;
     status: string;
     type: string;
+    allows_sign_up: boolean;
+    is_visible_to_participants: boolean;
 };
 
 type Props = {
@@ -194,7 +196,7 @@ export default function CompetitionForm({
                         <InputError id="status-error" message={errors.status} />
                         <p className="text-muted-foreground text-sm">
                             {t(
-                                'Draft competitions are only visible to administrators. Participants can only sign in when the competition is active.',
+                                'Draft competitions are only visible to administrators. Participants can only sign up while the competition is active.',
                             )}
                         </p>
                     </div>

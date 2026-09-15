@@ -8,6 +8,7 @@ use App\Models\MatchDayAvailability;
 use App\Models\User;
 use App\Notifications\InvitationNotification;
 use Illuminate\Support\Facades\Notification;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->actingAs(User::factory()->withTwoFactor()->create());
@@ -228,3 +229,26 @@ test('participants cannot use the lookup', function () {
         ->getJson(route('competitions.participants.lookup', [$competition, 'email' => 'iemand@example.com']))
         ->assertForbidden();
 });
+
+/**
+ * De deelnemerslinks op de beheerpagina moeten meebewegen met de status: de
+ * registratielink werkt alleen op een actieve competitie en op een concept
+ * lopen beide links voor deelnemers dood in een 404.
+ */
+test('the edit page reports which participant links still work', function (string $state, bool $allowsSignUp, bool $isVisible) {
+    $competition = $state === 'active'
+        ? Competition::factory()->create()
+        : Competition::factory()->{$state}()->create();
+
+    $this->get(route('competitions.edit', $competition))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('competition.allows_sign_up', $allowsSignUp)
+            ->where('competition.is_visible_to_participants', $isVisible)
+            ->etc(),
+        );
+})->with([
+    'draft' => ['draft', false, false],
+    'active' => ['active', true, true],
+    'finished' => ['finished', false, true],
+]);
