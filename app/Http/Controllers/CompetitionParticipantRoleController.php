@@ -55,14 +55,22 @@ class CompetitionParticipantRoleController extends Controller
 
         abort_if($participant->is($request->user()), 403);
 
-        // Bewust geen update()/mass assignment: `role` staat niet in
-        // #[Fillable] op User.
-        $participant->role = $role;
-        $participant->save();
+        $wasAdmin = $participant->isAdmin();
 
-        $message = $role === UserRole::Admin
-            ? __(':name is now an administrator.', ['name' => $participant->display_name])
-            : __(':name is no longer an administrator.', ['name' => $participant->display_name]);
+        // forceFill omdat `role` bewust niet in #[Fillable] op User staat;
+        // dat is het patroon dat de rest van de app ook gebruikt voor
+        // guarded attributen (zie SendInvitation en InvitationController).
+        $participant->forceFill(['role' => $role])->save();
+
+        // De degradatiemelding is een overgang, geen toestand: wie nooit
+        // beheerder was, is niet "geen beheerder meer". Via de UI is dat pad
+        // onbereikbaar (de knop wisselt altijd van rol), maar een herhaald of
+        // handmatig verzoek mag geen onwaarheid melden.
+        $message = match (true) {
+            $role === UserRole::Admin => __(':name is now an administrator.', ['name' => $participant->display_name]),
+            $wasAdmin => __(':name is no longer an administrator.', ['name' => $participant->display_name]),
+            default => __(':name is a participant.', ['name' => $participant->display_name]),
+        };
 
         Inertia::flash('toast', ['type' => 'success', 'message' => $message]);
 

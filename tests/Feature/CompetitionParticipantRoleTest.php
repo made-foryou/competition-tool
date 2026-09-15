@@ -31,6 +31,8 @@ test('an administrator can be demoted while another administrator remains', func
     $other = User::factory()->withTwoFactor()->create();
     $competition->participants()->attach($other);
 
+    expect($other->isAdmin())->toBeTrue();
+
     $this->patch(route('competitions.participants.role', [$competition, $other]), [
         'role' => UserRole::Participant->value,
     ])->assertRedirect()
@@ -93,7 +95,7 @@ test('an unknown role is rejected', function () {
     expect($participant->refresh()->role)->toBe(UserRole::Participant);
 });
 
-test('setting the role a participant already has succeeds without changing anything', function () {
+test('setting the role a participant already has does not claim a demotion', function () {
     $competition = Competition::factory()->create();
     $participant = User::factory()->participant()->create();
     $competition->participants()->attach($participant);
@@ -103,7 +105,7 @@ test('setting the role a participant already has succeeds without changing anyth
     ])->assertRedirect()
         ->assertInertiaFlash('toast', [
             'type' => 'success',
-            'message' => __(':name is no longer an administrator.', ['name' => $participant->display_name]),
+            'message' => __(':name is a participant.', ['name' => $participant->display_name]),
         ]);
 
     expect($participant->refresh()->role)->toBe(UserRole::Participant);

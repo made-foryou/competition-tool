@@ -51,6 +51,20 @@ type Props = {
  */
 const PAGE_SIZE = 25;
 
+/**
+ * Maakt een waarde vergelijkbaar voor de zoekfunctie: kleine letters en zonder
+ * accenten, zodat "renee" ook "Renée" vindt. De serverkant zoekt via een
+ * LIKE op een accent-ongevoelige collation, dus zonder dit zou dezelfde
+ * zoekactie zich hier anders gedragen dan in de competitielijst.
+ */
+function normalize(value: string): string {
+    return value
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '');
+}
+
 export default function ParticipantManager({
     competitionId,
     competitionSlug,
@@ -65,7 +79,7 @@ export default function ParticipantManager({
 
     /** De volledige deelnemerslijst zit in de props, dus filteren kan in de browser. */
     const filtered = useMemo(() => {
-        const term = search.trim().toLowerCase();
+        const term = normalize(search);
 
         if (term === '') {
             return participants;
@@ -73,10 +87,18 @@ export default function ParticipantManager({
 
         return participants.filter((participant) =>
             [participant.name, participant.nickname, participant.email].some(
-                (value) => value?.toLowerCase().includes(term),
+                (value) => value !== null && normalize(value).includes(term),
             ),
         );
     }, [participants, search]);
+
+    /**
+     * Staat de ingelogde beheerder zelf in de lijst? Alleen dan is het zinvol
+     * om uit te leggen waarom juist die rij geen rolknop heeft.
+     */
+    const listsCurrentUser = participants.some(
+        (participant) => participant.id === auth.user?.id,
+    );
 
     /** Een nieuwe zoekterm hoort weer bij de eerste pagina te beginnen. */
     function handleSearchChange(value: string) {
@@ -117,12 +139,20 @@ export default function ParticipantManager({
                             onChange={(event) =>
                                 handleSearchChange(event.target.value)
                             }
-                            placeholder={t('Search by name or email…')}
+                            placeholder={t(
+                                'Search by name, nickname or email…',
+                            )}
                             aria-label={t('Search participants')}
                             maxLength={100}
                             className="pl-9"
                         />
                     </div>
+
+                    {listsCurrentUser && (
+                        <p className="text-muted-foreground text-sm">
+                            {t('You cannot change your own role.')}
+                        </p>
+                    )}
 
                     {filtered.length === 0 ? (
                         <EmptyState
@@ -130,6 +160,7 @@ export default function ParticipantManager({
                             title={t('No participants match this search.')}
                             action={
                                 <Button
+                                    type="button"
                                     variant="outline"
                                     onClick={() => handleSearchChange('')}
                                 >
@@ -140,13 +171,22 @@ export default function ParticipantManager({
                         />
                     ) : (
                         <>
-                            <p className="text-muted-foreground text-sm">
-                                {pluralize(
-                                    t,
-                                    filtered.length,
-                                    ':count participant',
-                                    ':count participants',
-                                )}
+                            <p
+                                role="status"
+                                aria-live="polite"
+                                className="text-muted-foreground text-sm"
+                            >
+                                {filtered.length === participants.length
+                                    ? pluralize(
+                                          t,
+                                          filtered.length,
+                                          ':count participant',
+                                          ':count participants',
+                                      )
+                                    : t(':count of :total participants', {
+                                          count: filtered.length,
+                                          total: participants.length,
+                                      })}
                             </p>
 
                             <ul className="divide-y rounded-xl border">
@@ -167,6 +207,7 @@ export default function ParticipantManager({
                             {filtered.length > visible && (
                                 <div>
                                     <Button
+                                        type="button"
                                         variant="outline"
                                         onClick={() =>
                                             setVisible(
@@ -459,6 +500,11 @@ function ParticipantRow({
             <div className="min-w-0">
                 <p className="truncate font-medium">
                     {displayName}
+                    {isCurrentUser && (
+                        <Badge variant="outline" className="ml-2">
+                            {t('You')}
+                        </Badge>
+                    )}
                     {isAdmin && (
                         <Badge variant="secondary" className="ml-2">
                             {t('Admin')}
@@ -470,7 +516,7 @@ function ParticipantRow({
                     {participant.email}
                 </p>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:flex-nowrap">
                 {!isCurrentUser && (
                     <ConfirmDialog
                         trigger={
@@ -479,11 +525,10 @@ function ParticipantRow({
                                 size="sm"
                                 aria-label={
                                     isAdmin
-                                        ? t(
-                                              'Remove administrator rights from :name',
-                                              { name: displayName },
-                                          )
-                                        : t('Make :name an administrator', {
+                                        ? t('Remove admin rights from :name', {
+                                              name: displayName,
+                                          })
+                                        : t('Make administrator of :name', {
                                               name: displayName,
                                           })
                                 }
@@ -495,17 +540,17 @@ function ParticipantRow({
                         }
                         title={
                             isAdmin
-                                ? t('Remove administrator rights?')
+                                ? t('Remove admin rights?')
                                 : t('Make administrator?')
                         }
                         description={
                             isAdmin
                                 ? t(
-                                      ':name loses access to the management of all competitions. :name stays a participant of this competition.',
+                                      ':name loses access to the management of all competitions, not just this one. :name stays a participant here and has to submit availability again.',
                                       { name: displayName },
                                   )
                                 : t(
-                                      ':name gets access to the management of all competitions, not just this one. On their next sign-in they must set up a second factor (authenticator app or passkey). They no longer have to fill in their availability, because that only applies to participants.',
+                                      ':name gets access to the management of all competitions, not just this one. :name must set up a second factor right away — an authenticator app or a passkey — and cannot get in without it.',
                                       { name: displayName },
                                   )
                         }
@@ -513,7 +558,7 @@ function ParticipantRow({
                             competitionId,
                             participant.id,
                         ])}
-                        fields={
+                        hiddenFields={
                             <input
                                 type="hidden"
                                 name="role"

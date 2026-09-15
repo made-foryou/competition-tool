@@ -26,8 +26,8 @@ type Props = {
     confirmLabel: string;
     cancelLabel?: string;
     confirmVariant?: VariantProps<typeof buttonVariants>['variant'];
-    /** Extra formuliervelden die met de bevestiging meegestuurd worden, bijvoorbeeld een verborgen input. */
-    fields?: ReactNode;
+    /** Verborgen inputs die met de bevestiging meegestuurd worden. Ze renderen in de dialoogvoet, dus niets zichtbaars. */
+    hiddenFields?: ReactNode;
 };
 
 export default function ConfirmDialog({
@@ -38,7 +38,7 @@ export default function ConfirmDialog({
     confirmLabel,
     cancelLabel,
     confirmVariant = 'destructive',
-    fields,
+    hiddenFields,
 }: Props) {
     const { t } = useTranslations();
     const [open, setOpen] = useState(false);
@@ -65,7 +65,7 @@ export default function ConfirmDialog({
                     >
                         {({ processing }) => (
                             <>
-                                {fields}
+                                {hiddenFields}
                                 <Button
                                     type="submit"
                                     variant={confirmVariant}
