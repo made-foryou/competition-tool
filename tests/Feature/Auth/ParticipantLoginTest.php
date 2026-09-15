@@ -3,9 +3,12 @@
 use App\Http\Responses\LoginResponse;
 use App\Http\Responses\PasskeyLoginResponse;
 use App\Models\Competition;
+use App\Models\MatchDay;
+use App\Models\MatchDayAvailability;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Laravel\Fortify\Contracts\TwoFactorLoginResponse as TwoFactorLoginResponseContract;
 use Laravel\Passkeys\Contracts\PasskeyLoginResponse as PasskeyLoginResponseContract;
@@ -66,6 +69,39 @@ test('the custom login response is bound for both login contracts', function () 
 
 test('the passkey login contract is bound to its own response class', function () {
     expect(app(PasskeyLoginResponseContract::class))->toBeInstanceOf(PasskeyLoginResponse::class);
+});
+
+test('a removed participant can sign up again after logging in', function () {
+    $competition = Competition::factory()->create();
+    $matchDay = MatchDay::factory()->create(['competition_id' => $competition]);
+    $user = User::factory()->participant()->create();
+
+    $competition->participants()->attach($user);
+    MatchDayAvailability::create(['user_id' => $user->id, 'match_day_id' => $matchDay->id]);
+    $competition->participants()->detach($user);
+
+    $this->get(route('competition.login', $competition));
+
+    $this->followingRedirects()
+        ->post(route('login.store'), [
+            'email' => $user->email,
+            'password' => 'password',
+        ])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('auth/competition-register')
+            ->where('authenticated', true)
+            ->where('registrationState', 'open'),
+        );
+
+    $this->post(route('competition.register.store', $competition), [
+        'match_days' => [$matchDay->id],
+    ])->assertRedirect(route('competition.dashboard', $competition));
+
+    $this->get(route('competition.dashboard', $competition))->assertOk();
+
+    expect($user->competitions()->count())->toBe(1)
+        ->and($user->matchDayAvailabilities()->pluck('match_day_id')->all())->toBe([$matchDay->id]);
 });
 
 /**

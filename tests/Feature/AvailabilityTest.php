@@ -93,10 +93,10 @@ test('a match day of another competition is rejected', function () {
     ])->assertSessionHasErrors('match_days.0');
 });
 
-test('someone who does not participate cannot open the form', function () {
+test('someone who does not participate is sent to the registration page', function () {
     $this->actingAs(User::factory()->participant()->create())
         ->get(route('competition.availability.edit', $this->competition))
-        ->assertForbidden();
+        ->assertRedirect(route('competition.register.show', $this->competition));
 });
 
 test('guests are redirected to the competition login page', function () {
