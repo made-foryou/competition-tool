@@ -33,6 +33,8 @@ test('a context foreign key is not mass-assignable', function (string $model, st
     'match field is assigned by the generator' => [CompetitionMatch::class, 'match_day_field_id'],
     'first player is assigned by the generator' => [CompetitionMatch::class, 'first_player_id'],
     'second player is assigned by the generator' => [CompetitionMatch::class, 'second_player_id'],
+    'match start time is set by the planner' => [CompetitionMatch::class, 'starts_at'],
+    'match end time is set by the planner' => [CompetitionMatch::class, 'ends_at'],
 ]);
 
 /**
@@ -51,4 +53,6 @@ test('a privilege or process attribute is not mass-assignable', function (string
     'a reminder timestamp is set by the send action only' => [Competition::class, 'availability_reminder_sent_at', '2026-01-01 00:00:00'],
     'an invitee cannot choose their own token' => [Invitation::class, 'token', 'gekozen-token'],
     'an invitation is marked accepted by the accept flow only' => [Invitation::class, 'accepted_at', '2026-01-01 00:00:00'],
+    'a match is pinned by the move action only' => [CompetitionMatch::class, 'pinned_at', '2026-01-01 00:00:00'],
+    'a scheduling failure is recorded by the planner only' => [CompetitionMatch::class, 'scheduling_failure', 'no_capacity'],
 ]);

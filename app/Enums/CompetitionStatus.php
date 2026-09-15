@@ -54,4 +54,17 @@ enum CompetitionStatus: string
     {
         return $this === self::Active;
     }
+
+    /**
+     * Of wedstrijden van deze competitie automatisch ingepland of handmatig
+     * verplaatst mogen worden -- alleen op een actieve competitie. Een
+     * concept-competitie heeft nog geen definitieve deelnemerslijst en
+     * beschikbaarheid om op te plannen, en een afgeronde competitie is
+     * historie die niet meer verschuift. Eén regel voor alle schrijfroutes
+     * van de planning.
+     */
+    public function allowsScheduling(): bool
+    {
+        return $this === self::Active;
+    }
 }
