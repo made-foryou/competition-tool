@@ -4,7 +4,6 @@ use App\Http\Responses\LoginResponse;
 use App\Http\Responses\PasskeyLoginResponse;
 use App\Models\Competition;
 use App\Models\MatchDay;
-use App\Models\MatchDayAvailability;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -101,7 +100,7 @@ test('a removed participant can sign up again after logging in', function () {
     $user = User::factory()->participant()->create();
 
     $competition->participants()->attach($user);
-    MatchDayAvailability::create(['user_id' => $user->id, 'match_day_id' => $matchDay->id]);
+    $user->matchDayAvailabilities()->create(['match_day_id' => $matchDay->id]);
     $competition->participants()->detach($user);
 
     $this->get(route('competition.login', $competition));

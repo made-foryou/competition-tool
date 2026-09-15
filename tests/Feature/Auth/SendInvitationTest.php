@@ -78,6 +78,20 @@ test('token and accepted_at are not mass-assignable on invitation', function () 
         ->and($invitation->getAttributes())->not->toHaveKey('accepted_at');
 });
 
+test('handle records the inviter and the competition', function () {
+    Notification::fake();
+
+    $inviter = User::factory()->create();
+    $competition = Competition::factory()->create();
+
+    app(SendInvitation::class)->handle('deelnemer@example.com', UserRole::Participant, $competition, $inviter);
+
+    $invitation = Invitation::query()->where('email', 'deelnemer@example.com')->firstOrFail();
+
+    expect($invitation->invited_by)->toBe($inviter->id)
+        ->and($invitation->competition_id)->toBe($competition->id);
+});
+
 test('handle stores the hashed token and leaves accepted_at null', function () {
     Notification::fake();
 

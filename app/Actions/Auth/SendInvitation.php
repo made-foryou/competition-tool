@@ -43,14 +43,17 @@ class SendInvitation
 
             $invitation = Invitation::query()->make([
                 'email' => $email,
-                'invited_by' => $inviter?->id,
-                'competition_id' => $competition?->id,
                 'role' => $role,
                 'expires_at' => now()->addDays($this->expiresAfterDays),
             ]);
 
-            // Token is bewust niet mass-assignable, dus expliciet zetten met forceFill().
-            $invitation->forceFill(['token' => hash('sha256', $plainToken)])->save();
+            // Token, uitnodiger en competitie zijn bewust niet mass-assignable,
+            // dus die zetten we hier expliciet met forceFill().
+            $invitation->forceFill([
+                'token' => hash('sha256', $plainToken),
+                'invited_by' => $inviter?->id,
+                'competition_id' => $competition?->id,
+            ])->save();
 
             return $invitation;
         });

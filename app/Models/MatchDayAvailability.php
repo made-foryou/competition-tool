@@ -21,7 +21,7 @@ use Illuminate\Support\Carbon;
  * @property-read MatchDay $matchDay
  * @property-read User $user
  */
-#[Fillable(['match_day_id', 'user_id'])]
+#[Fillable(['match_day_id'])]
 class MatchDayAvailability extends Model
 {
     /** @use HasFactory<MatchDayAvailabilityFactory> */

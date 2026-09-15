@@ -24,7 +24,7 @@ use Illuminate\Support\Carbon;
  * @property-read Competition $competition
  * @property-read Collection<int, MatchDayField> $fields
  */
-#[Fillable(['competition_id', 'date', 'starts_at', 'ends_at'])]
+#[Fillable(['date', 'starts_at', 'ends_at'])]
 class MatchDay extends Model
 {
     /** @use HasFactory<MatchDayFactory> */

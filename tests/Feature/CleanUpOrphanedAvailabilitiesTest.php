@@ -2,7 +2,6 @@
 
 use App\Models\Competition;
 use App\Models\MatchDay;
-use App\Models\MatchDayAvailability;
 use App\Models\User;
 
 test('the cleanup migration only removes availability of unlinked users', function () {
@@ -14,8 +13,8 @@ test('the cleanup migration only removes availability of unlinked users', functi
     $user = User::factory()->participant()->create();
     $linked->participants()->attach($user);
 
-    MatchDayAvailability::create(['user_id' => $user->id, 'match_day_id' => $linkedDay->id]);
-    MatchDayAvailability::create(['user_id' => $user->id, 'match_day_id' => $unlinkedDay->id]);
+    $user->matchDayAvailabilities()->create(['match_day_id' => $linkedDay->id]);
+    $user->matchDayAvailabilities()->create(['match_day_id' => $unlinkedDay->id]);
 
     $migration = require database_path('migrations/2026_09_15_103906_clean_up_orphaned_match_day_availabilities.php');
 

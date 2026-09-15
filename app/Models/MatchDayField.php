@@ -18,7 +18,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property-read MatchDay $matchDay
  */
-#[Fillable(['match_day_id', 'name', 'position'])]
+#[Fillable(['name', 'position'])]
 class MatchDayField extends Model
 {
     /** @use HasFactory<MatchDayFieldFactory> */
