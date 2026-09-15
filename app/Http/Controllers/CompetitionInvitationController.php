@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Actions\Auth\SendInvitation;
 use App\Models\Competition;
 use App\Models\Invitation;
-use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -59,17 +58,6 @@ class CompetitionInvitationController extends Controller
     public function resend(Request $request, Competition $competition, Invitation $invitation, SendInvitation $sendInvitation): RedirectResponse
     {
         abort_if($invitation->isAccepted(), 404);
-
-        // De accept-flow weigert elke uitnodiging waarvan het e-mailadres al
-        // een account heeft, en niets ruimt zo'n openstaande uitnodiging op
-        // wanneer de genodigde zich via de publieke registratielink aanmeldt.
-        // Opnieuw versturen zou dus een mail met een meteen "verlopen" link
-        // opleveren, mét een succesmelding voor de beheerder.
-        if (User::query()->where('email', $invitation->email)->exists()) {
-            Inertia::flash('toast', ['type' => 'error', 'message' => __('There is already an account for :email. Withdraw the invitation and add them as a participant.', ['email' => $invitation->email])]);
-
-            return back();
-        }
 
         $sendInvitation->handle($invitation->email, $invitation->role, $competition, $request->user());
 

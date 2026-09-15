@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Participant;
 
+use App\Actions\Auth\AcceptPendingInvitations;
 use App\Actions\Competitions\SyncCompetitionMatches;
 use App\Concerns\DeterminesLoginDestination;
 use App\Concerns\SummarizesMatchDay;
@@ -81,11 +82,11 @@ class CompetitionRegistrationController extends Controller
         ]);
     }
 
-    public function store(StoreCompetitionRegistrationRequest $request, Competition $competition, SyncCompetitionMatches $syncCompetitionMatches): RedirectResponse
+    public function store(StoreCompetitionRegistrationRequest $request, Competition $competition, SyncCompetitionMatches $syncCompetitionMatches, AcceptPendingInvitations $acceptPendingInvitations): RedirectResponse
     {
         $existing = $request->user();
 
-        $user = DB::transaction(function () use ($request, $competition, $existing, $syncCompetitionMatches): User {
+        $user = DB::transaction(function () use ($request, $competition, $existing, $syncCompetitionMatches, $acceptPendingInvitations): User {
             $user = $existing ?? $this->createParticipant($request);
 
             $competition->participants()->syncWithoutDetaching([$user->id]);
@@ -93,6 +94,12 @@ class CompetitionRegistrationController extends Controller
             $this->syncAvailability($user, $competition, $request->validated('match_days') ?? []);
 
             $syncCompetitionMatches->handle($competition);
+
+            // Deze pagina is de trechter voor beide routes -- de
+            // uitnodigingslink en de doorgestuurde inschrijflink -- dus hier
+            // vervalt een openstaande uitnodiging, hoe de deelnemer ook
+            // binnenkwam.
+            $acceptPendingInvitations->handle($user, $competition);
 
             return $user;
         });

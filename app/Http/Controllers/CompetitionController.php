@@ -63,6 +63,38 @@ class CompetitionController extends Controller
         return redirect()->route('competitions.edit', $competition);
     }
 
+    /**
+     * Elke nog niet geaccepteerde uitnodiging, dus ook de verlopen en
+     * afgewezen exemplaren: die verdwenen eerder stilzwijgend uit beeld,
+     * inclusief de knoppen om ze in te trekken of opnieuw te versturen.
+     *
+     * @return list<array<string, mixed>>
+     */
+    protected function invitationRows(Competition $competition): array
+    {
+        $invitations = $competition->invitations()
+            ->whereNull('accepted_at')
+            ->orderBy('expires_at')
+            ->orderBy('id')
+            ->get();
+
+        $emailsWithAccount = User::query()
+            ->whereIn('email', $invitations->pluck('email'))
+            ->pluck('email')
+            ->all();
+
+        return array_values($invitations
+            ->map(fn (Invitation $invitation): array => [
+                'id' => $invitation->id,
+                'email' => $invitation->email,
+                'expires_at' => $invitation->expires_at->toDateString(),
+                'is_expired' => $invitation->isExpired(),
+                'is_declined' => $invitation->isDeclined(),
+                'has_account' => in_array($invitation->email, $emailsWithAccount, true),
+            ])
+            ->all());
+    }
+
     public function edit(Competition $competition): Response
     {
         return Inertia::render('competitions/edit', [
@@ -90,15 +122,7 @@ class CompetitionController extends Controller
                     'fields_count' => $matchDay->fields_count,
                 ])
                 ->all(),
-            'pendingInvitations' => $competition->invitations()
-                ->pending()
-                ->get()
-                ->map(fn (Invitation $invitation): array => [
-                    'id' => $invitation->id,
-                    'email' => $invitation->email,
-                    'expires_at' => $invitation->expires_at->toDateString(),
-                ])
-                ->all(),
+            'pendingInvitations' => $this->invitationRows($competition),
             'settings' => $competition->settings->toArray(),
             'settingsLimits' => CompetitionSettings::limits(),
         ]);

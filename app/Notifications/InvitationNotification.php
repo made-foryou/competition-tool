@@ -12,11 +12,12 @@ class InvitationNotification extends Notification
     use Queueable;
 
     /**
-     * Create a new notification instance.
+     * @param  bool  $hasAccount  of het uitgenodigde e-mailadres al een account heeft
      */
     public function __construct(
         public Invitation $invitation,
         public string $plainToken,
+        public bool $hasAccount = false,
     ) {}
 
     /**
@@ -47,8 +48,21 @@ class InvitationNotification extends Notification
             $mail->line(__('You have been invited to the :app admin console.', ['app' => config('app.name')]));
         }
 
+        // Wie al een account heeft hoeft er geen aan te maken; voor hem is de
+        // link een inlog-en-aanmelden-knop. De bestemming blijft in beide
+        // gevallen de uitnodigingspagina: die kent alle staten (afgerond, nog
+        // niet geopend, al gebruikt) en kan uitleggen wat er aan de hand is.
+        if ($this->hasAccount) {
+            $mail->line(__('You already have an account for :email, so you only have to log in.', [
+                'email' => $this->invitation->email,
+            ]));
+        }
+
         return $mail
-            ->action(__('Accept invitation'), route('invitation.show', $this->plainToken))
+            ->action(
+                $this->hasAccount ? __('Log in and sign up') : __('Accept invitation'),
+                route('invitation.show', $this->plainToken),
+            )
             ->line(__('This invitation is valid until :date.', [
                 'date' => $this->invitation->expires_at->translatedFormat('j F Y H:i'),
             ]))

@@ -35,7 +35,10 @@ class EnsureUserParticipatesInCompetition
         $user = $request->user();
 
         if (! $user instanceof User) {
-            return $this->redirectTo($request, 'competition.login', $competition);
+            // redirect()->guest() legt de gevraagde url vast als intended, zodat
+            // een diepe link (beschikbaarheidsformulier, uitnodigingslink) de
+            // login overleeft in plaats van op het dashboard te eindigen.
+            return redirect()->guest(route('competition.login', $competition));
         }
 
         if ($user->isAdmin() || $competition->participants()->whereKey($user->getKey())->exists()) {

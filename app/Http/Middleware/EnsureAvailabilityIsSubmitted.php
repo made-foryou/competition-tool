@@ -17,8 +17,13 @@ use Symfony\Component\HttpFoundation\Response;
 class EnsureAvailabilityIsSubmitted
 {
     /**
-     * Routes die bereikbaar moeten blijven om het formulier in te vullen of om
-     * uit te loggen.
+     * Routes die bereikbaar moeten blijven om het formulier in te vullen, om
+     * je voor een andere competitie aan te melden, of om uit te loggen.
+     *
+     * De uitnodigingsroutes staan er bewust bij: zonder dat wordt een
+     * genodigde die nog beschikbaarheid open heeft staan bij een andere
+     * actieve competitie weggekaapt naar dat formulier en bereikt hij zijn
+     * uitnodiging nooit.
      *
      * @var list<string>
      */
@@ -27,6 +32,9 @@ class EnsureAvailabilityIsSubmitted
         'competition.availability.update',
         'competition.register.show',
         'competition.register.store',
+        'invitation.show',
+        'invitation.store',
+        'invitation.decline',
         'logout',
         'home',
         'password.confirm',

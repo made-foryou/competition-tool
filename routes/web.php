@@ -32,13 +32,20 @@ Route::inertia('/', 'welcome')->name('home');
 Route::middleware('guest')->group(function () {
     Route::get('two-factor-challenge/passkey', PasskeyChallengeController::class)
         ->name('two-factor.passkey');
-
-    Route::get('invitation/{token}', [InvitationController::class, 'show'])
-        ->name('invitation.show');
-    Route::post('invitation/{token}', [InvitationController::class, 'store'])
-        ->middleware('throttle:6,1')
-        ->name('invitation.store');
 });
+
+// Bewust buiten de guest-groep: op het moment van versturen is niet bekend of
+// de ontvanger straks ingelogd is, dus één url die zich naar de sessie
+// gedraagt is de enige variant die in beide gevallen klopt. De controller
+// vangt de ingelogde bezoeker zelf af.
+Route::get('invitation/{token}', [InvitationController::class, 'show'])
+    ->name('invitation.show');
+Route::post('invitation/{token}', [InvitationController::class, 'store'])
+    ->middleware('throttle:6,1')
+    ->name('invitation.store');
+Route::post('invitation/{token}/decline', [InvitationController::class, 'decline'])
+    ->middleware('throttle:6,1')
+    ->name('invitation.decline');
 
 Route::middleware('auth')->group(function () {
     Route::get('two-factor/setup', TwoFactorSetupController::class)
@@ -58,6 +65,14 @@ Route::middleware(['auth', 'verified', EnsureUserIsAdmin::class])->group(functio
         ->group(function () {
             Route::post('participants', [CompetitionParticipantController::class, 'store'])
                 ->name('participants.store');
+
+            // Vertelt het toevoegformulier of een ingetypt e-mailadres al een
+            // account heeft, zodat de beheerder de juiste keuze te zien
+            // krijgt. Adviserend: de server beslist alsnog zelf, want het
+            // antwoord kan tussen opzoeken en verzenden verouderen.
+            Route::get('participants/lookup', [CompetitionParticipantController::class, 'lookup'])
+                ->middleware('throttle:60,1')
+                ->name('participants.lookup');
 
             // {participant} in plaats van {user}: de scoped binding zoekt de
             // relatie op via de parameternaam (participant -> participants()),

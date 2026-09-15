@@ -6,6 +6,7 @@ use App\Models\Invitation;
 use App\Models\User;
 use App\Notifications\InvitationNotification;
 use Illuminate\Support\Facades\Notification;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->actingAs(User::factory()->withTwoFactor()->create());
@@ -66,7 +67,7 @@ test('an expired invitation can still be withdrawn and resent', function (string
     ['post', 'competitions.invitations.resend'],
 ]);
 
-test('resending an invitation for an email that already has an account sends no mail', function () {
+test('resending an invitation for an email that already has an account sends the mail again', function () {
     Notification::fake();
 
     $competition = Competition::factory()->create();
@@ -76,13 +77,20 @@ test('resending an invitation for an email that already has an account sends no 
     $this->post(route('competitions.invitations.resend', [$competition, $invitation]))
         ->assertRedirect()
         ->assertInertiaFlash('toast', [
-            'type' => 'error',
-            'message' => __('There is already an account for :email. Withdraw the invitation and add them as a participant.', ['email' => $invitation->email]),
+            'type' => 'success',
+            'message' => __('Invitation sent again. The previous link no longer works.'),
         ]);
 
-    Notification::assertNothingSent();
+    // De mail vertelt een bestaand account dat het alleen hoeft in te loggen,
+    // in plaats van een account aan te maken.
+    Notification::assertSentOnDemand(
+        InvitationNotification::class,
+        fn (InvitationNotification $notification): bool => $notification->hasAccount,
+    );
 
-    expect(Invitation::query()->whereKey($invitation->id)->exists())->toBeTrue();
+    // De oude rij is vervangen, dus de vorige link werkt niet meer.
+    expect(Invitation::query()->whereKey($invitation->id)->exists())->toBeFalse()
+        ->and($competition->invitations()->pending()->count())->toBe(1);
 });
 
 test('resending an invitation keeps its original role', function () {
@@ -151,4 +159,47 @@ test('inviting an email that already has a pending invitation does not duplicate
     ]);
 
     expect(Invitation::query()->where('email', 'deelnemer@example.com')->count())->toBe(1);
+});
+
+test('expired and declined invitations stay visible in the admin', function () {
+    // Issue #14: ze verdwenen uit de lijst inclusief de knoppen om ze in te
+    // trekken of opnieuw te versturen, terwijl de backend dat wel toestaat.
+    $competition = Competition::factory()->create();
+
+    Invitation::factory()->create([
+        'competition_id' => $competition->id,
+        'email' => 'openstaand@example.com',
+    ]);
+    Invitation::factory()->expired()->create([
+        'competition_id' => $competition->id,
+        'email' => 'verlopen@example.com',
+    ]);
+    $declined = Invitation::factory()->create([
+        'competition_id' => $competition->id,
+        'email' => 'afgewezen@example.com',
+    ]);
+    $declined->forceFill(['declined_at' => now()])->save();
+    Invitation::factory()->accepted()->create([
+        'competition_id' => $competition->id,
+        'email' => 'meegedaan@example.com',
+    ]);
+
+    User::factory()->create(['email' => 'openstaand@example.com']);
+
+    $this->get(route('competitions.edit', $competition))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            // De geaccepteerde valt er bewust buiten: die is deelnemer.
+            ->has('pendingInvitations', 3)
+            // Gesorteerd op vervaldatum, dus de verlopen uitnodiging bovenaan.
+            ->where('pendingInvitations.0.email', 'verlopen@example.com')
+            ->where('pendingInvitations.0.is_expired', true)
+            ->where('pendingInvitations.1.email', 'openstaand@example.com')
+            ->where('pendingInvitations.1.is_expired', false)
+            ->where('pendingInvitations.1.is_declined', false)
+            ->where('pendingInvitations.1.has_account', true)
+            ->where('pendingInvitations.2.email', 'afgewezen@example.com')
+            ->where('pendingInvitations.2.is_declined', true)
+            ->where('pendingInvitations.2.has_account', false),
+        );
 });
