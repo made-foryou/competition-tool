@@ -117,15 +117,18 @@ Minimale rust is bewust géén schending — die zit in de score.
   gedeelde avonden krijgen hun kans vóór de capaciteit op is (doel 1).
 - **Kandidaten** per wedstrijd in vaste volgorde: speeldagen (datum, begintijd, id) →
   slots (index) → tafels (positie, id). Kandidaten met een harde schending vallen af.
-- **Score** (lager is beter) voor de overgebleven kandidaten:
-  - rust-penalty (1000) per speler die minder dan `min_rest_minutes` tot een eigen
-    wedstrijd op die dag zou hebben — domineert, zodat een slot zonder schending altijd
-    wint, ook op een andere dag;
-  - eerlijkheid (100) × het aantal wedstrijden dat beide spelers die dag al hebben —
-    spreidt per speler over de avonden (doel 2);
-  - wachttijd (1 per minuut) tot de dichtstbijzijnde eigen wedstrijd die dag, 0 voor de
-    eerste wedstrijd van de dag (doel 3).
-  De eerste kandidaat met de strikt laagste score wint; bij gelijke score wint dus de
+- **Score** (lager is beter) voor de overgebleven kandidaten, als **lexicografisch
+  vergeleken drietal** — geen gewogen som, zodat "rust domineert" een eigenschap is en
+  geen aanname die bij een drukke avond omvalt:
+  1. rustschendingen: het aantal spelers (0, 1 of 2) dat minder dan `min_rest_minutes`
+     tot een eigen wedstrijd op die dag zou hebben — een slot zonder schending wint dus
+     altijd, ook op een andere dag;
+  2. eerlijkheid: het aantal wedstrijden dat beide spelers die dag samen al hebben —
+     spreidt per speler over de avonden (doel 2);
+  3. wachttijd: per speler `max(0, gat − min_rest_minutes)` tot de dichtstbijzijnde eigen
+     wedstrijd die dag, opgeteld; 0 voor de eerste wedstrijd van de dag. Een gat van precies
+     de minimale rust is ideaal en kost niets (doel 3).
+  De eerste kandidaat met het strikt laagste drietal wint; bij gelijkspel wint dus de
   vroegste dag, het vroegste slot en de laagste tafel.
 - **Diagnose** als er geen kandidaat overblijft (`SchedulingFailure`):
   `no_shared_match_day` (geen gedeelde speeldag), `max_matches_per_day_reached` (alleen
@@ -149,6 +152,10 @@ gelijktijdige deelnemersmutatie elkaar niet halverwege raken.
    bewust niet mass-assignable (zie `.ai/rules/models.md`).
 6. Resultaat teruggeven: modus, aantal geplaatst, aantal onaangeroerd, aantal
    overgebleven, redenen per wedstrijd en de wedstrijden met een rustschending.
+   "Onaangeroerd" is alles wat deze ronde niet heeft geplaatst of als mislukt heeft
+   gemarkeerd (totaal − geplaatst − overgebleven), dus óók gespeelde of vastgezette
+   wedstrijden waarvan de tafel inmiddels is verwijderd. De drie tellers dekken samen
+   altijd de volledige wedstrijdenlijst.
 
 ### Precondities (`SchedulingBlocker`, niet in de database)
 
@@ -166,7 +173,11 @@ herinneringenknop nu met een lang commentaar moet afdekken).
 
 De statuscheck (`allowsScheduling()`) staat hiervóór, in de HTTP-laag, zoals bij de
 herinneringen. Een lege competitie is geen fout maar een normale toestand; de Action gooit
-daarom geen exception maar geeft een geblokkeerd resultaat terug.
+daarom geen exception maar geeft een geblokkeerd resultaat terug. `nothing_to_schedule`
+is bovendien geen blokkade in de gewone zin — alles staat al — en wordt in het resultaat als
+informatief gemarkeerd, zodat de UI er een neutrale melding van maakt in plaats van een
+waarschuwing. De Action zelf controleert `allowsScheduling()` níet: die statusguard hoort in
+de HTTP-laag (fase b en c) en moet daar dus bewust worden toegevoegd.
 
 ## Datamodel
 
