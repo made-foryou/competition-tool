@@ -1,6 +1,6 @@
-import { Form, usePage } from '@inertiajs/react';
+import { Form, useHttp, usePage } from '@inertiajs/react';
 import { Check, Copy, Search, Users, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import CompetitionInvitationController from '@/actions/App/Http/Controllers/CompetitionInvitationController';
 import CompetitionParticipantController from '@/actions/App/Http/Controllers/CompetitionParticipantController';
@@ -20,7 +20,10 @@ import { useTranslations } from '@/hooks/use-translations';
 import { formatDate } from '@/lib/format-date';
 import { pluralize } from '@/lib/plural';
 import competitionRoutes from '@/routes/competition';
-import { store as storeParticipant } from '@/routes/competitions/participants';
+import {
+    lookup as lookupParticipant,
+    store as storeParticipant,
+} from '@/routes/competitions/participants';
 
 export type ParticipantProps = {
     id: number;
@@ -35,6 +38,9 @@ export type PendingInvitationProps = {
     id: number;
     email: string;
     expires_at: string;
+    is_expired: boolean;
+    is_declined: boolean;
+    has_account: boolean;
 };
 
 type Props = {
@@ -50,6 +56,12 @@ type Props = {
  * keer de hele pagina volzet.
  */
 const PAGE_SIZE = 25;
+
+/**
+ * Wachttijd voordat een ingetypt e-mailadres wordt opgezocht. Zelfde stap als
+ * het zoekveld op het competitie-overzicht.
+ */
+const LOOKUP_DEBOUNCE_MS = 300;
 
 /**
  * Maakt een waarde vergelijkbaar voor de zoekfunctie: kleine letters en zonder
@@ -73,9 +85,66 @@ export default function ParticipantManager({
 }: Props) {
     const { t } = useTranslations();
     const { auth, locale } = usePage().props;
-    const [mode, setMode] = useState<'invite' | 'create'>('invite');
+    const [mode, setMode] = useState<'invite' | 'create' | 'link'>('invite');
+    const [email, setEmail] = useState('');
+    const [existingAccount, setExistingAccount] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [visible, setVisible] = useState(PAGE_SIZE);
+    const { submit } = useHttp();
+
+    // Of het ingetypte adres al een account heeft bepaalt welke keuzes kloppen.
+    // Adviserend: de server valideert het alsnog, want dit antwoord kan
+    // verouderen tussen opzoeken en verzenden.
+    useEffect(() => {
+        const trimmed = email.trim();
+
+        if (trimmed === '' || !trimmed.includes('@')) {
+            setExistingAccount(null);
+
+            return;
+        }
+
+        let cancelled = false;
+
+        const timeout = setTimeout(async () => {
+            try {
+                const result = (await submit(
+                    lookupParticipant(competitionId, {
+                        query: { email: trimmed },
+                    }),
+                )) as { exists: boolean; name: string | null };
+
+                if (!cancelled) {
+                    setExistingAccount(
+                        result.exists ? (result.name ?? trimmed) : null,
+                    );
+                }
+            } catch {
+                // Mislukte lookup is niet erg: de keuzes vallen terug op het
+                // onbekende adres en de server wijst een niet-passende keuze af.
+                if (!cancelled) {
+                    setExistingAccount(null);
+                }
+            }
+        }, LOOKUP_DEBOUNCE_MS);
+
+        return () => {
+            cancelled = true;
+            clearTimeout(timeout);
+        };
+    }, [email, competitionId, submit]);
+
+    // "Direct toevoegen" heet koppelen bij een bestaand account en aanmaken bij
+    // een nieuw adres; de server accepteert alleen de passende waarde.
+    useEffect(() => {
+        setMode((current) =>
+            current === 'invite'
+                ? current
+                : existingAccount !== null
+                  ? 'link'
+                  : 'create',
+        );
+    }, [existingAccount]);
 
     /** De volledige deelnemerslijst zit in de props, dus filteren kan in de browser. */
     const filtered = useMemo(() => {
@@ -235,7 +304,7 @@ export default function ParticipantManager({
                     </h3>
                     <p className="text-muted-foreground text-sm">
                         {t(
-                            'Resending creates a new link. The previous link stops working.',
+                            'Resending creates a new link. The previous link stops working, and a declined invitation opens again.',
                         )}
                     </p>
                     <ul className="divide-y rounded-xl border">
@@ -245,16 +314,41 @@ export default function ParticipantManager({
                                 className="flex flex-col gap-2 p-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                             >
                                 <div className="min-w-0">
-                                    <p className="truncate">
+                                    <p className="flex items-center gap-2 truncate">
                                         {invitation.email}
+                                        {invitation.is_declined && (
+                                            <Badge variant="secondary">
+                                                {t('Declined')}
+                                            </Badge>
+                                        )}
+                                        {!invitation.is_declined &&
+                                            invitation.is_expired && (
+                                                <Badge variant="secondary">
+                                                    {t('Expired')}
+                                                </Badge>
+                                            )}
+                                        {invitation.has_account && (
+                                            <Badge variant="outline">
+                                                {t('Has an account')}
+                                            </Badge>
+                                        )}
                                     </p>
                                     <p className="text-muted-foreground">
-                                        {t('Valid until :date', {
-                                            date: formatDate(
-                                                invitation.expires_at,
-                                                locale,
-                                            ),
-                                        })}
+                                        {invitation.is_declined
+                                            ? t('Declined this invitation')
+                                            : invitation.is_expired
+                                              ? t('Expired on :date', {
+                                                    date: formatDate(
+                                                        invitation.expires_at,
+                                                        locale,
+                                                    ),
+                                                })
+                                              : t('Valid until :date', {
+                                                    date: formatDate(
+                                                        invitation.expires_at,
+                                                        locale,
+                                                    ),
+                                                })}
                                     </p>
                                 </div>
                                 <div className="flex shrink-0 items-center gap-2">
@@ -319,6 +413,13 @@ export default function ParticipantManager({
                 action={storeParticipant(competitionId).url}
                 method="post"
                 resetOnSuccess
+                // Het e-mailveld is controlled, dus resetOnSuccess alleen laat
+                // de ingetypte waarde staan; die ruimen we hier zelf op.
+                onSuccess={() => {
+                    setEmail('');
+                    setExistingAccount(null);
+                    setMode('invite');
+                }}
                 className="flex max-w-xl flex-col gap-4 rounded-xl border p-4"
             >
                 {({ processing, errors }) => (
@@ -332,21 +433,34 @@ export default function ParticipantManager({
                                 name="email"
                                 type="email"
                                 required
+                                value={email}
+                                onChange={(event) =>
+                                    setEmail(event.target.value)
+                                }
                                 aria-invalid={!!errors.email}
                                 aria-describedby={
                                     errors.email
                                         ? 'participant-email-error'
-                                        : undefined
+                                        : 'participant-email-hint'
                                 }
                             />
                             <InputError
                                 id="participant-email-error"
                                 message={errors.email}
                             />
-                            <p className="text-muted-foreground text-sm">
-                                {t(
-                                    'An existing account is linked directly. For a new email address, choose how the account is created.',
-                                )}
+                            <p
+                                id="participant-email-hint"
+                                role="status"
+                                className="text-muted-foreground text-sm"
+                            >
+                                {existingAccount !== null
+                                    ? t(
+                                          ':name already has an account. Choose whether they decide for themselves or you add them right away.',
+                                          { name: existingAccount },
+                                      )
+                                    : t(
+                                          'Choose whether this person decides for themselves or gets access right away.',
+                                      )}
                             </p>
                         </div>
 
@@ -358,7 +472,9 @@ export default function ParticipantManager({
                             <RadioGroup
                                 value={mode}
                                 onValueChange={(value) =>
-                                    setMode(value as 'invite' | 'create')
+                                    setMode(
+                                        value as 'invite' | 'create' | 'link',
+                                    )
                                 }
                                 className="grid gap-3"
                                 aria-invalid={!!errors.mode}
@@ -383,15 +499,23 @@ export default function ParticipantManager({
                                             {t('Send invitation email')}
                                         </Label>
                                         <p className="text-muted-foreground text-sm">
-                                            {t(
-                                                'The participant sets their own password via the invitation email.',
-                                            )}
+                                            {existingAccount !== null
+                                                ? t(
+                                                      'They log in and decide for themselves whether to take part.',
+                                                  )
+                                                : t(
+                                                      'The participant sets their own password via the invitation email.',
+                                                  )}
                                         </p>
                                     </div>
                                 </div>
                                 <div className="flex items-start gap-2">
                                     <RadioGroupItem
-                                        value="create"
+                                        value={
+                                            existingAccount !== null
+                                                ? 'link'
+                                                : 'create'
+                                        }
                                         id="participant-mode-create"
                                         aria-invalid={!!errors.mode}
                                         className="mt-0.5"
@@ -401,12 +525,18 @@ export default function ParticipantManager({
                                             htmlFor="participant-mode-create"
                                             className="font-normal"
                                         >
-                                            {t('Create account directly')}
+                                            {existingAccount !== null
+                                                ? t('Add directly')
+                                                : t('Create account directly')}
                                         </Label>
                                         <p className="text-muted-foreground text-sm">
-                                            {t(
-                                                'You set the password and share it yourself.',
-                                            )}
+                                            {existingAccount !== null
+                                                ? t(
+                                                      'The existing account is linked right away, without being asked.',
+                                                  )
+                                                : t(
+                                                      'You set the password and share it yourself.',
+                                                  )}
                                         </p>
                                     </div>
                                 </div>

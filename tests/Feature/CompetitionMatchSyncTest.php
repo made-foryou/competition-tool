@@ -42,6 +42,7 @@ test('linking an existing account adds matches against every participant', funct
 
     $this->post(route('competitions.participants.store', $competition), [
         'email' => $third->email,
+        'mode' => 'link',
     ])->assertRedirect();
 
     expect($competition->matches()->count())->toBe(3)
@@ -186,6 +187,7 @@ test('re-adding a participant with a played match does not duplicate that pair',
 
     $this->post(route('competitions.participants.store', $competition), [
         'email' => $second->email,
+        'mode' => 'link',
     ])->assertRedirect();
 
     expect($competition->matches()->count())->toBe(3)
@@ -212,6 +214,7 @@ test('adding five participants one by one yields exactly ten matches', function 
     foreach (User::factory()->participant()->count(5)->create() as $participant) {
         $this->post(route('competitions.participants.store', $competition), [
             'email' => $participant->email,
+            'mode' => 'link',
         ])->assertRedirect();
     }
 

@@ -4,6 +4,7 @@ use App\Actions\Auth\SendInvitation;
 use App\Enums\UserRole;
 use App\Models\Competition;
 use App\Models\Invitation;
+use App\Models\User;
 use App\Notifications\InvitationNotification;
 use Illuminate\Support\Facades\Notification;
 
@@ -86,4 +87,54 @@ test('handle stores the hashed token and leaves accepted_at null', function () {
 
     expect($invitation->token)->toBe(hash('sha256', $plainToken))
         ->and($invitation->accepted_at)->toBeNull();
+});
+
+test('an invitation is valid for thirty days', function () {
+    Notification::fake();
+
+    app(SendInvitation::class)->handle('nieuw@example.com', UserRole::Participant);
+
+    $invitation = Invitation::query()->where('email', 'nieuw@example.com')->firstOrFail();
+
+    expect($invitation->expires_at->isSameDay(now()->addDays(30)))->toBeTrue();
+});
+
+test('the notification knows whether the email already has an account', function () {
+    Notification::fake();
+
+    User::factory()->create(['email' => 'bestaat@example.com']);
+
+    app(SendInvitation::class)->handle('bestaat@example.com', UserRole::Participant);
+    app(SendInvitation::class)->handle('nieuw@example.com', UserRole::Participant);
+
+    Notification::assertSentOnDemand(
+        InvitationNotification::class,
+        fn (InvitationNotification $notification, array $channels, object $notifiable): bool => $notifiable->routes['mail'] === 'bestaat@example.com'
+            && $notification->hasAccount,
+    );
+
+    Notification::assertSentOnDemand(
+        InvitationNotification::class,
+        fn (InvitationNotification $notification, array $channels, object $notifiable): bool => $notifiable->routes['mail'] === 'nieuw@example.com'
+            && ! $notification->hasAccount,
+    );
+});
+
+test('the invitation email for an existing account asks them to log in', function () {
+    $competition = Competition::factory()->create(['name' => 'Voorjaarstoernooi']);
+    $invitation = Invitation::factory()->create([
+        'competition_id' => $competition->id,
+        'email' => 'bestaat@example.com',
+    ]);
+
+    $mail = (new InvitationNotification($invitation, 'plain-token', true))->toMail(new stdClass);
+
+    expect($mail->actionText)->toBe(__('Log in and sign up'))
+        ->and($mail->introLines)->toContain(__('You already have an account for :email, so you only have to log in.', [
+            'email' => 'bestaat@example.com',
+        ]));
+
+    $forNewAccount = (new InvitationNotification($invitation, 'plain-token'))->toMail(new stdClass);
+
+    expect($forNewAccount->actionText)->toBe(__('Accept invitation'));
 });

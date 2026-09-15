@@ -1,3 +1,4 @@
+import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 import type { ComponentProps } from 'react';
 import { cn } from '@/lib/utils';
@@ -25,7 +26,10 @@ const consoleButtonVariants = cva(
 );
 
 type Props = ComponentProps<'button'> &
-    VariantProps<typeof consoleButtonVariants>;
+    VariantProps<typeof consoleButtonVariants> & {
+        /** Render the child element instead of a button, for a link that has to look like one. */
+        asChild?: boolean;
+    };
 
 /**
  * Made console button. Copper `cta` is the single inviting call-to-action per
@@ -36,8 +40,21 @@ export default function ConsoleButton({
     variant,
     size,
     type = 'button',
+    asChild = false,
     ...props
 }: Props) {
+    if (asChild) {
+        return (
+            <Slot
+                className={cn(
+                    consoleButtonVariants({ variant, size }),
+                    className,
+                )}
+                {...props}
+            />
+        );
+    }
+
     return (
         <button
             type={type}

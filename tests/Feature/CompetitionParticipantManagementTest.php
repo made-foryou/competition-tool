@@ -13,12 +13,13 @@ beforeEach(function () {
     $this->actingAs(User::factory()->withTwoFactor()->create());
 });
 
-test('an existing user is linked directly by email', function () {
+test('an existing user is linked directly with link mode', function () {
     $competition = Competition::factory()->create();
     $user = User::factory()->participant()->create();
 
     $this->post(route('competitions.participants.store', $competition), [
         'email' => $user->email,
+        'mode' => 'link',
     ])->assertRedirect()
         ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Participant linked. The match list has been updated.')]);
 
@@ -31,6 +32,7 @@ test('linking an existing admin keeps the admin role', function () {
 
     $this->post(route('competitions.participants.store', $competition), [
         'email' => $admin->email,
+        'mode' => 'link',
     ]);
 
     expect($admin->refresh()->role)->toBe(UserRole::Admin)
@@ -44,6 +46,7 @@ test('linking the same user twice does not fail or duplicate', function () {
 
     $this->post(route('competitions.participants.store', $competition), [
         'email' => $user->email,
+        'mode' => 'link',
     ])->assertRedirect();
 
     expect($competition->participants()->count())->toBe(1);
@@ -140,4 +143,88 @@ test('participants cannot manage the participant list', function () {
             'email' => 'x@example.com',
             'mode' => 'invite',
         ])->assertForbidden();
+});
+
+test('an existing account with invite mode is invited instead of linked', function () {
+    Notification::fake();
+
+    $competition = Competition::factory()->create();
+    $user = User::factory()->participant()->create();
+
+    $this->post(route('competitions.participants.store', $competition), [
+        'email' => $user->email,
+        'mode' => 'invite',
+    ])->assertRedirect()
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Invitation sent.')]);
+
+    // De deelnemer beslist zelf: koppelen gebeurt pas als hij zich aanmeldt.
+    expect($competition->participants()->count())->toBe(0)
+        ->and($competition->invitations()->pending()->count())->toBe(1);
+
+    Notification::assertSentOnDemand(
+        InvitationNotification::class,
+        fn (InvitationNotification $notification): bool => $notification->hasAccount,
+    );
+});
+
+test('linking an existing account settles their pending invitation', function () {
+    $competition = Competition::factory()->create();
+    $user = User::factory()->participant()->create();
+    Invitation::factory()->create([
+        'competition_id' => $competition->id,
+        'email' => $user->email,
+    ]);
+
+    $this->post(route('competitions.participants.store', $competition), [
+        'email' => $user->email,
+        'mode' => 'link',
+    ])->assertRedirect();
+
+    expect($competition->invitations()->pending()->count())->toBe(0);
+});
+
+test('create mode is rejected for an email that already has an account', function () {
+    $competition = Competition::factory()->create();
+    $user = User::factory()->participant()->create();
+
+    $this->post(route('competitions.participants.store', $competition), [
+        'email' => $user->email,
+        'mode' => 'create',
+        'name' => 'Dubbel Account',
+        'password' => 'SuperSecret123!',
+    ])->assertSessionHasErrors('mode');
+
+    expect($competition->participants()->count())->toBe(0);
+});
+
+test('link mode is rejected for an unknown email address', function () {
+    $competition = Competition::factory()->create();
+
+    $this->post(route('competitions.participants.store', $competition), [
+        'email' => 'onbekend@example.com',
+        'mode' => 'link',
+    ])->assertSessionHasErrors('mode');
+
+    expect($competition->participants()->count())->toBe(0);
+});
+
+test('the lookup tells whether an email already has an account', function () {
+    $competition = Competition::factory()->create();
+    $user = User::factory()->participant()->create(['nickname' => 'Sanne']);
+
+    $this->getJson(route('competitions.participants.lookup', [$competition, 'email' => $user->email]))
+        ->assertOk()
+        ->assertJson(['exists' => true, 'name' => 'Sanne']);
+
+    $this->getJson(route('competitions.participants.lookup', [$competition, 'email' => 'onbekend@example.com']))
+        ->assertOk()
+        ->assertJson(['exists' => false, 'name' => null]);
+});
+
+test('participants cannot use the lookup', function () {
+    $competition = Competition::factory()->create();
+
+    $this->actingAs(User::factory()->participant()->create())
+        ->getJson(route('competitions.participants.lookup', [$competition, 'email' => 'iemand@example.com']))
+        ->assertForbidden();
 });

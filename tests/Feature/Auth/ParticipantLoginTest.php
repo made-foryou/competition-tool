@@ -174,3 +174,24 @@ test('a set intended url wins over the role-based destination in the passkey res
     expect($response)->toBeInstanceOf(JsonResponse::class)
         ->and($response->getData(true))->toBe(['redirect' => route('competition.dashboard', $competition)]);
 });
+
+test('a deep link survives the login instead of landing on the dashboard', function () {
+    // Issue #34: de herinneringsmail linkt naar het beschikbaarheidsformulier.
+    // Wie uitgelogd op die link klikt, hoorde daar na het inloggen ook uit te
+    // komen -- niet op het competitie-dashboard.
+    $competition = Competition::factory()->create();
+    MatchDay::factory()->create(['competition_id' => $competition->id]);
+
+    $user = User::factory()->participant()->create();
+    $competition->participants()->attach($user, ['availability_submitted_at' => now()]);
+
+    $this->get(route('competition.availability.edit', $competition))
+        ->assertRedirect(route('competition.login', $competition));
+
+    $this->get(route('competition.login', $competition));
+
+    $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ])->assertRedirect(route('competition.availability.edit', $competition));
+});

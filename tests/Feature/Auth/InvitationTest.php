@@ -4,6 +4,7 @@ use App\Enums\UserRole;
 use App\Models\Competition;
 use App\Models\CompetitionMatch;
 use App\Models\Invitation;
+use App\Models\MatchDay;
 use App\Models\User;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -291,4 +292,172 @@ test('an invitation for a draft competition cannot be accepted yet', function ()
         ->and($invitation->fresh()->accepted_at)->toBeNull()
         ->and($draft->participants()->count())->toBe(1)
         ->and(CompetitionMatch::query()->where('competition_id', $draft->id)->count())->toBe(0);
+});
+
+test('an invitation for an existing account asks them to sign in', function () {
+    $competition = Competition::factory()->create();
+
+    [$invitation, $plainToken] = createInvitation([
+        'competition_id' => $competition->id,
+        'role' => UserRole::Participant,
+    ]);
+
+    User::factory()->participant()->create(['email' => $invitation->email]);
+
+    $this->get(route('invitation.show', $plainToken))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('auth/accept-invitation')
+            ->where('invitationState', 'sign-in')
+            ->where('email', $invitation->email)
+            ->where('competitionSlug', $competition->slug)
+            ->where('competitionName', $competition->name)
+            ->missing('passwordRules'),
+        );
+
+    // Na het inloggen hoort hij bij deze competitie uit te komen en niet op
+    // het algemene dashboard.
+    expect(session('url.intended'))->toBe(route('competition.dashboard', $competition));
+});
+
+test('an admin invitation for an existing account asks them to sign in without a competition', function () {
+    [$invitation, $plainToken] = createInvitation();
+
+    User::factory()->create(['email' => $invitation->email]);
+
+    $this->get(route('invitation.show', $plainToken))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('invitationState', 'sign-in')
+            ->where('competitionSlug', null),
+        );
+});
+
+test('a finished competition wins over the sign in state', function () {
+    // De reden waarom het niet kan is nuttiger dan "log in".
+    $finished = Competition::factory()->finished()->create();
+
+    [$invitation, $plainToken] = createInvitation([
+        'competition_id' => $finished->id,
+        'role' => UserRole::Participant,
+    ]);
+
+    User::factory()->participant()->create(['email' => $invitation->email]);
+
+    $this->get(route('invitation.show', $plainToken))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('invitationState', 'closed'));
+});
+
+test('a signed in invitee is sent to the registration page', function () {
+    $competition = Competition::factory()->create();
+
+    [$invitation, $plainToken] = createInvitation([
+        'competition_id' => $competition->id,
+        'role' => UserRole::Participant,
+    ]);
+
+    $invitee = User::factory()->participant()->create(['email' => $invitation->email]);
+
+    $this->actingAs($invitee)
+        ->get(route('invitation.show', $plainToken))
+        ->assertRedirect(route('competition.register.show', $competition));
+
+    // Kijken is nog geen meedoen: de koppeling ontstaat pas als hij zich
+    // daadwerkelijk aanmeldt.
+    expect($competition->participants()->whereKey($invitee->id)->exists())->toBeFalse()
+        ->and($invitation->fresh()->accepted_at)->toBeNull();
+});
+
+test('someone logged in with another account sees the wrong account state', function () {
+    $competition = Competition::factory()->create();
+
+    [$invitation, $plainToken] = createInvitation([
+        'competition_id' => $competition->id,
+        'role' => UserRole::Participant,
+    ]);
+
+    User::factory()->participant()->create(['email' => $invitation->email]);
+    $someoneElse = User::factory()->participant()->create();
+
+    $this->actingAs($someoneElse)
+        ->get(route('invitation.show', $plainToken))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('invitationState', 'wrong-account')
+            ->where('email', $invitation->email),
+        );
+
+    // Niet stilzwijgend uitloggen: dat zou zijn eigen sessie kosten.
+    $this->assertAuthenticatedAs($someoneElse);
+});
+
+test('a signed in user cannot post the accept form', function () {
+    [, $plainToken] = createInvitation();
+
+    $this->actingAs(User::factory()->participant()->create())
+        ->post(route('invitation.store', $plainToken), [
+            'name' => 'Nieuwe Deelnemer',
+            'password' => 'nieuw-wachtwoord',
+            'password_confirmation' => 'nieuw-wachtwoord',
+        ])->assertRedirect(route('invitation.show', $plainToken));
+
+    expect(User::query()->count())->toBe(1);
+});
+
+test('an invitation can be declined', function () {
+    $competition = Competition::factory()->create();
+
+    [$invitation, $plainToken] = createInvitation([
+        'competition_id' => $competition->id,
+        'role' => UserRole::Participant,
+    ]);
+
+    User::factory()->participant()->create(['email' => $invitation->email]);
+
+    $this->post(route('invitation.decline', $plainToken))
+        ->assertRedirect(route('invitation.show', $plainToken));
+
+    expect($invitation->fresh()->declined_at)->not->toBeNull();
+
+    $this->get(route('invitation.show', $plainToken))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('invitationState', 'declined'));
+});
+
+test('a declined invitation cannot be accepted', function () {
+    [$invitation, $plainToken] = createInvitation();
+
+    $invitation->forceFill(['declined_at' => now()])->save();
+
+    $this->post(route('invitation.store', $plainToken), [
+        'name' => 'Nieuwe Deelnemer',
+        'password' => 'nieuw-wachtwoord',
+        'password_confirmation' => 'nieuw-wachtwoord',
+    ])->assertRedirect(route('invitation.show', $plainToken));
+
+    $this->assertGuest();
+    expect(User::query()->count())->toBe(0);
+});
+
+test('an invitee with outstanding availability elsewhere still reaches the invitation page', function () {
+    // Zonder de uitnodigingsroutes op de allowlist van
+    // EnsureAvailabilityIsSubmitted wordt hij weggekaapt naar het formulier
+    // van die andere competitie en bereikt hij zijn uitnodiging nooit.
+    $other = Competition::factory()->create();
+    MatchDay::factory()->create(['competition_id' => $other->id]);
+
+    $invitee = User::factory()->participant()->create();
+    $other->participants()->attach($invitee, ['availability_submitted_at' => null]);
+
+    $competition = Competition::factory()->create();
+    [, $plainToken] = createInvitation([
+        'competition_id' => $competition->id,
+        'role' => UserRole::Participant,
+        'email' => $invitee->email,
+    ]);
+
+    $this->actingAs($invitee)
+        ->get(route('invitation.show', $plainToken))
+        ->assertRedirect(route('competition.register.show', $competition));
 });

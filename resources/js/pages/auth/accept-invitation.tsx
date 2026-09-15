@@ -1,5 +1,5 @@
 import { Form, Head, Link } from '@inertiajs/react';
-import { ArrowLeft, ArrowRight, Mail, UserRound } from 'lucide-react';
+import { ArrowLeft, ArrowRight, LogIn, Mail, UserRound } from 'lucide-react';
 import ConsoleButton from '@/components/console/console-button';
 import ConsoleError from '@/components/console/console-error';
 import ConsoleHeading from '@/components/console/console-heading';
@@ -8,16 +8,26 @@ import ConsoleLabel from '@/components/console/console-label';
 import ConsolePasswordInput from '@/components/console/console-password-input';
 import { Spinner } from '@/components/ui/spinner';
 import { useTranslations } from '@/hooks/use-translations';
-import { login } from '@/routes';
-import { store } from '@/routes/invitation';
+import { login, logout } from '@/routes';
+import { login as competitionLogin } from '@/routes/competition';
+import { decline, store } from '@/routes/invitation';
 
-type InvitationState = 'open' | 'expired' | 'closed' | 'upcoming';
+type InvitationState =
+    | 'open'
+    | 'declined'
+    | 'expired'
+    | 'closed'
+    | 'upcoming'
+    | 'sign-in'
+    | 'wrong-account';
 
 type Props = {
     invitationState: InvitationState;
     email?: string;
     token?: string;
     passwordRules?: string;
+    competitionSlug?: string | null;
+    competitionName?: string | null;
 };
 
 export default function AcceptInvitation({
@@ -25,11 +35,132 @@ export default function AcceptInvitation({
     email,
     token = '',
     passwordRules,
+    competitionSlug,
+    competitionName,
 }: Props) {
     const { t } = useTranslations();
 
+    if (invitationState === 'sign-in') {
+        return (
+            <>
+                <Head title={t('You already have an account')} />
+
+                <ConsoleHeading
+                    title={t('You already have an account')}
+                    typewriter={t('> sign in to join')}
+                    className="mb-[18px]"
+                />
+
+                <p
+                    role="status"
+                    className="made-anim text-console-text/65 mb-6 text-sm leading-relaxed"
+                    style={{ '--made-delay': '0.82s' }}
+                >
+                    {competitionName
+                        ? t(
+                              'Log in with :email to sign up for :competition and pick the days you can play.',
+                              {
+                                  email: email ?? '',
+                                  competition: competitionName,
+                              },
+                          )
+                        : t('Log in with :email to continue.', {
+                              email: email ?? '',
+                          })}
+                </p>
+
+                <div
+                    className="made-anim mb-[22px]"
+                    style={{ '--made-delay': '0.94s' }}
+                >
+                    <ConsoleButton
+                        variant="cta"
+                        size="lg"
+                        className="w-full"
+                        asChild
+                    >
+                        <Link
+                            href={
+                                competitionSlug
+                                    ? competitionLogin(competitionSlug)
+                                    : login()
+                            }
+                        >
+                            <LogIn size={17} strokeWidth={1.8} />
+                            {t('Log in')}
+                        </Link>
+                    </ConsoleButton>
+                </div>
+
+                <Form
+                    {...decline.form({ token })}
+                    className="made-anim flex justify-center"
+                    style={{ '--made-delay': '1.06s' }}
+                >
+                    {({ processing }) => (
+                        <button
+                            type="submit"
+                            disabled={processing}
+                            className="text-console-text/70 hover:text-console-text text-[13.5px] transition-colors"
+                        >
+                            {t("I'm not taking part")}
+                        </button>
+                    )}
+                </Form>
+            </>
+        );
+    }
+
+    if (invitationState === 'wrong-account') {
+        return (
+            <>
+                <Head title={t('This invitation is for someone else')} />
+
+                <ConsoleHeading
+                    title={t('This invitation is for someone else')}
+                    typewriter={t('> account setup')}
+                    className="mb-[18px]"
+                />
+
+                <p
+                    role="status"
+                    className="made-anim text-console-text/65 mb-6 text-sm leading-relaxed"
+                    style={{ '--made-delay': '0.82s' }}
+                >
+                    {t(
+                        'This invitation was sent to :email, but you are logged in with another account. Log out to continue with the invitation.',
+                        { email: email ?? '' },
+                    )}
+                </p>
+
+                <Form
+                    action={logout().url}
+                    method="post"
+                    className="made-anim flex justify-center"
+                    style={{ '--made-delay': '0.94s' }}
+                >
+                    {({ processing }) => (
+                        <button
+                            type="submit"
+                            disabled={processing}
+                            className="text-console-text/70 hover:text-console-text text-[13.5px] transition-colors"
+                        >
+                            {t('Log out')}
+                        </button>
+                    )}
+                </Form>
+            </>
+        );
+    }
+
     if (invitationState !== 'open') {
         const copy = {
+            declined: {
+                title: t('You declined this invitation'),
+                explanation: t(
+                    'You let the organizer know you are not taking part. Changed your mind? Ask them for a new invitation.',
+                ),
+            },
             expired: {
                 title: t('This invitation is no longer valid'),
                 explanation: t(

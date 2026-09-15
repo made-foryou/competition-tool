@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\UserRole;
 use Database\Factories\InvitationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -20,12 +21,14 @@ use Illuminate\Support\Carbon;
  * @property UserRole $role
  * @property Carbon $expires_at
  * @property Carbon|null $accepted_at
+ * @property Carbon|null $declined_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read User|null $inviter
  * @property-read Competition|null $competition
  */
 #[Fillable(['email', 'invited_by', 'competition_id', 'role', 'expires_at'])]
+#[Hidden(['token'])]
 class Invitation extends Model
 {
     /** @use HasFactory<InvitationFactory> */
@@ -61,7 +64,9 @@ class Invitation extends Model
      */
     public function scopePending(Builder $query): void
     {
-        $query->whereNull('accepted_at')->where('expires_at', '>', now());
+        $query->whereNull('accepted_at')
+            ->whereNull('declined_at')
+            ->where('expires_at', '>', now());
     }
 
     public function isExpired(): bool
@@ -74,9 +79,14 @@ class Invitation extends Model
         return $this->accepted_at !== null;
     }
 
+    public function isDeclined(): bool
+    {
+        return $this->declined_at !== null;
+    }
+
     public function isUsable(): bool
     {
-        return ! $this->isAccepted() && ! $this->isExpired();
+        return ! $this->isAccepted() && ! $this->isDeclined() && ! $this->isExpired();
     }
 
     /**
@@ -89,6 +99,7 @@ class Invitation extends Model
         return [
             'expires_at' => 'datetime',
             'accepted_at' => 'datetime',
+            'declined_at' => 'datetime',
             'role' => UserRole::class,
         ];
     }
