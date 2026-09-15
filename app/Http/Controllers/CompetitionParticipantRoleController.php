@@ -26,16 +26,21 @@ class CompetitionParticipantRoleController extends Controller
      *
      * De laatste-beheerder-guard voorkomt dat de admin-rol via de
      * deelnemerslijst helemaal leegloopt (net als bij het verwijderen van een
-     * account in ProfileController::destroy()). Die meldt zich bewust als
-     * toast-error via `back()` in plaats van als ValidationException: de knop
-     * hangt achter een ConfirmDialog dat nooit een `errors`-bag uitleest, dus
-     * een validatiefout zou hier alleen de generieke "Something went
-     * wrong."-toast opleveren in plaats van de echte reden.
+     * account in ProfileController::destroy()). Die staat bewust *voor* de
+     * zelfwijzigingscheck: wie hier degradeert is zelf beheerder en mag nooit
+     * zichzelf als doelwit hebben, dus buiten het zelf-geval zijn er altijd al
+     * minstens twee beheerders en zou de guard onbereikbare code zijn. Zo
+     * krijgt de laatste beheerder die zichzelf probeert te degraderen de
+     * inhoudelijke melding in plaats van een kale 403.
+     *
+     * Die melding gaat bewust als toast-error via `back()` en niet als
+     * ValidationException: de knop hangt achter een ConfirmDialog dat nooit
+     * een `errors`-bag uitleest, dus een validatiefout zou hier alleen de
+     * generieke "Something went wrong."-toast opleveren in plaats van de
+     * echte reden.
      */
     public function __invoke(UpdateCompetitionParticipantRoleRequest $request, Competition $competition, User $participant): RedirectResponse
     {
-        abort_if($participant->is($request->user()), 403);
-
         $role = UserRole::from($request->validated('role'));
 
         // Alleen relevant bij een daadwerkelijke degradatie van Admin naar
@@ -47,6 +52,8 @@ class CompetitionParticipantRoleController extends Controller
 
             return back();
         }
+
+        abort_if($participant->is($request->user()), 403);
 
         // Bewust geen update()/mass assignment: `role` staat niet in
         // #[Fillable] op User.
