@@ -1,9 +1,10 @@
 import { Form, usePage } from '@inertiajs/react';
-import { Check, Copy, Users } from 'lucide-react';
-import { useState } from 'react';
+import { Check, Copy, Search, Users, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import CompetitionInvitationController from '@/actions/App/Http/Controllers/CompetitionInvitationController';
 import CompetitionParticipantController from '@/actions/App/Http/Controllers/CompetitionParticipantController';
+import CompetitionParticipantRoleController from '@/actions/App/Http/Controllers/CompetitionParticipantRoleController';
 import ConfirmDialog from '@/components/confirm-dialog';
 import EmptyState from '@/components/empty-state';
 import InputError from '@/components/input-error';
@@ -17,6 +18,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { useClipboard } from '@/hooks/use-clipboard';
 import { useTranslations } from '@/hooks/use-translations';
 import { formatDate } from '@/lib/format-date';
+import { pluralize } from '@/lib/plural';
 import competitionRoutes from '@/routes/competition';
 import { store as storeParticipant } from '@/routes/competitions/participants';
 
@@ -42,6 +44,13 @@ type Props = {
     pendingInvitations: PendingInvitationProps[];
 };
 
+/**
+ * Aantal deelnemers dat we in één keer tonen. "Toon meer" verhoogt met
+ * dezelfde stap, zodat een competitie met honderden deelnemers niet in één
+ * keer de hele pagina volzet.
+ */
+const PAGE_SIZE = 25;
+
 export default function ParticipantManager({
     competitionId,
     competitionSlug,
@@ -49,8 +58,31 @@ export default function ParticipantManager({
     pendingInvitations,
 }: Props) {
     const { t } = useTranslations();
-    const { locale } = usePage().props;
+    const { auth, locale } = usePage().props;
     const [mode, setMode] = useState<'invite' | 'create'>('invite');
+    const [search, setSearch] = useState('');
+    const [visible, setVisible] = useState(PAGE_SIZE);
+
+    /** De volledige deelnemerslijst zit in de props, dus filteren kan in de browser. */
+    const filtered = useMemo(() => {
+        const term = search.trim().toLowerCase();
+
+        if (term === '') {
+            return participants;
+        }
+
+        return participants.filter((participant) =>
+            [participant.name, participant.nickname, participant.email].some(
+                (value) => value?.toLowerCase().includes(term),
+            ),
+        );
+    }, [participants, search]);
+
+    /** Een nieuwe zoekterm hoort weer bij de eerste pagina te beginnen. */
+    function handleSearchChange(value: string) {
+        setSearch(value);
+        setVisible(PAGE_SIZE);
+    }
 
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const registrationUrl = `${origin}${competitionRoutes.register.show(competitionSlug).url}`;
@@ -76,59 +108,83 @@ export default function ParticipantManager({
                     description={t('Add the first participant below.')}
                 />
             ) : (
-                <ul className="divide-y rounded-xl border">
-                    {participants.map((participant) => {
-                        const displayName = participant.display_name;
+                <div className="flex flex-col gap-3">
+                    <div className="relative sm:max-w-xs">
+                        <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+                        <Input
+                            type="search"
+                            value={search}
+                            onChange={(event) =>
+                                handleSearchChange(event.target.value)
+                            }
+                            placeholder={t('Search by name or email…')}
+                            aria-label={t('Search participants')}
+                            maxLength={100}
+                            className="pl-9"
+                        />
+                    </div>
 
-                        return (
-                            <li
-                                key={participant.id}
-                                className="flex items-center justify-between gap-2 p-3"
-                            >
-                                <div className="min-w-0">
-                                    <p className="truncate font-medium">
-                                        {displayName}
-                                        {participant.is_admin && (
-                                            <Badge
-                                                variant="secondary"
-                                                className="ml-2"
-                                            >
-                                                {t('Admin')}
-                                            </Badge>
-                                        )}
-                                    </p>
-                                    <p className="text-muted-foreground truncate text-sm">
-                                        {participant.nickname !== null &&
-                                            `${participant.name} · `}
-                                        {participant.email}
-                                    </p>
+                    {filtered.length === 0 ? (
+                        <EmptyState
+                            icon={Search}
+                            title={t('No participants match this search.')}
+                            action={
+                                <Button
+                                    variant="outline"
+                                    onClick={() => handleSearchChange('')}
+                                >
+                                    <X />
+                                    {t('Clear search')}
+                                </Button>
+                            }
+                        />
+                    ) : (
+                        <>
+                            <p className="text-muted-foreground text-sm">
+                                {pluralize(
+                                    t,
+                                    filtered.length,
+                                    ':count participant',
+                                    ':count participants',
+                                )}
+                            </p>
+
+                            <ul className="divide-y rounded-xl border">
+                                {filtered
+                                    .slice(0, visible)
+                                    .map((participant) => (
+                                        <ParticipantRow
+                                            key={participant.id}
+                                            competitionId={competitionId}
+                                            participant={participant}
+                                            isCurrentUser={
+                                                participant.id === auth.user?.id
+                                            }
+                                        />
+                                    ))}
+                            </ul>
+
+                            {filtered.length > visible && (
+                                <div>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() =>
+                                            setVisible(
+                                                (current) =>
+                                                    current + PAGE_SIZE,
+                                            )
+                                        }
+                                    >
+                                        {t('Show more (:shown of :total)', {
+                                            shown: visible,
+                                            total: filtered.length,
+                                        })}
+                                    </Button>
                                 </div>
-                                <ConfirmDialog
-                                    trigger={
-                                        <Button
-                                            variant="ghostDestructive"
-                                            size="sm"
-                                            aria-label={t('Remove :name', {
-                                                name: displayName,
-                                            })}
-                                        >
-                                            {t('Remove')}
-                                        </Button>
-                                    }
-                                    title={t('Remove participant?')}
-                                    description={t(
-                                        'This removes :name from the competition. Their availability answers and unplayed matches are removed; played matches are kept.',
-                                        { name: displayName },
-                                    )}
-                                    action={CompetitionParticipantController.destroy.form(
-                                        [competitionId, participant.id],
-                                    )}
-                                    confirmLabel={t('Remove participant')}
-                                />
-                            </li>
-                        );
-                    })}
-                </ul>
+                            )}
+                        </>
+                    )}
+                </div>
             )}
 
             {pendingInvitations.length > 0 && (
@@ -375,6 +431,128 @@ export default function ParticipantManager({
                 )}
             </Form>
         </section>
+    );
+}
+
+/**
+ * Eén regel uit de deelnemerslijst: naam, rolbadge en de acties.
+ *
+ * De rolactie ontbreekt op de eigen regel: de backend weigert zelfwijziging
+ * met een 403, omdat wie zichzelf degradeert zich meteen buiten de console
+ * sluit.
+ */
+function ParticipantRow({
+    competitionId,
+    participant,
+    isCurrentUser,
+}: {
+    competitionId: number;
+    participant: ParticipantProps;
+    isCurrentUser: boolean;
+}) {
+    const { t } = useTranslations();
+    const displayName = participant.display_name;
+    const isAdmin = participant.is_admin;
+
+    return (
+        <li className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+            <div className="min-w-0">
+                <p className="truncate font-medium">
+                    {displayName}
+                    {isAdmin && (
+                        <Badge variant="secondary" className="ml-2">
+                            {t('Admin')}
+                        </Badge>
+                    )}
+                </p>
+                <p className="text-muted-foreground truncate text-sm">
+                    {participant.nickname !== null && `${participant.name} · `}
+                    {participant.email}
+                </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+                {!isCurrentUser && (
+                    <ConfirmDialog
+                        trigger={
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                aria-label={
+                                    isAdmin
+                                        ? t(
+                                              'Remove administrator rights from :name',
+                                              { name: displayName },
+                                          )
+                                        : t('Make :name an administrator', {
+                                              name: displayName,
+                                          })
+                                }
+                            >
+                                {isAdmin
+                                    ? t('Remove admin rights')
+                                    : t('Make administrator')}
+                            </Button>
+                        }
+                        title={
+                            isAdmin
+                                ? t('Remove administrator rights?')
+                                : t('Make administrator?')
+                        }
+                        description={
+                            isAdmin
+                                ? t(
+                                      ':name loses access to the management of all competitions. :name stays a participant of this competition.',
+                                      { name: displayName },
+                                  )
+                                : t(
+                                      ':name gets access to the management of all competitions, not just this one. On their next sign-in they must set up a second factor (authenticator app or passkey). They no longer have to fill in their availability, because that only applies to participants.',
+                                      { name: displayName },
+                                  )
+                        }
+                        action={CompetitionParticipantRoleController.form([
+                            competitionId,
+                            participant.id,
+                        ])}
+                        fields={
+                            <input
+                                type="hidden"
+                                name="role"
+                                value={isAdmin ? 'participant' : 'admin'}
+                            />
+                        }
+                        confirmLabel={
+                            isAdmin
+                                ? t('Remove admin rights')
+                                : t('Make administrator')
+                        }
+                        confirmVariant={isAdmin ? 'destructive' : 'default'}
+                    />
+                )}
+                <ConfirmDialog
+                    trigger={
+                        <Button
+                            variant="ghostDestructive"
+                            size="sm"
+                            aria-label={t('Remove :name', {
+                                name: displayName,
+                            })}
+                        >
+                            {t('Remove')}
+                        </Button>
+                    }
+                    title={t('Remove participant?')}
+                    description={t(
+                        'This removes :name from the competition. Their availability answers and unplayed matches are removed; played matches are kept.',
+                        { name: displayName },
+                    )}
+                    action={CompetitionParticipantController.destroy.form([
+                        competitionId,
+                        participant.id,
+                    ])}
+                    confirmLabel={t('Remove participant')}
+                />
+            </div>
+        </li>
     );
 }
 
