@@ -27,7 +27,7 @@ use Illuminate\Support\Carbon;
  * @property-read User|null $inviter
  * @property-read Competition|null $competition
  */
-#[Fillable(['email', 'invited_by', 'competition_id', 'role', 'expires_at'])]
+#[Fillable(['email', 'role', 'expires_at'])]
 #[Hidden(['token'])]
 class Invitation extends Model
 {

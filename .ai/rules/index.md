@@ -9,4 +9,5 @@ Before planning or editing, find the row whose globs match the file's path and r
 | database/**                | .ai/rules/database.md |
 | **                         | .ai/rules/general.md  |
 | resources/js/**            | .ai/rules/js.md       |
+| app/Models/**              | .ai/rules/models.md   |
 | routes/**                  | .ai/rules/routes.md   |
