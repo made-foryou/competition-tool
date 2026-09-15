@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import { Check, Minus } from 'lucide-react';
 import { useTranslations } from '@/hooks/use-translations';
 import { formatDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -15,6 +16,8 @@ type Props = {
     matchDays: MatchDayOption[];
     /** De donkere console-stijl van de aanmeldpagina. */
     variant?: 'default' | 'console';
+    /** Toont de gemaakte keuze zonder dat er nog iets te wijzigen valt. */
+    readOnly?: boolean;
 };
 
 /**
@@ -25,6 +28,7 @@ type Props = {
 export default function MatchDayChecklist({
     matchDays,
     variant = 'default',
+    readOnly = false,
 }: Props) {
     const { t } = useTranslations();
     const { locale } = usePage().props;
@@ -53,39 +57,63 @@ export default function MatchDayChecklist({
                     'divide-console-input-border border-console-input-border',
             )}
         >
-            {matchDays.map((matchDay) => (
-                <li key={matchDay.id}>
-                    <label className="flex cursor-pointer items-center gap-3 p-3">
-                        <input
-                            type="checkbox"
-                            name="match_days[]"
-                            value={matchDay.id}
-                            defaultChecked={matchDay.is_available ?? false}
-                            className="size-4 shrink-0"
-                        />
-                        <span className="min-w-0">
-                            <span
-                                className={cn(
-                                    'block truncate font-medium',
-                                    isConsole && 'text-console-text',
-                                )}
-                            >
-                                {formatDate(matchDay.date, locale)}
-                            </span>
-                            <span
-                                className={cn(
-                                    'block truncate text-sm',
-                                    isConsole
-                                        ? 'text-console-text/65'
-                                        : 'text-muted-foreground',
-                                )}
-                            >
-                                {matchDay.starts_at} – {matchDay.ends_at}
-                            </span>
+            {matchDays.map((matchDay) => {
+                const isAvailable = matchDay.is_available ?? false;
+
+                const details = (
+                    <span className="min-w-0">
+                        <span
+                            className={cn(
+                                'block truncate font-medium',
+                                isConsole && 'text-console-text',
+                            )}
+                        >
+                            {formatDate(matchDay.date, locale)}
                         </span>
-                    </label>
-                </li>
-            ))}
+                        <span
+                            className={cn(
+                                'block truncate text-sm',
+                                isConsole
+                                    ? 'text-console-text/65'
+                                    : 'text-muted-foreground',
+                            )}
+                        >
+                            {matchDay.starts_at} – {matchDay.ends_at}
+                        </span>
+                    </span>
+                );
+
+                return (
+                    <li key={matchDay.id}>
+                        {readOnly ? (
+                            <div className="flex items-center gap-3 p-3">
+                                {isAvailable ? (
+                                    <Check className="size-4 shrink-0" />
+                                ) : (
+                                    <Minus className="text-muted-foreground size-4 shrink-0" />
+                                )}
+                                <span className="sr-only">
+                                    {isAvailable
+                                        ? t('Available')
+                                        : t('Not available')}
+                                </span>
+                                {details}
+                            </div>
+                        ) : (
+                            <label className="flex cursor-pointer items-center gap-3 p-3">
+                                <input
+                                    type="checkbox"
+                                    name="match_days[]"
+                                    value={matchDay.id}
+                                    defaultChecked={isAvailable}
+                                    className="size-4 shrink-0"
+                                />
+                                {details}
+                            </label>
+                        )}
+                    </li>
+                );
+            })}
         </ul>
     );
 }

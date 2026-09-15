@@ -3,6 +3,7 @@ import { CalendarCheck, CalendarDays, MapPin, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/hooks/use-translations';
+import type { CompetitionStatusValue } from '@/lib/competition-status';
 import { competitionStatusLabel } from '@/lib/competition-status';
 import { formatDate } from '@/lib/format-date';
 import { edit as editAvailability } from '@/routes/competition/availability';
@@ -11,7 +12,7 @@ type Props = {
     competition: {
         name: string;
         slug: string;
-        status: string;
+        status: CompetitionStatusValue;
         description: string | null;
         location: string | null;
         starts_at: string;
@@ -91,7 +92,9 @@ export default function ParticipantDashboard({
                         <div>
                             <Button asChild variant="secondary" size="sm">
                                 <Link href={editAvailability(competition.slug)}>
-                                    {t('Change availability')}
+                                    {competition.status === 'active'
+                                        ? t('Change availability')
+                                        : t('View availability')}
                                 </Link>
                             </Button>
                         </div>

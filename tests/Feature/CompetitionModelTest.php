@@ -28,6 +28,12 @@ test('only an active competition accepts sign ups', function () {
         ->and(CompetitionStatus::Finished->allowsSignUp())->toBeFalse();
 });
 
+test('only an active competition accepts availability changes', function () {
+    expect(CompetitionStatus::Active->allowsAvailabilityChanges())->toBeTrue()
+        ->and(CompetitionStatus::Draft->allowsAvailabilityChanges())->toBeFalse()
+        ->and(CompetitionStatus::Finished->allowsAvailabilityChanges())->toBeFalse();
+});
+
 test('deleting a competition removes the pivot rows but keeps the users', function () {
     $competition = Competition::factory()->create();
     $user = User::factory()->participant()->create();

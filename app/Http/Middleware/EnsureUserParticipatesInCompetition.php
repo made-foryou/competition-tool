@@ -41,7 +41,7 @@ class EnsureUserParticipatesInCompetition
             return redirect()->guest(route('competition.login', $competition));
         }
 
-        if ($user->isAdmin() || $competition->participants()->whereKey($user->getKey())->exists()) {
+        if ($user->isAdmin() || $competition->hasParticipant($user)) {
             return $next($request);
         }
 

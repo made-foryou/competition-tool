@@ -44,7 +44,7 @@ class CompetitionRegistrationController extends Controller
     {
         $user = $request->user();
 
-        if ($user !== null && $competition->participants()->whereKey($user->id)->exists()) {
+        if ($user !== null && $competition->hasParticipant($user)) {
             return redirect()->route('competition.dashboard', $competition);
         }
 

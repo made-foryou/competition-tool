@@ -24,4 +24,22 @@ enum CompetitionStatus: string
     {
         return $this === self::Active;
     }
+
+    /**
+     * Of een deelnemer zijn beschikbaarheid voor deze competitie nog mag
+     * wijzigen -- alleen op een actieve competitie. Op een afgeronde
+     * competitie zou dat de historie van een afgesloten toernooi aanpassen,
+     * en een concept-competitie is voor deelnemers sowieso nog niet zichtbaar.
+     *
+     * Dit gaat uitsluitend over de schrijfactie: de pagina zelf blijft
+     * leesbaar (read-only), zodat een deelnemer zijn ingevulde dagen kan
+     * terugzien.
+     *
+     * Bewust een eigen methode en geen hergebruik van `allowsSignUp()`: die
+     * gaat over aanmelden en kent een eigen uitzondering voor beheerders.
+     */
+    public function allowsAvailabilityChanges(): bool
+    {
+        return $this === self::Active;
+    }
 }
