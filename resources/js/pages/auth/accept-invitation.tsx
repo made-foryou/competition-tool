@@ -11,39 +11,61 @@ import { useTranslations } from '@/hooks/use-translations';
 import { login } from '@/routes';
 import { store } from '@/routes/invitation';
 
+type InvitationState = 'open' | 'expired' | 'closed' | 'upcoming';
+
 type Props = {
-    expired: boolean;
+    invitationState: InvitationState;
     email?: string;
     token?: string;
     passwordRules?: string;
 };
 
 export default function AcceptInvitation({
-    expired,
+    invitationState,
     email,
     token = '',
     passwordRules,
 }: Props) {
     const { t } = useTranslations();
 
-    if (expired) {
+    if (invitationState !== 'open') {
+        const copy = {
+            expired: {
+                title: t('This invitation is no longer valid'),
+                explanation: t(
+                    'The invitation has expired or has already been used. Ask an administrator to send you a new invitation.',
+                ),
+            },
+            closed: {
+                title: t('This competition has finished'),
+                explanation: t(
+                    'This invitation belongs to a competition that has finished, so it can no longer be accepted. Ask an administrator for an invitation to a current competition.',
+                ),
+            },
+            upcoming: {
+                title: t('This competition has not opened yet'),
+                explanation: t(
+                    'Signing up for this competition has not opened yet. You can use this invitation as soon as it does.',
+                ),
+            },
+        }[invitationState];
+
         return (
             <>
-                <Head title={t('This invitation is no longer valid')} />
+                <Head title={copy.title} />
 
                 <ConsoleHeading
-                    title={t('This invitation is no longer valid')}
+                    title={copy.title}
                     typewriter={t('> account setup')}
                     className="mb-[18px]"
                 />
 
                 <p
+                    role="status"
                     className="made-anim text-console-text/65 mb-6 text-sm leading-relaxed"
                     style={{ '--made-delay': '0.82s' }}
                 >
-                    {t(
-                        'The invitation has expired or has already been used. Ask an administrator to send you a new invitation.',
-                    )}
+                    {copy.explanation}
                 </p>
 
                 <div

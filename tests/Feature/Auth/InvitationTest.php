@@ -2,6 +2,7 @@
 
 use App\Enums\UserRole;
 use App\Models\Competition;
+use App\Models\CompetitionMatch;
 use App\Models\Invitation;
 use App\Models\User;
 use Illuminate\Support\Str;
@@ -32,7 +33,7 @@ test('the accept invitation page renders for a valid token', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('auth/accept-invitation')
-            ->where('expired', false)
+            ->where('invitationState', 'open')
             ->where('email', $invitation->email)
             ->where('token', $plainToken),
         );
@@ -50,7 +51,7 @@ test('an expired invitation shows the expired state', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('auth/accept-invitation')
-            ->where('expired', true)
+            ->where('invitationState', 'expired')
             ->missing('email'),
         );
 });
@@ -62,7 +63,7 @@ test('an accepted invitation shows the expired state', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('auth/accept-invitation')
-            ->where('expired', true),
+            ->where('invitationState', 'expired'),
         );
 });
 
@@ -169,29 +170,22 @@ test('accepting a participant invitation without a competition redirects to no-c
         ->toBe(UserRole::Participant);
 });
 
-test('accepting a participant invitation for a draft competition redirects to a working destination', function () {
-    $competition = Competition::factory()->draft()->create();
-    $plainToken = Str::random(64);
-    $invitation = Invitation::factory()->create([
-        'token' => hash('sha256', $plainToken),
-        'competition_id' => $competition->id,
+test('an invitation for a draft competition shows the upcoming state', function () {
+    $draft = Competition::factory()->draft()->create();
+
+    [, $plainToken] = createInvitation([
+        'competition_id' => $draft->id,
         'role' => UserRole::Participant,
     ]);
 
-    $response = $this->post(route('invitation.store', $plainToken), [
-        'name' => 'Nieuwe Deelnemer',
-        'password' => 'nieuw-wachtwoord',
-        'password_confirmation' => 'nieuw-wachtwoord',
-    ]);
-
-    // De competitie is nog concept, dus de deelnemer heeft geen actieve
-    // competitie om naartoe te gaan: de trait stuurt dan naar
-    // "geen competitie" in plaats van naar de (voor deelnemers ontoegankelijke) competitiepagina.
-    $response->assertRedirect(route('competition.none'));
-    $this->get($response->headers->get('Location'))->assertOk();
-
-    expect(User::query()->where('email', $invitation->email)->firstOrFail()->role)
-        ->toBe(UserRole::Participant);
+    $this->get(route('invitation.show', $plainToken))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('auth/accept-invitation')
+            ->where('invitationState', 'upcoming')
+            ->missing('email')
+            ->missing('passwordRules'),
+        );
 });
 
 test('accepting an admin invitation still redirects to two factor setup', function () {
@@ -226,4 +220,75 @@ test('accepting an invitation is rate limited', function () {
         'password' => 'nieuw-wachtwoord',
         'password_confirmation' => 'nieuw-wachtwoord',
     ])->assertTooManyRequests();
+});
+
+test('an invitation for a finished competition shows the closed state', function () {
+    $finished = Competition::factory()->finished()->create();
+
+    [, $plainToken] = createInvitation([
+        'competition_id' => $finished->id,
+        'role' => UserRole::Participant,
+    ]);
+
+    $this->get(route('invitation.show', $plainToken))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('auth/accept-invitation')
+            ->where('invitationState', 'closed')
+            ->missing('email')
+            ->missing('passwordRules'),
+        );
+});
+
+test('an invitation for a finished competition cannot be accepted', function () {
+    $finished = Competition::factory()->finished()->create();
+
+    // Een bestaande deelnemer, zodat een geslaagde acceptatie een tweede
+    // speler zou opleveren en de sync dus wel degelijk een wedstrijd zou
+    // schrijven -- anders bewijst de assertie hieronder niets.
+    $finished->participants()->attach(User::factory()->participant()->create());
+
+    [$invitation, $plainToken] = createInvitation([
+        'competition_id' => $finished->id,
+        'role' => UserRole::Participant,
+    ]);
+
+    $this->post(route('invitation.store', $plainToken), [
+        'name' => 'Nieuwe Deelnemer',
+        'password' => 'nieuw-wachtwoord',
+        'password_confirmation' => 'nieuw-wachtwoord',
+    ])->assertRedirect(route('invitation.show', $plainToken));
+
+    $this->assertGuest();
+
+    expect(User::query()->where('email', $invitation->email)->exists())->toBeFalse()
+        ->and($invitation->fresh()->accepted_at)->toBeNull()
+        ->and($finished->participants()->count())->toBe(1)
+        ->and(CompetitionMatch::query()->where('competition_id', $finished->id)->count())->toBe(0);
+});
+
+test('an invitation for a draft competition cannot be accepted yet', function () {
+    // Eén lijn: aanmelden kan alleen op een actieve competitie, of je nu een
+    // account hebt of niet. Een uitnodiging die tijdens de conceptfase is
+    // verstuurd wacht tot de beheerder de competitie actief zet.
+    $draft = Competition::factory()->draft()->create();
+    $draft->participants()->attach(User::factory()->participant()->create());
+
+    [$invitation, $plainToken] = createInvitation([
+        'competition_id' => $draft->id,
+        'role' => UserRole::Participant,
+    ]);
+
+    $this->post(route('invitation.store', $plainToken), [
+        'name' => 'Nieuwe Deelnemer',
+        'password' => 'nieuw-wachtwoord',
+        'password_confirmation' => 'nieuw-wachtwoord',
+    ])->assertRedirect(route('invitation.show', $plainToken));
+
+    $this->assertGuest();
+
+    expect(User::query()->where('email', $invitation->email)->exists())->toBeFalse()
+        ->and($invitation->fresh()->accepted_at)->toBeNull()
+        ->and($draft->participants()->count())->toBe(1)
+        ->and(CompetitionMatch::query()->where('competition_id', $draft->id)->count())->toBe(0);
 });

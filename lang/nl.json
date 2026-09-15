@@ -82,6 +82,10 @@
     "Activating…": "Bezig met activeren…",
     "This invitation is no longer valid": "Deze uitnodiging is niet meer geldig",
     "The invitation has expired or has already been used. Ask an administrator to send you a new invitation.": "De uitnodiging is verlopen of al gebruikt. Vraag een beheerder om je een nieuwe uitnodiging te sturen.",
+    "This competition has finished": "Deze competitie is afgerond",
+    "This competition has not opened yet": "Deze competitie is nog niet geopend",
+    "Signing up for this competition has not opened yet. You can use this invitation as soon as it does.": "Aanmelden voor deze competitie is nog niet geopend. Zodra dat wel zo is, kun je deze uitnodiging gebruiken.",
+    "This invitation belongs to a competition that has finished, so it can no longer be accepted. Ask an administrator for an invitation to a current competition.": "Deze uitnodiging hoort bij een competitie die is afgerond en kan daarom niet meer worden geaccepteerd. Vraag een beheerder om een uitnodiging voor een lopende competitie.",
 
     "You're invited to :app": "Je bent uitgenodigd voor :app",
     "You have been invited to the :app admin console.": "Je bent uitgenodigd voor de :app admin-console.",

@@ -4,7 +4,6 @@ namespace App\Http\Requests\Participant;
 
 use App\Concerns\PasswordValidationRules;
 use App\Concerns\ProfileValidationRules;
-use App\Enums\CompetitionStatus;
 use App\Models\Competition;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -17,8 +16,8 @@ class StoreCompetitionRegistrationRequest extends FormRequest
     use ProfileValidationRules;
 
     /**
-     * Alleen actieve competities nemen inschrijvingen aan. Een 404 in plaats
-     * van een 403: voor registratiedoeleinden bestaat een concept- of
+     * Welke competities aanmeldingen aannemen, weet de status zelf. Een 404
+     * in plaats van een 403: voor aanmelddoeleinden bestaat een concept- of
      * afgeronde competitie niet, ook niet voor admins -- die koppelen
      * deelnemers via het deelnemersbeheer.
      */
@@ -27,7 +26,7 @@ class StoreCompetitionRegistrationRequest extends FormRequest
         /** @var Competition $competition */
         $competition = $this->route('competition');
 
-        abort_unless($competition->status === CompetitionStatus::Active, 404);
+        abort_unless($competition->status->allowsSignUp(), 404);
 
         return true;
     }

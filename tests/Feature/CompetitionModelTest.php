@@ -22,6 +22,12 @@ test('factory states set the status', function () {
         ->and(Competition::factory()->finished()->create()->status)->toBe(CompetitionStatus::Finished);
 });
 
+test('only an active competition accepts sign ups', function () {
+    expect(CompetitionStatus::Active->allowsSignUp())->toBeTrue()
+        ->and(CompetitionStatus::Draft->allowsSignUp())->toBeFalse()
+        ->and(CompetitionStatus::Finished->allowsSignUp())->toBeFalse();
+});
+
 test('deleting a competition removes the pivot rows but keeps the users', function () {
     $competition = Competition::factory()->create();
     $user = User::factory()->participant()->create();

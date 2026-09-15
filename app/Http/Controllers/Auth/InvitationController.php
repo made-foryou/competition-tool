@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Actions\Competitions\SyncCompetitionMatches;
 use App\Concerns\DeterminesLoginDestination;
+use App\Enums\CompetitionStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\AcceptInvitationRequest;
 use App\Models\Invitation;
@@ -28,14 +29,16 @@ class InvitationController extends Controller
 
         abort_if($invitation === null, 404);
 
-        if (! $this->isAcceptable($invitation)) {
+        $state = $this->stateOf($invitation);
+
+        if ($state !== 'open') {
             return Inertia::render('auth/accept-invitation', [
-                'expired' => true,
+                'invitationState' => $state,
             ]);
         }
 
         return Inertia::render('auth/accept-invitation', [
-            'expired' => false,
+            'invitationState' => $state,
             'email' => $invitation->email,
             'token' => $token,
             'passwordRules' => Password::defaults()->toPasswordRulesString(),
@@ -51,7 +54,9 @@ class InvitationController extends Controller
 
         abort_if($invitation === null, 404);
 
-        if (! $this->isAcceptable($invitation)) {
+        // Ook op de POST, niet alleen op de GET: de competitie kan tussen het
+        // tonen van het formulier en het versturen ervan zijn afgerond.
+        if ($this->stateOf($invitation) !== 'open') {
             return redirect()->route('invitation.show', $token);
         }
 
@@ -94,12 +99,35 @@ class InvitationController extends Controller
     }
 
     /**
-     * Een uitnodiging is bruikbaar zolang die niet verlopen of gebruikt is en
-     * er nog geen account met het e-mailadres bestaat.
+     * De staat van de uitnodiging, gedeeld door show() en store() zodat de
+     * pagina en de verwerking nooit een ander oordeel vellen.
+     *
+     * 'expired' dekt naast een verlopen uitnodiging ook een al gebruikte
+     * uitnodiging en een e-mailadres dat inmiddels een account heeft: in alle
+     * drie de gevallen is de gevraagde actie dezelfde, namelijk een nieuwe
+     * uitnodiging vragen. Die reden gaat voor, ook als de competitie
+     * daarnaast is afgerond.
+     *
+     * 'closed' en 'upcoming' zijn op zichzelf nog geldige uitnodigingen voor
+     * een competitie die geen aanmeldingen aanneemt -- wanneer dat zo is,
+     * weet de status zelf (CompetitionStatus::allowsSignUp()). De twee staten
+     * verschillen alleen in de reden, net als de registrationState van de
+     * inschrijfpagina: afgerond tegenover nog niet geopend.
+     *
+     * @return 'open'|'expired'|'closed'|'upcoming'
      */
-    protected function isAcceptable(Invitation $invitation): bool
+    protected function stateOf(Invitation $invitation): string
     {
-        return $invitation->isUsable()
-            && ! User::query()->where('email', $invitation->email)->exists();
+        if (! $invitation->isUsable() || User::query()->where('email', $invitation->email)->exists()) {
+            return 'expired';
+        }
+
+        $competition = $invitation->competition;
+
+        if ($competition !== null && ! $competition->status->allowsSignUp()) {
+            return $competition->status === CompetitionStatus::Finished ? 'closed' : 'upcoming';
+        }
+
+        return 'open';
     }
 }
