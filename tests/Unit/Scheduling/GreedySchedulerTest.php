@@ -373,3 +373,44 @@ test('matches with equal scores are placed on the earliest day slot and field', 
 
     expect(placementKey($solution->placements()[1]))->toBe('1/1/0');
 });
+
+/**
+ * De drukke avond 1 heeft twaalf wedstrijden van dit paar op het bord staan,
+ * maar wel een slot met ruim voldoende rust; avond 2 is bijna leeg en heeft
+ * alleen nog een slot dat de rust van speler 1 schendt. Een gewogen som zou
+ * het eerlijkheidsgewicht van twaalf wedstrijden zwaarder laten wegen dan de
+ * rustpenalty en dus avond 2 kiezen; lexicografisch wint rust altijd.
+ */
+test('a rest violation is never preferred over a busy but rest-respecting evening', function () {
+    $board = new ScheduleBoard;
+    $dayOneStart = ClockTime::toMinutes('18:00');
+
+    foreach (range(0, 5) as $index) {
+        $start = $dayOneStart + $index * 25;
+
+        $board->occupyPlayer(1, 1, $start, $start + 20);
+        $board->occupyPlayer(2, 1, $start, $start + 20);
+    }
+
+    $dayTwoStart = ClockTime::toMinutes('19:00');
+    $board->occupyPlayer(1, 2, $dayTwoStart, $dayTwoStart + 20);
+    $board->occupyTable(2, 1, $dayTwoStart, $dayTwoStart + 25);
+
+    $context = schedulingContext(
+        days: [
+            1 => ['starts_at' => '18:00', 'ends_at' => '23:00', 'fields' => [1]],
+            2 => ['starts_at' => '19:00', 'ends_at' => '19:50', 'fields' => [1]],
+        ],
+        availability: [1 => [1, 2], 2 => [1, 2]],
+        settings: settings(rest: 60, break: 0),
+        board: $board,
+    );
+
+    expect($board->matchesOn(1, 1) + $board->matchesOn(2, 1))->toBe(12);
+
+    $solution = (new GreedyScheduler)->schedule($context, [new PendingMatch(1, 1, 2)]);
+
+    expect($solution->placements()[1]->matchDayId)->toBe(1)
+        ->and($solution->placements()[1]->slot->index)->toBe(9)
+        ->and($solution->restViolations())->toBe([]);
+});

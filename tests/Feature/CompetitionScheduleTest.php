@@ -82,18 +82,26 @@ function placeMatchAt(CompetitionMatch $match, MatchDay $matchDay, ?MatchDayFiel
 }
 
 /**
- * Bewaakt de harde randvoorwaarden op alle ingeplande wedstrijden van een
- * competitie: geen speler of tafel dubbel bezet, beide spelers beschikbaar,
- * binnen het raster en de openingstijden, nooit in de pauze en nooit meer dan
- * het dagmaximum.
+ * Bewaakt de harde randvoorwaarden op alle wedstrijden van een competitie die
+ * een speeldag én een begintijd hebben: geen speler of tafel dubbel bezet,
+ * beide spelers beschikbaar, binnen het raster en de openingstijden, nooit in
+ * de pauze en nooit meer dan het dagmaximum.
+ *
+ * Gespeelde en vastgezette wedstrijden blijven staan waar ze staan, ook als de
+ * instellingen of de openingstijden daarna gewijzigd zijn; voor hen vervalt
+ * alleen de eis dat ze op het huidige raster liggen. Ze tellen wél mee voor de
+ * spelersbezetting en het dagmaximum, ook zonder tafel.
  */
 function expectValidSchedule(Competition $competition): void
 {
     $settings = $competition->settings;
     $matchDays = $competition->matchDays()->get()->keyBy('id');
 
+    // Alleen de huidige deelnemers: beschikbaarheid van een oud-deelnemer
+    // hoort geen enkele plaatsing goed te praten.
     $availability = MatchDayAvailability::query()
         ->whereIn('match_day_id', $matchDays->modelKeys())
+        ->whereIn('user_id', $competition->participants()->pluck('users.id'))
         ->get()
         ->map(fn (MatchDayAvailability $row): string => $row->match_day_id.':'.$row->user_id)
         ->all();
@@ -103,25 +111,31 @@ function expectValidSchedule(Competition $competition): void
     $matchesPerPlayerPerDay = [];
 
     foreach ($competition->matches()->get() as $match) {
-        if (! $match->isScheduled()) {
+        if ($match->match_day_id === null || $match->starts_at === null) {
             continue;
         }
 
+        expect($match->ends_at)->not->toBeNull();
+
         $matchDay = $matchDays->get($match->match_day_id);
         $grid = SlotGrid::for($matchDay->starts_at, $matchDay->ends_at, $settings);
-        $slot = $grid->slotAt($match->starts_at);
-
-        expect($slot)->not->toBeNull()
-            ->and($grid->matchEndMinute($slot))->toBeLessThanOrEqual(ClockTime::toMinutes($matchDay->ends_at))
-            ->and($availability)->toContain($match->match_day_id.':'.$match->first_player_id)
-            ->and($availability)->toContain($match->match_day_id.':'.$match->second_player_id);
 
         $start = ClockTime::toMinutes($match->starts_at);
         $end = ClockTime::toMinutes($match->ends_at);
 
-        if ($grid->break !== null) {
-            expect($start < $grid->break['end_minute'] && $grid->break['start_minute'] < $end)->toBeFalse();
+        if (! $match->isLocked()) {
+            $slot = $grid->slotAt($match->starts_at);
+
+            expect($slot)->not->toBeNull()
+                ->and($end)->toBeLessThanOrEqual(ClockTime::toMinutes($matchDay->ends_at));
+
+            if ($grid->break !== null) {
+                expect($start < $grid->break['end_minute'] && $grid->break['start_minute'] < $end)->toBeFalse();
+            }
         }
+
+        expect($availability)->toContain($match->match_day_id.':'.$match->first_player_id)
+            ->and($availability)->toContain($match->match_day_id.':'.$match->second_player_id);
 
         foreach ([$match->first_player_id, $match->second_player_id] as $playerId) {
             $key = $match->match_day_id.':'.$playerId;
@@ -132,6 +146,10 @@ function expectValidSchedule(Competition $competition): void
 
             $playerIntervals[$key][] = [$start, $end];
             $matchesPerPlayerPerDay[$key] = ($matchesPerPlayerPerDay[$key] ?? 0) + 1;
+        }
+
+        if ($match->match_day_field_id === null) {
+            continue;
         }
 
         $tableKey = $match->match_day_id.':'.$match->match_day_field_id;
@@ -602,7 +620,9 @@ test('the result counts scheduled kept and unscheduled matches', function () {
         ->and($result->scheduledCount)->toBe(4)
         ->and($result->unscheduledCount)->toBe(1)
         ->and($result->isComplete())->toBeFalse()
-        ->and($result->failures)->toHaveCount(1);
+        ->and($result->failures)->toHaveCount(1)
+        ->and($result->scheduledCount + $result->keptCount + $result->unscheduledCount)
+        ->toBe($competition->matches()->count());
 
     expectValidSchedule($competition);
 });
@@ -624,6 +644,136 @@ test('a played match without a field still blocks its players', function () {
             ->orWhereIn('second_player_id', [$played->first_player_id, $played->second_player_id]))
         ->count())->toBe(0)
         ->and($competition->matches()->whereKeyNot($played->id)->where('starts_at', '19:00:00')->count())->toBe(1);
+
+    expectValidSchedule($competition);
+});
+
+test('a played match without a field counts as kept', function () {
+    $competition = scheduleFixture(4, 1, 2);
+    $matchDay = $competition->matchDays()->first();
+    $played = $competition->matches()->first();
+
+    placeMatchAt($played, $matchDay, null, '19:00', ['status' => MatchStatus::Played->value]);
+
+    $result = app(ScheduleCompetitionMatches::class)->handle($competition);
+
+    expect($result->keptCount)->toBe(1)
+        ->and($result->scheduledCount + $result->keptCount + $result->unscheduledCount)
+        ->toBe($competition->matches()->count());
+
+    expectValidSchedule($competition);
+});
+
+test('the planner uses the settings as stored at the moment of scheduling', function () {
+    $competition = scheduleFixture(3, 1, 1);
+
+    Competition::query()
+        ->whereKey($competition->id)
+        ->update(['settings' => json_encode(CompetitionSettings::fromArray([
+            'match_duration_minutes' => 30,
+        ])->toArray())]);
+
+    app(ScheduleCompetitionMatches::class)->handle($competition);
+
+    $scheduled = $competition->matches()->whereNotNull('starts_at')->get();
+
+    expect($scheduled)->not->toBeEmpty()
+        ->and($competition->settings->matchDurationMinutes)->toBe(CompetitionSettings::DEFAULT_MATCH_DURATION_MINUTES);
+
+    foreach ($scheduled as $match) {
+        expect(ClockTime::toMinutes($match->ends_at) - ClockTime::toMinutes($match->starts_at))->toBe(30);
+    }
+});
+
+test('a stale row with only a field and a start time still blocks that table slot', function () {
+    $competition = scheduleFixture(4, 1, 2);
+    $matchDay = $competition->matchDays()->first();
+    $field = $matchDay->fields()->first();
+    $stale = $competition->matches()->first();
+
+    placeMatchAt($stale, $matchDay, $field, '19:00', ['status' => MatchStatus::Played->value]);
+    CompetitionMatch::query()->whereKey($stale->id)->update(['match_day_id' => null]);
+
+    app(ScheduleCompetitionMatches::class)->handle($competition);
+
+    expect($competition->matches()
+        ->whereKeyNot($stale->id)
+        ->where('match_day_field_id', $field->id)
+        ->where('starts_at', '19:00:00')
+        ->count())->toBe(0)
+        ->and($stale->refresh()->starts_at)->toBe('19:00');
+
+    expectValidSchedule($competition);
+});
+
+test('the planner result does not depend on the insertion order of match days', function () {
+    $first = scheduleFixture(4, 2, 2);
+    $second = scheduleFixture(4, 2, 2);
+
+    $participants = $second->participants()->orderBy('users.id')->get();
+    $dates = $second->matchDays()->get()->map(fn (MatchDay $matchDay): string => $matchDay->date->toDateString())->all();
+
+    $second->matchDays()->get()->each->delete();
+
+    foreach (array_reverse($dates) as $date) {
+        $matchDay = MatchDay::factory()
+            ->withFields(2)
+            ->create([
+                'competition_id' => $second->id,
+                'date' => $date,
+                'starts_at' => '19:00',
+                'ends_at' => '23:00',
+            ]);
+
+        foreach ($participants as $participant) {
+            MatchDayAvailability::factory()->create([
+                'match_day_id' => $matchDay->id,
+                'user_id' => $participant->id,
+            ]);
+        }
+    }
+
+    app(ScheduleCompetitionMatches::class)->handle($first);
+    app(ScheduleCompetitionMatches::class)->handle($second);
+
+    expect(scheduleSignature($second))->toBe(scheduleSignature($first));
+});
+
+test('availability of a non-participant does not lift the no availability blocker', function () {
+    $competition = scheduleFixture(3, 1, 2);
+    $matchDay = $competition->matchDays()->first();
+
+    MatchDayAvailability::query()->delete();
+
+    MatchDayAvailability::factory()->create([
+        'match_day_id' => $matchDay->id,
+        'user_id' => User::factory()->participant()->create()->id,
+    ]);
+
+    $result = app(ScheduleCompetitionMatches::class)->handle($competition);
+
+    expect($result->isBlocked())->toBeTrue()
+        ->and($result->blocker)->toBe(SchedulingBlocker::NoAvailability);
+});
+
+test('availability left behind by a former participant does not influence the schedule', function () {
+    $competition = scheduleFixture(4, 2, 2);
+    $former = $competition->participants()->orderBy('users.id')->first();
+
+    $competition->participants()->detach($former->id);
+    app(SyncCompetitionMatches::class)->handle($competition);
+
+    expect(MatchDayAvailability::query()->where('user_id', $former->id)->count())->toBe(2);
+
+    $result = app(ScheduleCompetitionMatches::class)->handle($competition);
+
+    expect($result->isComplete())->toBeTrue()
+        ->and($result->scheduledCount)->toBe(3)
+        ->and($competition->matches()
+            ->where(fn ($query) => $query
+                ->where('first_player_id', $former->id)
+                ->orWhere('second_player_id', $former->id))
+            ->count())->toBe(0);
 
     expectValidSchedule($competition);
 });

@@ -22,7 +22,9 @@ final class ScheduleBoard
     private array $tables = [];
 
     /**
-     * Bezette tijdvakken per speler, gesleuteld op speeldag en speler.
+     * Bezette tijdvakken per speler, gesleuteld op speeldag en speler en
+     * altijd op begintijd gesorteerd — `occupyPlayer()` voegt op de juiste
+     * plek in, zodat lezen geen sortering meer kost.
      *
      * @var array<string, list<array{int, int}>>
      */
@@ -51,8 +53,20 @@ final class ScheduleBoard
     public function occupyPlayer(int $playerId, int $matchDayId, int $startMinute, int $endMinute): void
     {
         $key = $this->key($matchDayId, $playerId);
+        $intervals = $this->players[$key] ?? [];
+        $position = count($intervals);
 
-        $this->players[$key][] = [$startMinute, $endMinute];
+        foreach ($intervals as $index => $interval) {
+            if ($startMinute < $interval[0]) {
+                $position = $index;
+
+                break;
+            }
+        }
+
+        array_splice($intervals, $position, 0, [[$startMinute, $endMinute]]);
+
+        $this->players[$key] = $intervals;
         $this->counts[$key] = ($this->counts[$key] ?? 0) + 1;
     }
 
@@ -82,11 +96,7 @@ final class ScheduleBoard
      */
     public function intervalsOf(int $playerId, int $matchDayId): array
     {
-        $intervals = $this->players[$this->key($matchDayId, $playerId)] ?? [];
-
-        usort($intervals, fn (array $first, array $second): int => $first[0] <=> $second[0]);
-
-        return $intervals;
+        return $this->players[$this->key($matchDayId, $playerId)] ?? [];
     }
 
     /**

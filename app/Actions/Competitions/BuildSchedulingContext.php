@@ -11,6 +11,7 @@ use App\Support\Scheduling\MatchDaySchedule;
 use App\Support\Scheduling\ScheduleBoard;
 use App\Support\Scheduling\SchedulingContext;
 use App\Support\Scheduling\SlotGrid;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Leest de database uit en levert de planner zijn context: de instellingen,
@@ -86,14 +87,23 @@ class BuildSchedulingContext
      * blokkeert zo nog steeds precies de minuten die hij bezet houdt. Een
      * gespeelde wedstrijd waarvan de tafel verwijderd is, blokkeert alleen
      * zijn spelers en geen tafel.
+     *
+     * Een rij met een tafel en een begintijd maar zonder speeldag (de speeldag
+     * is losgekoppeld, de tafel niet) telt ook mee: de speeldag volgt dan uit
+     * de tafel. Zo dekt het bord exact dezelfde rijen als de unique-index op
+     * (`match_day_field_id`, `starts_at`) en kan de planner die sleutel nooit
+     * dubbel gebruiken.
      */
     private function boardFor(Competition $competition, ?int $excludeMatchId): ScheduleBoard
     {
         $board = new ScheduleBoard;
 
         $matches = $competition->matches()
-            ->whereNotNull('match_day_id')
+            ->with('matchDayField')
             ->whereNotNull('starts_at')
+            ->where(fn (Builder $query) => $query
+                ->whereNotNull('match_day_id')
+                ->orWhereNotNull('match_day_field_id'))
             ->when($excludeMatchId !== null, fn ($query) => $query->whereKeyNot($excludeMatchId))
             ->get();
 
@@ -102,7 +112,7 @@ class BuildSchedulingContext
                 continue;
             }
 
-            $matchDayId = $match->match_day_id;
+            $matchDayId = $match->match_day_id ?? $match->matchDayField?->match_day_id;
             $startsAt = $match->starts_at;
 
             if ($matchDayId === null || $startsAt === null) {

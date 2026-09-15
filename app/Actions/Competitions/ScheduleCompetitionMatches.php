@@ -17,6 +17,7 @@ use App\Support\Scheduling\SchedulingResult;
 use App\Support\Scheduling\SchedulingSolution;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use LogicException;
 
 /**
  * Verdeelt de openstaande wedstrijden van een competitie over speeldagen,
@@ -40,6 +41,10 @@ use Illuminate\Support\Facades\DB;
  * speeldagen, tafels, beschikbaarheid of wedstrijden is een normale toestand
  * onderweg naar een volle competitie, en komt terug als een geblokkeerd
  * `SchedulingResult` waarbij niets geschreven is.
+ *
+ * Deze Action controleert `CompetitionStatus::allowsScheduling()` bewust
+ * níet: die statusguard hoort in de HTTP-laag, bij de route en de Form
+ * Request, en moet daar dus expliciet worden toegevoegd.
  */
 class ScheduleCompetitionMatches
 {
@@ -56,40 +61,45 @@ class ScheduleCompetitionMatches
             // Zelfde rijlock als SyncCompetitionMatches: plannen leest de
             // deelnemers, hun beschikbaarheid en de hele wedstrijdenlijst, dus
             // een gelijktijdige deelnemersmutatie of een tweede planner-run mag
-            // er niet halverwege doorheen fietsen.
-            Competition::query()->whereKey($competition->id)->lockForUpdate()->first();
+            // er niet halverwege doorheen fietsen. Vanaf hier werken we met de
+            // vergrendelde instantie: de lock beschermt tegen gelijktijdig
+            // schrijven, niet tegen een verouderde instance van de aanroeper,
+            // dus ook `settings` lezen we onder de lock opnieuw.
+            $locked = Competition::query()->whereKey($competition->id)->lockForUpdate()->firstOrFail();
 
-            $blocker = $this->schedulingBlocker($competition, $mode);
+            $blocker = $this->schedulingBlocker($locked, $mode);
 
             if ($blocker instanceof SchedulingBlocker) {
                 return SchedulingResult::blocked($mode, $blocker);
             }
 
             if ($mode === SchedulingMode::Reschedule) {
-                $this->releasePendingMatches($competition);
+                $this->releasePendingMatches($locked);
             }
 
-            $context = $this->buildSchedulingContext->handle($competition);
+            $context = $this->buildSchedulingContext->handle($locked);
 
-            // Alles wat op dit moment volledig gepland staat, raakt deze ronde
-            // niet meer aan: gespeeld, vastgezet en bij aanvullen ook de gewone
-            // geplande wedstrijden.
-            $keptCount = CompetitionMatch::query()
-                ->where('competition_id', $competition->id)
-                ->whereNotNull('match_day_id')
-                ->whereNotNull('match_day_field_id')
-                ->whereNotNull('starts_at')
+            // Het totaal na de eventuele release-stap: wat deze ronde niet
+            // geplaatst of als mislukt gemarkeerd wordt, telt als onaangeroerd.
+            // Zo dekken de drie tellers samen altijd de volledige
+            // wedstrijdenlijst — ook een gespeelde wedstrijd waarvan de tafel
+            // inmiddels verwijderd is.
+            $totalCount = CompetitionMatch::query()
+                ->where('competition_id', $locked->id)
                 ->count();
 
-            $solution = $this->greedyScheduler->schedule($context, $this->pendingMatches($competition));
+            $solution = $this->greedyScheduler->schedule($context, $this->pendingMatches($locked));
 
-            $this->storePlacements($solution, $context);
+            // Eerst de mislukkingen: die maken hun oude plek leeg, zodat een
+            // stale (tafel, begintijd) de unique-index niet in de weg zit
+            // wanneer een andere wedstrijd hem meteen daarna inneemt.
             $this->storeFailures($solution);
+            $this->storePlacements($solution, $context);
 
             return new SchedulingResult(
                 mode: $mode,
                 scheduledCount: $solution->scheduledCount(),
-                keptCount: $keptCount,
+                keptCount: $totalCount - $solution->scheduledCount() - $solution->unscheduledCount(),
                 unscheduledCount: $solution->unscheduledCount(),
                 failures: $solution->failures(),
                 restViolations: $solution->restViolations(),
@@ -148,17 +158,22 @@ class ScheduleCompetitionMatches
      * passeren de mutators van het model niet, dus zetten we de kloktijd zelf
      * als `H:i:s` (zoals `FormatsClockTime` doet) zodat MySQL en SQLite exact
      * dezelfde waarde te zien krijgen.
+     *
+     * @throws LogicException als een plaatsing naar een speeldag wijst die
+     *                        niet in de context zit; dan klopt de uitkomst van
+     *                        de planner niet en mag er niets weggeschreven
+     *                        worden
      */
     private function storePlacements(SchedulingSolution $solution, SchedulingContext $context): void
     {
         foreach ($solution->placements() as $matchId => $placement) {
             $matchDay = $context->matchDay($placement->matchDayId);
 
-            // De planner plaatst alleen op speeldagen uit de context; de
-            // fallback is er voor de typecheck en levert dezelfde eindtijd op.
-            $endMinute = $matchDay instanceof MatchDaySchedule
-                ? $matchDay->grid->matchEndMinute($placement->slot)
-                : $placement->slot->startMinute + $context->settings->matchDurationMinutes;
+            if (! $matchDay instanceof MatchDaySchedule) {
+                throw new LogicException('The planner placed match '.$matchId.' on match day '.$placement->matchDayId.', which is not part of the scheduling context.');
+            }
+
+            $endMinute = $matchDay->grid->matchEndMinute($placement->slot);
 
             CompetitionMatch::query()
                 ->whereKey($matchId)

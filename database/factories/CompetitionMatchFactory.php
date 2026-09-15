@@ -9,6 +9,7 @@ use App\Models\CompetitionMatch;
 use App\Models\MatchDay;
 use App\Models\MatchDayField;
 use App\Models\User;
+use App\Support\CompetitionSettings;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -65,7 +66,7 @@ class CompetitionMatchFactory extends Factory
      * tafel. De eindtijd wordt afgeleid van de begintijd en de
      * wedstrijdduur, net zoals de planner dat doet.
      */
-    public function scheduled(MatchDay $matchDay, MatchDayField $field, string $startsAt, int $durationMinutes = 20): static
+    public function scheduled(MatchDay $matchDay, MatchDayField $field, string $startsAt, int $durationMinutes = CompetitionSettings::DEFAULT_MATCH_DURATION_MINUTES): static
     {
         return $this->state(fn (array $attributes) => [
             'match_day_id' => $matchDay->id,

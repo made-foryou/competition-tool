@@ -19,7 +19,7 @@ final readonly class SchedulingResult
 {
     /**
      * @param  int  $scheduledCount  in deze ronde geplaatst
-     * @param  int  $keptCount  stond al volledig gepland en is niet aangeraakt (inclusief gespeeld en vastgezet)
+     * @param  int  $keptCount  niet in deze ronde aangeraakt — inclusief gespeelde en vastgezette wedstrijden, ook als hun tafel is verwijderd; de drie tellers dekken samen altijd de volledige wedstrijdenlijst
      * @param  int  $unscheduledCount  na deze ronde nog zonder plek
      * @param  array<int, SchedulingFailure>  $failures  wedstrijd-id => reden
      * @param  list<int>  $restViolations  wedstrijd-ids die met te weinig rust geplaatst zijn
@@ -53,6 +53,16 @@ final readonly class SchedulingResult
     public function isBlocked(): bool
     {
         return $this->blocker instanceof SchedulingBlocker;
+    }
+
+    /**
+     * Of deze ronde alleen maar meldt dat er niets te doen viel: alles stond
+     * al gepland. Geen blokkade in de gewone zin, dus de UI maakt er een
+     * neutrale melding van in plaats van een waarschuwing.
+     */
+    public function isInformational(): bool
+    {
+        return $this->blocker === SchedulingBlocker::NothingToSchedule;
     }
 
     /**

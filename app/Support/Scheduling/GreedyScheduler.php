@@ -4,6 +4,7 @@ namespace App\Support\Scheduling;
 
 use App\Enums\PlacementViolation;
 use App\Enums\SchedulingFailure;
+use LogicException;
 
 /**
  * Het greedy toewijzingsalgoritme: de meest beperkte wedstrijden eerst, per
@@ -13,26 +14,6 @@ use App\Enums\SchedulingFailure;
  */
 final readonly class GreedyScheduler
 {
-    /**
-     * Een geschonden rustpauze weegt zo zwaar dat een plek zonder schending
-     * altijd wint, ook op een latere avond: de penalty is groter dan elk
-     * realistisch verschil in eerlijkheid plus wachttijd.
-     */
-    public const int REST_VIOLATION_PENALTY = 1000;
-
-    /**
-     * Eerlijkheid gaat vóór compactheid: één extra wedstrijd op dezelfde
-     * avond weegt zwaarder dan tot 100 minuten extra wachttijd, dus spreidt
-     * de planner een speler eerst over de avonden.
-     */
-    public const int FAIRNESS_WEIGHT = 100;
-
-    /**
-     * Wachttijd telt per minuut en is daarmee de fijnregeling die alleen
-     * beslist als rust en eerlijkheid gelijk uitvallen.
-     */
-    public const int WAIT_WEIGHT = 1;
-
     public function __construct(
         private PlacementValidator $validator = new PlacementValidator,
     ) {}
@@ -65,35 +46,29 @@ final readonly class GreedyScheduler
     }
 
     /**
-     * De score van een plek, lager is beter: rustschendingen wegen het
-     * zwaarst, daarna het aantal wedstrijden dat beide spelers die dag al
-     * hebben, en als fijnregeling de wachttijd tot de dichtstbijzijnde eigen
-     * wedstrijd.
+     * De score van een plek als lexicografisch te vergelijken drietal.
+     *
+     * Bewust geen gewogen som: een penalty per rustschending moet dan groter
+     * zijn dan élk denkbaar verschil in eerlijkheid plus wachttijd, en dat
+     * houdt geen stand. Twaalf gecombineerde wedstrijden op een drukke avond
+     * tikken een eerlijkheidsgewicht zo ver op dat de som liever één
+     * rustschending op een rustige avond koopt — precies andersom dan het
+     * ontwerp voorschrijft. Lexicografisch vergelijken maakt "rust eerst" een
+     * eigenschap in plaats van een aanname.
+     *
+     * @throws LogicException als de speeldag niet in de context zit; een
+     *                        score van nul teruggeven zou dan stilzwijgend de
+     *                        winnende kandidaat opleveren
      */
     public function score(Placement $placement, int $firstPlayerId, int $secondPlayerId, SchedulingContext $context): PlacementScore
     {
         $matchDay = $context->matchDay($placement->matchDayId);
 
-        if ($matchDay === null) {
-            return new PlacementScore(0, false);
+        if (! $matchDay instanceof MatchDaySchedule) {
+            throw new LogicException('Cannot score a placement on match day '.$placement->matchDayId.': it is not part of the scheduling context.');
         }
 
-        $startMinute = $placement->slot->startMinute;
-        $matchEndMinute = $matchDay->grid->matchEndMinute($placement->slot);
-        $minRestMinutes = $context->settings->minRestMinutes;
-
-        $first = $this->rate($firstPlayerId, $matchDay->matchDayId, $startMinute, $matchEndMinute, $minRestMinutes, $context->board);
-        $second = $this->rate($secondPlayerId, $matchDay->matchDayId, $startMinute, $matchEndMinute, $minRestMinutes, $context->board);
-
-        $restViolations = (int) $first['rest_violated'] + (int) $second['rest_violated'];
-        $matchesToday = $context->board->matchesOn($firstPlayerId, $matchDay->matchDayId)
-            + $context->board->matchesOn($secondPlayerId, $matchDay->matchDayId);
-
-        $score = self::REST_VIOLATION_PENALTY * $restViolations
-            + self::FAIRNESS_WEIGHT * $matchesToday
-            + self::WAIT_WEIGHT * ($first['wait'] + $second['wait']);
-
-        return new PlacementScore($score, $first['rest_violated'] || $second['rest_violated']);
+        return $this->scoreOn($matchDay, $placement->slot, $firstPlayerId, $secondPlayerId, $context);
     }
 
     /**
@@ -106,20 +81,22 @@ final readonly class GreedyScheduler
     {
         $best = null;
         $bestScore = null;
+        $bestMatchDay = null;
 
         /** @var array<string, PlacementViolation> $violations */
         $violations = [];
 
-        foreach ($sharedMatchDayIds as $matchDayId) {
-            $matchDay = $context->matchDay($matchDayId);
-
-            if ($matchDay === null) {
+        // Over de speeldagen van de context lopen in plaats van over de ids:
+        // de volgorde is dezelfde (de gedeelde ids komen uit de context) en de
+        // speeldag is hier per definitie bekend.
+        foreach ($context->matchDays as $matchDay) {
+            if (! in_array($matchDay->matchDayId, $sharedMatchDayIds, true)) {
                 continue;
             }
 
             foreach ($matchDay->grid->slots as $slot) {
                 foreach ($matchDay->fieldIds as $fieldId) {
-                    $placement = new Placement($matchDayId, $fieldId, $slot);
+                    $placement = new Placement($matchDay->matchDayId, $fieldId, $slot);
                     $violation = $this->validator->violation($placement, $match->firstPlayerId, $match->secondPlayerId, $context);
 
                     if ($violation instanceof PlacementViolation) {
@@ -128,32 +105,50 @@ final readonly class GreedyScheduler
                         continue;
                     }
 
-                    $score = $this->score($placement, $match->firstPlayerId, $match->secondPlayerId, $context);
+                    $score = $this->scoreOn($matchDay, $slot, $match->firstPlayerId, $match->secondPlayerId, $context);
 
-                    if ($bestScore === null || $score->score < $bestScore->score) {
+                    if ($bestScore === null || $score->isBetterThan($bestScore)) {
                         $best = $placement;
                         $bestScore = $score;
+                        $bestMatchDay = $matchDay;
                     }
                 }
             }
         }
 
-        if ($best === null || $bestScore === null) {
+        if ($best === null || $bestScore === null || $bestMatchDay === null) {
             $solution->fail($match->id, $this->diagnose($sharedMatchDayIds, $violations));
 
             return;
         }
 
-        $matchDay = $context->matchDay($best->matchDayId);
-        $matchEndMinute = $matchDay instanceof MatchDaySchedule
-            ? $matchDay->grid->matchEndMinute($best->slot)
-            : $best->slot->endMinute;
+        $matchEndMinute = $bestMatchDay->grid->matchEndMinute($best->slot);
 
         $context->board->occupyTable($best->matchDayId, $best->fieldId, $best->slot->startMinute, $best->slot->endMinute);
         $context->board->occupyPlayer($match->firstPlayerId, $best->matchDayId, $best->slot->startMinute, $matchEndMinute);
         $context->board->occupyPlayer($match->secondPlayerId, $best->matchDayId, $best->slot->startMinute, $matchEndMinute);
 
         $solution->place($match->id, $best, $bestScore->restViolated);
+    }
+
+    /**
+     * De score van een slot op een al opgehaalde speeldag.
+     */
+    private function scoreOn(MatchDaySchedule $matchDay, Slot $slot, int $firstPlayerId, int $secondPlayerId, SchedulingContext $context): PlacementScore
+    {
+        $startMinute = $slot->startMinute;
+        $matchEndMinute = $matchDay->grid->matchEndMinute($slot);
+        $minRestMinutes = $context->settings->minRestMinutes;
+
+        $first = $this->rate($firstPlayerId, $matchDay->matchDayId, $startMinute, $matchEndMinute, $minRestMinutes, $context->board);
+        $second = $this->rate($secondPlayerId, $matchDay->matchDayId, $startMinute, $matchEndMinute, $minRestMinutes, $context->board);
+
+        return new PlacementScore(
+            restViolations: (int) $first['rest_violated'] + (int) $second['rest_violated'],
+            fairness: $context->board->matchesOn($firstPlayerId, $matchDay->matchDayId)
+                + $context->board->matchesOn($secondPlayerId, $matchDay->matchDayId),
+            waitMinutes: $first['wait'] + $second['wait'],
+        );
     }
 
     /**

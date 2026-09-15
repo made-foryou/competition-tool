@@ -21,7 +21,9 @@ final class SchedulingSolution
     private array $failures = [];
 
     /**
-     * @var list<int>
+     * Als set op wedstrijd-id, zodat een wedstrijd er nooit dubbel in komt.
+     *
+     * @var array<int, int>
      */
     private array $restViolations = [];
 
@@ -29,10 +31,8 @@ final class SchedulingSolution
     {
         $this->placements[$matchId] = $placement;
 
-        unset($this->failures[$matchId]);
-
         if ($restViolated) {
-            $this->restViolations[] = $matchId;
+            $this->restViolations[$matchId] = $matchId;
         }
     }
 
@@ -68,7 +68,7 @@ final class SchedulingSolution
      */
     public function restViolations(): array
     {
-        return $this->restViolations;
+        return array_values($this->restViolations);
     }
 
     public function scheduledCount(): int
