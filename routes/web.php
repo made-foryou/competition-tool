@@ -8,6 +8,7 @@ use App\Http\Controllers\CompetitionAvailabilityReminderController;
 use App\Http\Controllers\CompetitionController;
 use App\Http\Controllers\CompetitionInvitationController;
 use App\Http\Controllers\CompetitionParticipantController;
+use App\Http\Controllers\CompetitionParticipantRoleController;
 use App\Http\Controllers\CompetitionSettingsController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MatchDayController;
@@ -64,6 +65,13 @@ Route::middleware(['auth', 'verified', EnsureUserIsAdmin::class])->group(functio
             // resolven en andere users een 404 opleveren.
             Route::delete('participants/{participant}', [CompetitionParticipantController::class, 'destroy'])
                 ->name('participants.destroy');
+
+            // De rol is globaal (niet per competitie), maar deze route zit
+            // bewust binnen de competitie-scope: hier ziet de beheerder de
+            // deelnemer, en {participant} levert via dezelfde scoped binding
+            // gratis een 404 op voor een user die geen deelnemer is.
+            Route::patch('participants/{participant}/role', CompetitionParticipantRoleController::class)
+                ->name('participants.role');
 
             // {invitation} resolvet via de scoped binding op invitations(),
             // zodat een uitnodiging van een andere competitie automatisch een
