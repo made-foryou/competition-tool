@@ -19,12 +19,12 @@ test('a linked participant can view the competition dashboard', function () {
         );
 });
 
-test('an unlinked participant gets a 403', function () {
+test('an unlinked participant is sent to the registration page', function () {
     $competition = Competition::factory()->create();
 
     $this->actingAs(User::factory()->participant()->create())
         ->get(route('competition.dashboard', $competition))
-        ->assertForbidden();
+        ->assertRedirect(route('competition.register.show', $competition));
 });
 
 test('admins can view any competition dashboard', function () {
@@ -117,4 +117,29 @@ test('participants only see id and name of other participants', function () {
                 ->has('name'),
             ),
         );
+});
+
+test('a non-get request from an unlinked participant gets a 303', function () {
+    $competition = Competition::factory()->create();
+
+    $this->actingAs(User::factory()->participant()->create())
+        ->put(route('competition.availability.update', $competition), ['match_days' => []])
+        ->assertStatus(303)
+        ->assertRedirect(route('competition.register.show', $competition));
+});
+
+test('a draft competition stays hidden for an unlinked participant', function () {
+    $competition = Competition::factory()->draft()->create();
+
+    $this->actingAs(User::factory()->participant()->create())
+        ->get(route('competition.dashboard', $competition))
+        ->assertNotFound();
+});
+
+test('a finished competition sends an unlinked participant to the closed registration page', function () {
+    $competition = Competition::factory()->finished()->create();
+
+    $this->actingAs(User::factory()->participant()->create())
+        ->get(route('competition.dashboard', $competition))
+        ->assertRedirect(route('competition.register.show', $competition));
 });

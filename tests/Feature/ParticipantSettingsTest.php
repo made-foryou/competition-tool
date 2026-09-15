@@ -117,12 +117,12 @@ test('the security page shows two factor and passkey options after confirmation'
         );
 });
 
-test('an unlinked participant cannot reach the settings', function () {
+test('an unlinked participant is sent to the registration page', function () {
     $competition = Competition::factory()->create();
 
     $this->actingAs(User::factory()->participant()->create())
         ->get(route('competition.settings.index', $competition))
-        ->assertForbidden();
+        ->assertRedirect(route('competition.register.show', $competition));
 });
 
 test('guests are sent to the competition login page', function () {

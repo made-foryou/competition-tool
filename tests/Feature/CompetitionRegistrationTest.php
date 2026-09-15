@@ -263,3 +263,18 @@ test('registration stays open on an active competition that has not started yet'
 
     expect($upcoming->participants()->count())->toBe(1);
 });
+
+test('a signed in non-participant sees the closed state of a finished competition', function () {
+    $finished = Competition::factory()->finished()->create();
+    $user = User::factory()->participant()->create();
+
+    $this->actingAs($user)
+        ->get(route('competition.register.show', $finished))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('auth/competition-register')
+            ->where('authenticated', true)
+            ->where('registrationState', 'closed')
+            ->where('returnUrl', route('competition.none')),
+        );
+});
