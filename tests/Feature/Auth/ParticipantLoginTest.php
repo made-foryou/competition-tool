@@ -62,6 +62,30 @@ test('logging in via the competition login page returns to that competition', fu
     ])->assertRedirect(route('competition.dashboard', $competition));
 });
 
+test('the competition login page offers a sign-up link while the competition is active', function () {
+    $competition = Competition::factory()->create();
+
+    $this->get(route('competition.login', $competition))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('auth/competition-login')
+            ->where('canSignUp', true)
+            ->etc(),
+        );
+});
+
+test('the competition login page hides the sign-up link on a finished competition', function () {
+    $competition = Competition::factory()->finished()->create();
+
+    $this->get(route('competition.login', $competition))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('auth/competition-login')
+            ->where('canSignUp', false)
+            ->etc(),
+        );
+});
+
 test('the custom login response is bound for both login contracts', function () {
     expect(app(LoginResponseContract::class))->toBeInstanceOf(LoginResponse::class)
         ->and(app(TwoFactorLoginResponseContract::class))->toBeInstanceOf(LoginResponse::class);

@@ -245,6 +245,10 @@ export default function CompetitionsEdit({
                         <ParticipantManager
                             competitionId={competition.id}
                             competitionSlug={competition.slug}
+                            allowsSignUp={competition.allows_sign_up}
+                            isVisibleToParticipants={
+                                competition.is_visible_to_participants
+                            }
                             participants={participants}
                             pendingInvitations={pendingInvitations}
                         />

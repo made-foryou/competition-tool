@@ -33,6 +33,10 @@ class CompetitionLoginController extends Controller
             'competitionName' => $competition->name,
             'competitionSlug' => $competition->slug,
             'canResetPassword' => Features::enabled(Features::resetPasswords()),
+            // Dezelfde regel als op de inschrijfpagina zelf: zonder deze
+            // vlag bood de loginpagina een aanmeldlink aan die alleen maar
+            // terugverwees naar login.
+            'canSignUp' => $competition->status->allowsSignUp(),
             'status' => $request->session()->get('status'),
         ]);
     }
