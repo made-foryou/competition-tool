@@ -120,16 +120,16 @@ Minimale rust is bewust géén schending — die zit in de score.
 - **Score** (lager is beter) voor de overgebleven kandidaten, als **lexicografisch
   vergeleken drietal** — geen gewogen som, zodat "rust domineert" een eigenschap is en
   geen aanname die bij een drukke avond omvalt:
-  1. rustschendingen: het aantal spelers (0, 1 of 2) dat minder dan `min_rest_minutes`
-     tot een eigen wedstrijd op die dag zou hebben — een slot zonder schending wint dus
-     altijd, ook op een andere dag;
-  2. eerlijkheid: het aantal wedstrijden dat beide spelers die dag samen al hebben —
-     spreidt per speler over de avonden (doel 2);
-  3. wachttijd: per speler `max(0, gat − min_rest_minutes)` tot de dichtstbijzijnde eigen
-     wedstrijd die dag, opgeteld; 0 voor de eerste wedstrijd van de dag. Een gat van precies
-     de minimale rust is ideaal en kost niets (doel 3).
-  De eerste kandidaat met het strikt laagste drietal wint; bij gelijkspel wint dus de
-  vroegste dag, het vroegste slot en de laagste tafel.
+    1. rustschendingen: het aantal spelers (0, 1 of 2) dat minder dan `min_rest_minutes`
+       tot een eigen wedstrijd op die dag zou hebben — een slot zonder schending wint dus
+       altijd, ook op een andere dag;
+    2. eerlijkheid: het aantal wedstrijden dat beide spelers die dag samen al hebben —
+       spreidt per speler over de avonden (doel 2);
+    3. wachttijd: per speler `max(0, gat − min_rest_minutes)` tot de dichtstbijzijnde eigen
+       wedstrijd die dag, opgeteld; 0 voor de eerste wedstrijd van de dag. Een gat van precies
+       de minimale rust is ideaal en kost niets (doel 3).
+       De eerste kandidaat met het strikt laagste drietal wint; bij gelijkspel wint dus de
+       vroegste dag, het vroegste slot en de laagste tafel.
 - **Diagnose** als er geen kandidaat overblijft (`SchedulingFailure`):
   `no_shared_match_day` (geen gedeelde speeldag), `max_matches_per_day_reached` (alleen
   het dagmaximum stond in de weg), anders `no_capacity` (geen vrij slot).
@@ -183,12 +183,12 @@ de HTTP-laag (fase b en c) en moet daar dus bewust worden toegevoegd.
 
 ### `matches` (uitbreiding)
 
-| Kolom                | Type                                  | Opmerking                                                        |
-| -------------------- | ------------------------------------- | ---------------------------------------------------------------- |
-| `starts_at`          | time, nullable                        | lokale kloktijd op de speeldag, `H:i`-accessor zoals `MatchDay`  |
-| `ends_at`            | time, nullable                        | `starts_at` + wedstrijdduur op het moment van plannen            |
-| `pinned_at`          | timestamp, nullable                   | handmatig vastgezet; herplannen laat deze wedstrijd staan        |
-| `scheduling_failure` | string, nullable (`SchedulingFailure`) | reden waarom de planner deze wedstrijd niet kon plaatsen         |
+| Kolom                | Type                                   | Opmerking                                                       |
+| -------------------- | -------------------------------------- | --------------------------------------------------------------- |
+| `starts_at`          | time, nullable                         | lokale kloktijd op de speeldag, `H:i`-accessor zoals `MatchDay` |
+| `ends_at`            | time, nullable                         | `starts_at` + wedstrijdduur op het moment van plannen           |
+| `pinned_at`          | timestamp, nullable                    | handmatig vastgezet; herplannen laat deze wedstrijd staan       |
+| `scheduling_failure` | string, nullable (`SchedulingFailure`) | reden waarom de planner deze wedstrijd niet kon plaatsen        |
 
 Indexen: `(match_day_id, match_day_field_id, starts_at)` voor het grid per speeldag, en
 een unique op `(match_day_field_id, starts_at)` als vangnet op databaseniveau tegen dubbele
@@ -224,13 +224,13 @@ Alle routes in de bestaande groep `competitions/{competition}` (admin, `scopeBin
 `{match}` resolvet via de scoped binding op `Competition::matches()`, zodat een wedstrijd
 van een andere competitie een 404 geeft — zelfde mechaniek als `{participant}`.
 
-| Methode | Pad                          | Naam                      | Fase | Opmerking                              |
-| ------- | ---------------------------- | ------------------------- | ---- | -------------------------------------- |
-| POST    | `schedule`                   | `schedule.store`          | b    | aanvullen; `throttle:6,1`              |
-| POST    | `schedule/rebuild`           | `schedule.rebuild`        | c    | opnieuw plannen; `throttle:6,1`        |
-| PUT     | `matches/{match}/schedule`   | `matches.schedule.update` | c    | verplaatsen → vastgezet; Form Request  |
-| POST    | `matches/{match}/pin`        | `matches.pin.store`       | c    | alleen een geplande, niet-gespeelde    |
-| DELETE  | `matches/{match}/pin`        | `matches.pin.destroy`     | c    |                                        |
+| Methode | Pad                        | Naam                      | Fase | Opmerking                             |
+| ------- | -------------------------- | ------------------------- | ---- | ------------------------------------- |
+| POST    | `schedule`                 | `schedule.store`          | b    | aanvullen; `throttle:6,1`             |
+| POST    | `schedule/rebuild`         | `schedule.rebuild`        | c    | opnieuw plannen; `throttle:6,1`       |
+| PUT     | `matches/{match}/schedule` | `matches.schedule.update` | c    | verplaatsen → vastgezet; Form Request |
+| POST    | `matches/{match}/pin`      | `matches.pin.store`       | c    | alleen een geplande, niet-gespeelde   |
+| DELETE  | `matches/{match}/pin`      | `matches.pin.destroy`     | c    |                                       |
 
 Statusguard op alle schrijfroutes via `allowsScheduling()`: bij de knoppen als toast +
 `back()` (patroon herinneringen), bij de formulieren in `authorize()` van de Form Request
