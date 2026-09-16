@@ -81,6 +81,89 @@ class CompetitionScheduleController extends Controller
     }
 
     /**
+     * Rekent het hele schema opnieuw uit: alles wat openstaat en niet
+     * vastgezet is gaat los, gespeelde en vastgezette wedstrijden blijven
+     * staan.
+     *
+     * Zelfde vorm als `store()` -- inclusief de statusguard die hier en niet in
+     * de Action staat, en dezelfde `blockerMessage()`. Enige verschil is de
+     * melding: die noemt ook hoeveel wedstrijden onaangeroerd bleven, want dat
+     * is bij opnieuw plannen precies de vraag van de beheerder ("wat heb ik nu
+     * losgelaten?").
+     *
+     * Die "behouden"-zin is bewust een aparte sleutel die achter de
+     * bestaande melding geplakt wordt, in plaats van een eigen set volledige
+     * zinnen per combinatie. Beide getallen hebben een enkelvoud en een
+     * meervoud, dus een gecombineerde zin zou vier extra sleutels kosten voor
+     * de volledige uitkomst en acht voor de gedeeltelijke; met één losse zin
+     * blijven het er twee, en de bestaande meldingen blijven ongewijzigd.
+     *
+     * `nothing_to_schedule` kan hier niet optreden: die preconditie geldt in
+     * `DeterminesSchedulingBlocker` alleen bij `Fill`, omdat opnieuw plannen
+     * altijd werk heeft. De afhandeling loopt niettemin via dezelfde tak, dus
+     * mocht dat ooit veranderen dan klopt de melding nog steeds.
+     */
+    public function rebuild(Competition $competition, ScheduleCompetitionMatches $scheduleCompetitionMatches): RedirectResponse
+    {
+        if (! $competition->status->allowsScheduling()) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => __('Matches can only be scheduled for an active competition. Change the status under General.')]);
+
+            return back();
+        }
+
+        $result = $scheduleCompetitionMatches->handle($competition, SchedulingMode::Reschedule);
+
+        $blocker = $result->blocker;
+
+        if ($blocker instanceof SchedulingBlocker) {
+            Inertia::flash('toast', [
+                'type' => $result->isInformational() ? 'info' : 'error',
+                'message' => $this->blockerMessage($blocker),
+            ]);
+
+            return back();
+        }
+
+        if ($result->isComplete()) {
+            $message = $result->scheduledCount === 1
+                ? __(':count match scheduled.', ['count' => $result->scheduledCount])
+                : __(':count matches scheduled.', ['count' => $result->scheduledCount]);
+
+            Inertia::flash('toast', [
+                'type' => 'success',
+                'message' => $this->withKept($message, $result->keptCount),
+            ]);
+
+            return back();
+        }
+
+        Inertia::flash('toast', [
+            'type' => 'warning',
+            'message' => $this->withKept(
+                $this->partialMessage($result->scheduledCount, $result->unscheduledCount),
+                $result->keptCount,
+            ),
+        ]);
+
+        return back();
+    }
+
+    /**
+     * Plakt de "behouden"-zin achter een melding, of laat hem ongemoeid als er
+     * niets behouden is.
+     */
+    private function withKept(string $message, int $keptCount): string
+    {
+        if ($keptCount < 1) {
+            return $message;
+        }
+
+        return $message.' '.($keptCount === 1
+            ? __(':count played or pinned match was kept in place.', ['count' => $keptCount])
+            : __(':count played or pinned matches were kept in place.', ['count' => $keptCount]));
+    }
+
+    /**
      * De gedeeltelijke uitkomst als één zin. Beide getallen hebben een eigen
      * enkelvoud, dus vier losse sleutels in plaats van `trans_choice` — zelfde
      * conventie als de rest van dit project.
