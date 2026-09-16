@@ -112,7 +112,7 @@ export default function MatchList({
             </div>
 
             <div className="rounded-xl border">
-                <Table>
+                <Table aria-label={t('Match list')}>
                     <TableHeader>
                         <TableRow>
                             <TableHead

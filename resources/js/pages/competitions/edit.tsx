@@ -196,7 +196,7 @@ export default function CompetitionsEdit({
                                 {t('Schedule')}
                             </TabsTrigger>
                             <TabsTrigger value="settings" className="shrink-0">
-                                {t('Planning')}
+                                {t('Planning settings')}
                             </TabsTrigger>
                         </TabsList>
                     </div>

@@ -66,7 +66,7 @@ trait SummarizesSchedule
      *         }>,
      *     }>,
      *     unscheduled: list<array{id: int, first_player: string, second_player: string, reason: string|null}>,
-     *     rest_violations: list<array{match_id: int, player: string, gap_minutes: int}>,
+     *     rest_violations: list<array{match_id: int, player: string, gap_minutes: int, overlapping: bool}>,
      * }
      */
     protected function scheduleProps(Competition $competition): array
@@ -243,8 +243,13 @@ trait SummarizesSchedule
      * de beheerder kan verplaatsen om het gat te repareren. Een wedstrijd
      * zonder eindtijd levert geen berekenbaar gat op en slaat het paar over.
      *
+     * Twee wedstrijden kunnen elkaar overlappen (handmatig gezet of al
+     * gespeeld). Een negatief gat is voor de lezer geen bruikbaar getal, dus
+     * `gap_minutes` wordt op 0 geklemd en `overlapping` vertelt de UI dat er
+     * een andere zin bij hoort.
+     *
      * @param  list<MatchDay>  $matchDays  in schermvolgorde, met `matches`, `firstPlayer` en `secondPlayer` al geladen
-     * @return list<array{match_id: int, player: string, gap_minutes: int}>
+     * @return list<array{match_id: int, player: string, gap_minutes: int, overlapping: bool}>
      */
     private function restViolationRows(Competition $competition, array $matchDays): array
     {
@@ -290,7 +295,8 @@ trait SummarizesSchedule
                         'player' => $current->first_player_id === $playerId
                             ? $current->firstPlayer->display_name
                             : $current->secondPlayer->display_name,
-                        'gap_minutes' => $gapMinutes,
+                        'gap_minutes' => max(0, $gapMinutes),
+                        'overlapping' => $gapMinutes < 0,
                     ];
                 }
 

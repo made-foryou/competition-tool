@@ -17,6 +17,10 @@ import { pluralize } from '@/lib/plural';
 /** Koppelt de uitleg onder de inplanknop aan die knop via `aria-describedby`. */
 const SCHEDULE_DISABLED_REASON_ID = 'schedule-disabled-hint';
 
+/** De omvang van het skeletraster: een speeldag met een paar tafels. */
+const SKELETON_ROWS = 6;
+const SKELETON_COLUMNS = 3;
+
 export type ScheduleFieldProps = {
     id: number;
     name: string;
@@ -64,7 +68,10 @@ export type ScheduleUnscheduledProps = {
 export type ScheduleRestViolationProps = {
     match_id: number;
     player: string;
+    /** Geklemd op 0; bij `overlapping` zegt dit getal dus niets. */
     gap_minutes: number;
+    /** De twee wedstrijden van deze speler overlappen elkaar. */
+    overlapping: boolean;
 };
 
 export type ScheduleBlockedReason =
@@ -138,7 +145,7 @@ export default function SchedulePanel({
         switch (schedule.blocked_reason) {
             case 'inactive':
                 return t(
-                    'Matches can only be scheduled for an active competition.',
+                    'Matches can only be scheduled for an active competition. Change the status under General.',
                 );
             case 'no_match_days':
                 return t('Add match days before scheduling.');
@@ -161,10 +168,13 @@ export default function SchedulePanel({
      * De tab waar de beheerder de blokkade kan opheffen. Alleen bij een reden
      * die met één stap te verhelpen is; `inactive` en `nothing_to_schedule`
      * horen thuis in respectievelijk de tab Algemeen en nergens.
+     *
+     * `no_match_days` staat er bewust niet bij: zonder speeldagen toont de
+     * `EmptyState` eronder al een knop "Naar speeldagen", en twee identieke
+     * knoppen boven elkaar helpen niemand.
      */
     const resolveAction = (() => {
         switch (schedule.blocked_reason) {
-            case 'no_match_days':
             case 'no_fields':
                 return onNavigateToMatchDays
                     ? {
@@ -208,14 +218,25 @@ export default function SchedulePanel({
                                 total: schedule.summary.total,
                             })}
                         </Badge>
-                        {schedule.summary.unscheduled > 0 && (
-                            <Badge variant="secondary">
-                                {pluralize(
-                                    t,
-                                    schedule.summary.unscheduled,
-                                    ':count match not scheduled',
-                                    ':count matches not scheduled',
-                                )}
+                        {/* Zolang er nog niets is ingepland zegt ":scheduled
+                        van :total ingepland" hetzelfde; de tweede badge voegt
+                        dan alleen ruis toe. */}
+                        {schedule.summary.unscheduled > 0 &&
+                            schedule.summary.scheduled > 0 && (
+                                <Badge variant="secondary">
+                                    {pluralize(
+                                        t,
+                                        schedule.summary.unscheduled,
+                                        ':count match not scheduled',
+                                        ':count matches not scheduled',
+                                    )}
+                                </Badge>
+                            )}
+                        {schedule.summary.played > 0 && (
+                            <Badge variant="outline">
+                                {t(':count played', {
+                                    count: schedule.summary.played,
+                                })}
                             </Badge>
                         )}
                         {schedule.summary.pinned > 0 && (
@@ -316,50 +337,66 @@ export default function SchedulePanel({
                         onSelect={setSelectedMatchDayId}
                     />
                     <ScheduleGrid matchDay={selectedMatchDay} />
+                    <ScheduleReport
+                        unscheduled={schedule.unscheduled}
+                        restViolations={schedule.rest_violations}
+                        scheduledCount={schedule.summary.scheduled}
+                    />
                 </>
             )}
-
-            <ScheduleReport
-                unscheduled={schedule.unscheduled}
-                restViolations={schedule.rest_violations}
-            />
         </section>
     );
 }
 
 /**
- * Placeholder in dezelfde omtrek als het grid, zodat het uitgesteld laden van
- * de schedule-prop geen layout shift veroorzaakt.
+ * Placeholder in dezelfde omtrek als de geladen tab: kop, samenvattingsbadges,
+ * actiebalk en het grid. Ook de rijen bóven het grid zitten erin, want anders
+ * schuift de actiebalk alsnog omlaag zodra de uitgestelde schedule-prop
+ * binnenkomt.
  */
-export function ScheduleSkeleton({
-    rows = 6,
-    columns = 3,
-}: {
-    rows?: number;
-    columns?: number;
-}) {
+export function ScheduleSkeleton() {
     const { t } = useTranslations();
 
     return (
         <div
-            className="flex flex-col gap-3 rounded-xl border p-3"
+            className="flex flex-col gap-4"
             aria-label={t('Loading schedule…')}
             aria-busy="true"
         >
-            <div className="flex items-center gap-3">
-                <Skeleton className="h-4 w-16" />
-                {Array.from({ length: columns }, (_, column) => (
-                    <Skeleton key={column} className="h-4 flex-1" />
-                ))}
+            <div className="flex flex-col gap-2">
+                <Skeleton className="h-4 w-24" />
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Skeleton className="h-4 w-72 max-w-full" />
+                    <div className="flex gap-2">
+                        <Skeleton className="h-5 w-28 rounded-md" />
+                        <Skeleton className="h-5 w-24 rounded-md" />
+                    </div>
+                </div>
             </div>
-            {Array.from({ length: rows }, (_, row) => (
-                <div key={row} className="flex items-center gap-3">
-                    <Skeleton className="h-8 w-16" />
-                    {Array.from({ length: columns }, (_, column) => (
-                        <Skeleton key={column} className="h-8 flex-1" />
+
+            <div className="flex gap-2">
+                <Skeleton className="h-8 w-44 rounded-md" />
+            </div>
+
+            <div className="flex flex-col gap-3 rounded-xl border p-3">
+                <div className="flex items-center gap-3">
+                    <Skeleton className="h-4 w-16" />
+                    {Array.from({ length: SKELETON_COLUMNS }, (_, column) => (
+                        <Skeleton key={column} className="h-4 flex-1" />
                     ))}
                 </div>
-            ))}
+                {Array.from({ length: SKELETON_ROWS }, (_, row) => (
+                    <div key={row} className="flex items-center gap-3">
+                        <Skeleton className="h-8 w-16" />
+                        {Array.from(
+                            { length: SKELETON_COLUMNS },
+                            (_, column) => (
+                                <Skeleton key={column} className="h-8 flex-1" />
+                            ),
+                        )}
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }

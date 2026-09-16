@@ -15,6 +15,7 @@ use App\Support\Scheduling\ClockTime;
 use App\Support\Scheduling\SlotGrid;
 use Database\Factories\MatchDayFactory;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\RateLimiter;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
@@ -161,7 +162,7 @@ test('a partial result flashes a warning with both counts', function () {
         ->assertRedirect()
         ->assertInertiaFlash('toast', [
             'type' => 'warning',
-            'message' => __(':scheduled matches scheduled, :unscheduled could not be scheduled. See the report.', [
+            'message' => __(':scheduled matches scheduled, :unscheduled matches could not be scheduled. See the planning report below.', [
                 'scheduled' => 3,
                 'unscheduled' => 3,
             ]),
@@ -169,6 +170,35 @@ test('a partial result flashes a warning with both counts', function () {
 
     expect($competition->matches()->whereNotNull('starts_at')->count())->toBe(3)
         ->and($competition->matches()->where('scheduling_failure', SchedulingFailure::NoSharedMatchDay->value)->count())->toBe(3);
+});
+
+test('a partial result with one match on each side uses both singulars', function () {
+    $competition = schedulingFixture(players: 3);
+    $participants = $competition->participants()->orderBy('id')->get();
+    $matchDay = $competition->matchDays()->first();
+
+    // De onderlinge wedstrijd van de eerste twee spelers staat al op het
+    // schema, dus de planner houdt er precies twee over.
+    $placed = $competition->matches()
+        ->whereIn('first_player_id', [$participants[0]->id, $participants[1]->id])
+        ->whereIn('second_player_id', [$participants[0]->id, $participants[1]->id])
+        ->first();
+
+    placeMatch($placed, $matchDay, $matchDay->fields()->first()->id, '19:00');
+
+    // De tweede speler is op geen enkele avond beschikbaar: zijn wedstrijd
+    // tegen de derde kan nergens heen, die van de eerste tegen de derde wel.
+    MatchDayAvailability::query()->where('user_id', $participants[1]->id)->delete();
+
+    $this->post(route('competitions.schedule.store', $competition))
+        ->assertRedirect()
+        ->assertInertiaFlash('toast', [
+            'type' => 'warning',
+            'message' => __(':scheduled match scheduled, :unscheduled match could not be scheduled. See the planning report below.', [
+                'scheduled' => 1,
+                'unscheduled' => 1,
+            ]),
+        ]);
 });
 
 test('scheduling is refused with a toast on a non-active competition', function (string $state) {
@@ -179,7 +209,7 @@ test('scheduling is refused with a toast on a non-active competition', function 
         ->assertRedirect()
         ->assertInertiaFlash('toast', [
             'type' => 'error',
-            'message' => __('Matches can only be scheduled for an active competition.'),
+            'message' => __('Matches can only be scheduled for an active competition. Change the status under General.'),
         ]);
 
     expect($competition->matches()->whereNotNull('starts_at')->count())->toBe(0);
@@ -273,6 +303,26 @@ test('an off-grid match is exposed with a null slot index', function () {
         );
 });
 
+test('a match without a field keeps its slot index so the grid can list it', function () {
+    $competition = schedulingFixture();
+    $matchDay = $competition->matchDays()->first();
+
+    // Zo staat een gespeelde wedstrijd erbij nadat zijn tafel is verwijderd:
+    // een geldige begintijd, maar geen tafel meer. Het scherm moet hem in de
+    // lijst onder het grid tonen in plaats van hem te laten verdwijnen.
+    placeMatch($competition->matches()->first(), $matchDay, null, '19:00', ['status' => MatchStatus::Played->value]);
+
+    $this->get(route('competitions.edit', $competition))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->loadDeferredProps(fn (Assert $reload) => $reload
+                ->has('schedule.match_days.0.matches', 1)
+                ->where('schedule.match_days.0.matches.0.field_id', null)
+                ->where('schedule.match_days.0.matches.0.slot_index', 0),
+            ),
+        );
+});
+
 test('rest violations are derived from the stored times', function () {
     $competition = schedulingFixture(settings: ['min_rest_minutes' => 10]);
     $matchDay = $competition->matchDays()->first();
@@ -295,7 +345,7 @@ test('rest violations are derived from the stored times', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->loadDeferredProps(fn (Assert $reload) => $reload
                 ->where('schedule.rest_violations', [
-                    ['match_id' => $second->id, 'player' => $player, 'gap_minutes' => 5],
+                    ['match_id' => $second->id, 'player' => $player, 'gap_minutes' => 5, 'overlapping' => false],
                 ]),
             ),
         );
@@ -307,6 +357,36 @@ test('rest violations are derived from the stored times', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->loadDeferredProps(fn (Assert $reload) => $reload->where('schedule.rest_violations', [])),
+        );
+});
+
+test('two overlapping matches are reported as an overlap instead of a negative gap', function () {
+    $competition = schedulingFixture();
+    $matchDay = $competition->matchDays()->first();
+    $fields = $matchDay->fields()->get();
+
+    $first = $competition->matches()->first();
+    $second = $competition->matches()->where('id', '>', $first->id)
+        ->where(fn ($query) => $query->where('first_player_id', $first->first_player_id)->orWhere('second_player_id', $first->first_player_id))
+        ->first();
+
+    // 19:00-19:20 en 19:10-19:30 overlappen elkaar tien minuten.
+    placeMatch($first, $matchDay, $fields[0]->id, '19:00');
+    placeMatch($second, $matchDay, $fields[1]->id, '19:10');
+
+    $this->get(route('competitions.edit', $competition))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->loadDeferredProps(fn (Assert $reload) => $reload
+                ->where('schedule.rest_violations', [
+                    [
+                        'match_id' => $second->id,
+                        'player' => $first->firstPlayer->display_name,
+                        'gap_minutes' => 0,
+                        'overlapping' => true,
+                    ],
+                ]),
+            ),
         );
 });
 
@@ -383,6 +463,21 @@ test('match rows expose match day field and time', function () {
                 ->where('matches.1.is_pinned', false),
             ),
         );
+});
+
+test('scheduling is rate limited', function () {
+    $competition = schedulingFixture();
+    $signature = sha1((string) auth()->id());
+
+    for ($attempt = 0; $attempt < 6; $attempt++) {
+        $this->post(route('competitions.schedule.store', $competition))->assertRedirect();
+    }
+
+    $this->post(route('competitions.schedule.store', $competition))->assertStatus(429);
+
+    // De teller hangt aan de ingelogde gebruiker en zou anders ook in een
+    // volgende test nog meetellen.
+    RateLimiter::clear($signature);
 });
 
 test('participants cannot schedule matches', function () {

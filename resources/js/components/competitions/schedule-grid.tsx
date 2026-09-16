@@ -1,5 +1,6 @@
+import { usePage } from '@inertiajs/react';
 import { Pin, Table2 } from 'lucide-react';
-import { Fragment } from 'react';
+import { Fragment, useId } from 'react';
 import type {
     ScheduleMatchDayProps,
     ScheduleMatchProps,
@@ -9,23 +10,17 @@ import { Badge } from '@/components/ui/badge';
 import {
     Table,
     TableBody,
+    TableCaption,
     TableCell,
     TableHead,
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
 import { useTranslations } from '@/hooks/use-translations';
+import { formatDate } from '@/lib/format-date';
 import { matchStatusBadgeVariant, matchStatusLabel } from '@/lib/match-status';
+import { STICKY_COLUMN_CLASSES } from '@/lib/table-classes';
 import { cn } from '@/lib/utils';
-
-/**
- * Achtergrond op de sticky eerste kolom met de slottijden, zodat de
- * horizontaal scrollende tafelkolommen er niet onderdoor schuiven (ook niet
- * in dark mode). Effen `bg-background` in plaats van een halftransparante
- * kleur, om dezelfde reden als de sticky kolom in `availability-matrix.tsx`.
- */
-const STICKY_COLUMN_CLASSES =
-    'sticky left-0 z-10 bg-background group-hover:bg-muted';
 
 type Props = {
     matchDay: ScheduleMatchDayProps;
@@ -33,12 +28,18 @@ type Props = {
 
 /**
  * Het speelschema van één speeldag: tafels als kolommen, slots als rijen en
- * de pauze als rij over de volle breedte. Wedstrijden die niet meer op een
- * slotgrens van het huidige raster beginnen (`slot_index === null`) staan in
- * een aparte lijst onder de tabel in plaats van te verdwijnen.
+ * de pauze als rij over de volle breedte. Wedstrijden die niet op een cel van
+ * het huidige raster vallen staan in een aparte lijst onder de tabel in plaats
+ * van te verdwijnen.
  */
 export default function ScheduleGrid({ matchDay }: Props) {
     const { t } = useTranslations();
+    const { locale } = usePage().props;
+
+    // De sr-only caption benoemt zowel de tabel als de scrollbare region
+    // eromheen (`aria-labelledby`), zodat die tekst maar één keer bestaat en
+    // een schermlezer hem niet twee keer voorleest.
+    const captionId = useId();
 
     if (matchDay.fields.length === 0) {
         return (
@@ -65,22 +66,31 @@ export default function ScheduleGrid({ matchDay }: Props) {
         );
     }
 
+    const fieldNamesById = new Map(
+        matchDay.fields.map((field) => [field.id, field.name]),
+    );
+
+    /**
+     * Eén predicaat voor "past niet in een cel van dit raster": zonder slot,
+     * zonder tafel of op een tafel die niet meer bestaat. Zonder deze ene
+     * definitie valt een wedstrijd met een geldig slot maar zonder tafel
+     * tussen het raster en de lijst eronder door en is hij nergens zichtbaar.
+     */
+    const isOffGrid = (match: ScheduleMatchProps) =>
+        match.slot_index === null ||
+        match.field_id === null ||
+        !fieldNamesById.has(match.field_id);
+
+    const offGridMatches = matchDay.matches.filter(isOffGrid);
+
     /**
      * De wedstrijden op slotpositie, zodat elke cel in één opzoekactie weet
      * wat erin staat in plaats van de hele lijst per cel te doorlopen.
      */
     const matchesByCell = new Map<string, ScheduleMatchProps>(
         matchDay.matches
-            .filter((match) => match.slot_index !== null)
+            .filter((match) => !isOffGrid(match))
             .map((match) => [`${match.slot_index}-${match.field_id}`, match]),
-    );
-
-    const fieldNamesById = new Map(
-        matchDay.fields.map((field) => [field.id, field.name]),
-    );
-
-    const offGridMatches = matchDay.matches.filter(
-        (match) => match.slot_index === null,
     );
 
     const breakStartsAt = matchDay.break?.starts_at ?? null;
@@ -98,8 +108,21 @@ export default function ScheduleGrid({ matchDay }: Props) {
 
     return (
         <div className="flex flex-col gap-4">
+            {matchDay.matches.length === 0 && (
+                <p className="text-muted-foreground text-sm">
+                    {t('No matches are scheduled on this match day.')}
+                </p>
+            )}
+
             <div className="rounded-xl border">
-                <Table>
+                <Table aria-labelledby={captionId}>
+                    <TableCaption id={captionId} className="sr-only">
+                        {t('Schedule for :date from :start to :end', {
+                            date: formatDate(matchDay.date, locale),
+                            start: matchDay.starts_at,
+                            end: matchDay.ends_at,
+                        })}
+                    </TableCaption>
                     <TableHeader>
                         <TableRow>
                             <TableHead
@@ -219,12 +242,16 @@ export default function ScheduleGrid({ matchDay }: Props) {
  * De inhoud van één gevulde gridcel: beide spelers onder elkaar en daaronder
  * de markeringen. Alleen gespeelde wedstrijden krijgen een statusbadge; "nog
  * te spelen" is de normale toestand en zou het grid alleen maar voller maken.
+ *
+ * Het streepje achter de eerste speler scheidt de twee namen ook voor een
+ * schermlezer, die de twee regels anders als één naam achter elkaar voorleest.
  */
 function ScheduleGridCell({ match }: { match: ScheduleMatchProps }) {
     return (
         <div className="flex flex-col gap-1">
             <span className="text-sm whitespace-normal">
                 {match.first_player}
+                <span className="text-muted-foreground"> –</span>
             </span>
             <span className="text-sm whitespace-normal">
                 {match.second_player}
@@ -250,8 +277,8 @@ function MatchMarkers({ match }: { match: ScheduleMatchProps }) {
                 </Badge>
             )}
             {match.is_pinned && (
-                <span className="inline-flex" title={t('Pinned')}>
-                    <Pin className="text-muted-foreground size-3.5" />
+                <span className="inline-flex">
+                    <Pin className="text-foreground size-4" />
                     <span className="sr-only">{t('Pinned')}</span>
                 </span>
             )}

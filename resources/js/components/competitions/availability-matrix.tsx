@@ -19,6 +19,7 @@ import {
 import { useTranslations } from '@/hooks/use-translations';
 import { formatDate } from '@/lib/format-date';
 import { pluralize } from '@/lib/plural';
+import { STICKY_COLUMN_CLASSES } from '@/lib/table-classes';
 import { cn } from '@/lib/utils';
 
 /**
@@ -35,13 +36,10 @@ function formatDateTime(isoDateTime: string, locale: string): string {
 }
 
 /**
- * Achtergrond op de sticky eerste kolom, zodat de horizontaal scrollende
- * inhoud er niet onderdoor schuift (ook niet in dark mode). De voettabel
- * gebruikt een effen `bg-muted` in plaats van de halftransparante
- * `bg-muted/50` van de rest van die rij, om dezelfde reden.
+ * De voetrij krijgt een effen `bg-muted` in plaats van de halftransparante
+ * `bg-muted/50` van de rest van die rij, om dezelfde reden als
+ * `STICKY_COLUMN_CLASSES`: de scrollende inhoud mag er niet onderdoor schuiven.
  */
-const STICKY_COLUMN_CLASSES =
-    'sticky left-0 z-10 bg-background group-hover:bg-muted';
 const STICKY_FOOTER_COLUMN_CLASSES = 'sticky left-0 z-10 bg-muted';
 
 /** Koppelt de uitleg onder de herinneringsknop aan die knop via `aria-describedby`. */
@@ -222,7 +220,7 @@ export default function AvailabilityMatrix({
             {actionBar}
 
             <div className="rounded-xl border">
-                <Table>
+                <Table aria-label={t('Availability per match day')}>
                     <TableHeader>
                         <TableRow>
                             <TableHead

@@ -22,7 +22,7 @@ export function schedulingFailureLabel(
     t: Translate,
 ): string {
     if (reason === null) {
-        return t('Not tried yet');
+        return t('Not scheduled yet');
     }
 
     const labels: Record<SchedulingFailureValue, string> = {
@@ -35,16 +35,17 @@ export function schedulingFailureLabel(
 }
 
 /**
- * Eén zin uitleg per reden, voor het planningsrapport. Geeft `null` terug
- * wanneer er niets uit te leggen valt (nooit geprobeerd of een onbekende
- * reden), zodat de UI de regel dan gewoon weglaat.
+ * Eén zin uitleg per reden, voor het planningsrapport. Geeft `null` terug bij
+ * een onbekende reden, zodat de UI de regel dan gewoon weglaat.
  */
 export function schedulingFailureDescription(
     reason: string | null,
     t: Translate,
 ): string | null {
     if (reason === null) {
-        return null;
+        return t(
+            'These matches have not been through the planner yet. Use "Schedule matches" above.',
+        );
     }
 
     const descriptions: Record<SchedulingFailureValue, string> = {
@@ -55,7 +56,7 @@ export function schedulingFailureDescription(
             'One of the players already plays the maximum number of matches on every shared match day.',
         ),
         no_capacity: t(
-            'Every table slot on the shared match days is already taken.',
+            'Every field slot on the shared match days is already taken.',
         ),
     };
 

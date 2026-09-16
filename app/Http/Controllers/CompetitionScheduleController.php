@@ -39,7 +39,7 @@ class CompetitionScheduleController extends Controller
     public function store(Competition $competition, ScheduleCompetitionMatches $scheduleCompetitionMatches): RedirectResponse
     {
         if (! $competition->status->allowsScheduling()) {
-            Inertia::flash('toast', ['type' => 'error', 'message' => __('Matches can only be scheduled for an active competition.')]);
+            Inertia::flash('toast', ['type' => 'error', 'message' => __('Matches can only be scheduled for an active competition. Change the status under General.')]);
 
             return back();
         }
@@ -74,13 +74,30 @@ class CompetitionScheduleController extends Controller
 
         Inertia::flash('toast', [
             'type' => 'warning',
-            'message' => __(':scheduled matches scheduled, :unscheduled could not be scheduled. See the report.', [
-                'scheduled' => $result->scheduledCount,
-                'unscheduled' => $result->unscheduledCount,
-            ]),
+            'message' => $this->partialMessage($result->scheduledCount, $result->unscheduledCount),
         ]);
 
         return back();
+    }
+
+    /**
+     * De gedeeltelijke uitkomst als één zin. Beide getallen hebben een eigen
+     * enkelvoud, dus vier losse sleutels in plaats van `trans_choice` — zelfde
+     * conventie als de rest van dit project.
+     */
+    private function partialMessage(int $scheduled, int $unscheduled): string
+    {
+        $replacements = ['scheduled' => $scheduled, 'unscheduled' => $unscheduled];
+
+        if ($scheduled === 1) {
+            return $unscheduled === 1
+                ? __(':scheduled match scheduled, :unscheduled match could not be scheduled. See the planning report below.', $replacements)
+                : __(':scheduled match scheduled, :unscheduled matches could not be scheduled. See the planning report below.', $replacements);
+        }
+
+        return $unscheduled === 1
+            ? __(':scheduled matches scheduled, :unscheduled match could not be scheduled. See the planning report below.', $replacements)
+            : __(':scheduled matches scheduled, :unscheduled matches could not be scheduled. See the planning report below.', $replacements);
     }
 
     /**

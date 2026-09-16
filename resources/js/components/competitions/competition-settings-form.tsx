@@ -137,7 +137,7 @@ export default function CompetitionSettingsForm({
                                     className="text-muted-foreground text-sm"
                                 >
                                     {t(
-                                        'Time between two matches on the same table.',
+                                        'Time between two matches on the same field.',
                                     )}{' '}
                                     {t('Between :min and :max minutes.', {
                                         min: limits.buffer_minutes.min,

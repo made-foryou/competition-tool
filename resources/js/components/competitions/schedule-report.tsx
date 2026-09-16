@@ -25,17 +25,29 @@ const REASON_ORDER = [
 type Props = {
     unscheduled: ScheduleUnscheduledProps[];
     restViolations: ScheduleRestViolationProps[];
+    /** Het aantal ingeplande wedstrijden van de hele competitie. */
+    scheduledCount: number;
 };
 
 /**
  * Het planningsrapport onder het grid: wat er niet ingepland kon worden en
  * waarom, en welke spelers te weinig rust tussen twee wedstrijden hebben.
- * Rendert niets zolang er niets te melden valt.
+ *
+ * Het rapport gaat over de hele competitie en niet over de gekozen speeldag;
+ * daarom staat het als eigen sectie onder het grid, met een kop en die
+ * toelichting erbij. Zolang er nog nooit iets is ingepland én er niets te
+ * melden valt, blijft het weg.
  */
-export default function ScheduleReport({ unscheduled, restViolations }: Props) {
+export default function ScheduleReport({
+    unscheduled,
+    restViolations,
+    scheduledCount,
+}: Props) {
     const { t } = useTranslations();
 
-    if (unscheduled.length === 0 && restViolations.length === 0) {
+    const hasFindings = unscheduled.length > 0 || restViolations.length > 0;
+
+    if (!hasFindings && scheduledCount === 0) {
         return null;
     }
 
@@ -60,9 +72,26 @@ export default function ScheduleReport({ unscheduled, restViolations }: Props) {
     ];
 
     return (
-        <div className="flex flex-col gap-6">
+        <section className="flex flex-col gap-6 border-t pt-6">
+            <div className="flex flex-col gap-1">
+                <h3 className="text-sm font-medium">{t('Planning report')}</h3>
+                <p className="text-muted-foreground text-sm">
+                    {t(
+                        'This report covers the whole competition, not just the selected match day.',
+                    )}
+                </p>
+            </div>
+
+            {!hasFindings && (
+                <p className="text-muted-foreground text-sm">
+                    {t(
+                        'Everything fits: no unscheduled matches and no rest-time problems.',
+                    )}
+                </p>
+            )}
+
             {unscheduled.length > 0 && (
-                <section className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3">
                     <div className="flex flex-wrap items-center gap-2">
                         <h4 className="text-sm font-medium">
                             {t('Not scheduled')}
@@ -111,11 +140,11 @@ export default function ScheduleReport({ unscheduled, restViolations }: Props) {
                             </div>
                         );
                     })}
-                </section>
+                </div>
             )}
 
             {restViolations.length > 0 && (
-                <section className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3">
                     <div className="flex flex-wrap items-center gap-2">
                         <h4 className="text-sm font-medium">
                             {t('Rest time not met')}
@@ -135,18 +164,23 @@ export default function ScheduleReport({ unscheduled, restViolations }: Props) {
                                 key={`${violation.match_id}-${violation.player}-${index}`}
                                 className="p-3 text-sm"
                             >
-                                {t(
-                                    ':player has only :minutes minutes between two matches.',
-                                    {
-                                        player: violation.player,
-                                        minutes: violation.gap_minutes,
-                                    },
-                                )}
+                                {violation.overlapping
+                                    ? t(
+                                          ':player has two matches that overlap.',
+                                          { player: violation.player },
+                                      )
+                                    : t(
+                                          ':player has only :minutes minutes between two matches.',
+                                          {
+                                              player: violation.player,
+                                              minutes: violation.gap_minutes,
+                                          },
+                                      )}
                             </li>
                         ))}
                     </ul>
-                </section>
+                </div>
             )}
-        </div>
+        </section>
     );
 }

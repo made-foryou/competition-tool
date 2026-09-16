@@ -2,11 +2,26 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+/**
+ * De scrollcontainer is een focusbare region, zodat een tabel die breder is
+ * dan het scherm ook met het toetsenbord horizontaal te scrollen is
+ * (WCAG 2.1.1). Een `aria-label` of `aria-labelledby` op `<Table>` benoemt die
+ * region; zonder label blijft het een gewone, naamloze scrollcontainer.
+ */
+function Table({
+  className,
+  "aria-label": ariaLabel,
+  "aria-labelledby": ariaLabelledby,
+  ...props
+}: React.ComponentProps<"table">) {
   return (
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      role="region"
+      tabIndex={0}
+      aria-label={ariaLabel}
+      aria-labelledby={ariaLabelledby}
+      className="focus-visible:ring-ring/50 relative w-full overflow-x-auto focus-visible:ring-[3px] focus-visible:outline-none"
     >
       <table
         data-slot="table"
