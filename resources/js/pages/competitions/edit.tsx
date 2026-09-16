@@ -113,6 +113,29 @@ export default function CompetitionsEdit({
     const tabListContainerRef = useRef<HTMLDivElement>(null);
 
     /**
+     * De laatst geladen schedule-prop, zodat de tab Schema gemonteerd blijft
+     * zodra hij één keer geladen is.
+     *
+     * `schedule` is een `Inertia::defer`-prop: een antwoord met
+     * validatiefouten (bijvoorbeeld een geweigerde verplaatsing) bevat hem
+     * niet, waardoor `<Deferred>` terugvalt op het skelet en de hele tab --
+     * inclusief de open dialoog en haar foutmeldingen -- uit de boom haalt.
+     * De beheerder zag daardoor nooit wélk veld het probleem was en verloor
+     * bovendien de focus naar `<body>`. Door de vorige waarde vast te houden
+     * verschijnt het skelet alleen bij de allereerste load; zodra Inertia de
+     * uitgestelde prop opnieuw levert, vervangt de verse waarde de oude.
+     */
+    const [loadedSchedule, setLoadedSchedule] = useState<
+        ScheduleProps | undefined
+    >(schedule);
+
+    useEffect(() => {
+        if (schedule) {
+            setLoadedSchedule(schedule);
+        }
+    }, [schedule]);
+
+    /**
      * Houdt de querystring gelijk aan de actieve tab met een client-side visit,
      * dus zonder serverbezoek. Dit herstelt `?tab=` ook nadat een actie binnen
      * een tab naar de schone edit-url redirect.
@@ -294,26 +317,23 @@ export default function CompetitionsEdit({
                     </TabsContent>
 
                     <TabsContent value="schedule">
-                        <Deferred
-                            data="schedule"
-                            fallback={<ScheduleSkeleton />}
-                        >
-                            {schedule && (
-                                <SchedulePanel
-                                    competitionId={competition.id}
-                                    schedule={schedule}
-                                    onNavigateToMatchDays={() =>
-                                        setActiveTab('match-days')
-                                    }
-                                    onNavigateToAvailability={() =>
-                                        setActiveTab('availability')
-                                    }
-                                    onNavigateToParticipants={() =>
-                                        setActiveTab('participants')
-                                    }
-                                />
-                            )}
-                        </Deferred>
+                        {loadedSchedule ? (
+                            <SchedulePanel
+                                competitionId={competition.id}
+                                schedule={loadedSchedule}
+                                onNavigateToMatchDays={() =>
+                                    setActiveTab('match-days')
+                                }
+                                onNavigateToAvailability={() =>
+                                    setActiveTab('availability')
+                                }
+                                onNavigateToParticipants={() =>
+                                    setActiveTab('participants')
+                                }
+                            />
+                        ) : (
+                            <ScheduleSkeleton />
+                        )}
                     </TabsContent>
 
                     <TabsContent value="settings">

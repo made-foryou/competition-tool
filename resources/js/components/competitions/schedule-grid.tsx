@@ -372,10 +372,26 @@ function ScheduleMatchActions({
                         className="size-7 shrink-0"
                     >
                         <MoreHorizontal />
-                        <span className="sr-only">{t('Match actions')}</span>
+                        <span className="sr-only">
+                            {match.starts_at === null
+                                ? t('Actions for :first against :second', {
+                                      first: match.first_player,
+                                      second: match.second_player,
+                                  })
+                                : t(
+                                      'Actions for :first against :second at :time',
+                                      {
+                                          first: match.first_player,
+                                          second: match.second_player,
+                                          time: match.starts_at,
+                                      },
+                                  )}
+                        </span>
                     </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                {/* Naast de cel en niet eronder: een menu dat opengaat over
+                de celinhoud dekt juist de tweede spelernaam af. */}
+                <DropdownMenuContent side="right" align="start" sideOffset={4}>
                     <DropdownMenuItem
                         onSelect={(event) => {
                             event.preventDefault();
@@ -435,7 +451,7 @@ function ScheduleMatchActions({
     );
 }
 
-/** De statusbadge (alleen bij gespeeld) en het pin-icoon van een wedstrijd. */
+/** De markeringen van een wedstrijd: gespeeld en vastgezet, allebei als badge. */
 function MatchMarkers({ match }: { match: ScheduleMatchProps }) {
     const { t } = useTranslations();
 
@@ -451,10 +467,10 @@ function MatchMarkers({ match }: { match: ScheduleMatchProps }) {
                 </Badge>
             )}
             {match.is_pinned && (
-                <span className="inline-flex">
-                    <Pin className="text-foreground size-4" />
-                    <span className="sr-only">{t('Pinned')}</span>
-                </span>
+                <Badge variant="outline">
+                    <Pin />
+                    {t('Pinned')}
+                </Badge>
             )}
         </span>
     );

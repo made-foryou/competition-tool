@@ -38,16 +38,22 @@ class MoveMatchRequest extends FormRequest
      * `H:i`. De ids komen uit een `<select>` en dus als string binnen, terwijl
      * `Rule::exists()` hieronder op de tafel filtert met de speeldag uit dezelfde
      * invoer.
+     *
+     * Alle drie de waarden worden ongewijzigd doorgegeven zodra ze niet de
+     * verwachte vorm hebben: dit is ongevalideerde invoer, dus een array of
+     * een object mag hier geen cast krijgen -- dat zou een `TypeError` en
+     * daarmee een 500 opleveren in plaats van een nette validatiefout.
      */
     protected function prepareForValidation(): void
     {
         $matchDayId = $this->input('match_day_id');
         $fieldId = $this->input('match_day_field_id');
+        $startsAt = $this->input('starts_at');
 
         $this->merge([
             'match_day_id' => is_numeric($matchDayId) ? (int) $matchDayId : $matchDayId,
             'match_day_field_id' => is_numeric($fieldId) ? (int) $fieldId : $fieldId,
-            'starts_at' => substr((string) $this->input('starts_at'), 0, 5),
+            'starts_at' => is_string($startsAt) ? substr($startsAt, 0, 5) : $startsAt,
         ]);
     }
 

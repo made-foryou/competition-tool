@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { useTranslations } from '@/hooks/use-translations';
+import type { CompetitionStatusValue } from '@/lib/competition-status';
 import { pluralize } from '@/lib/plural';
 
 /** Koppelt de uitleg onder de inplanknop aan die knop via `aria-describedby`. */
@@ -88,6 +89,12 @@ export type ScheduleBlockedReason =
 export type ScheduleProps = {
     can_schedule: boolean;
     blocked_reason: ScheduleBlockedReason;
+    /**
+     * De status van de competitie. Nodig naast `blocked_reason`: die zegt
+     * alleen dát er niet gepland mag worden, terwijl een afgeronde competitie
+     * een andere uitleg verdient dan een concept.
+     */
+    status: CompetitionStatusValue;
     summary: {
         total: number;
         scheduled: number;
@@ -142,12 +149,25 @@ export default function SchedulePanel({
         schedule.match_days[0] ??
         null;
 
+    /**
+     * De uitleg onder de knoppen — en daarmee de enige regel direct boven het
+     * grid die vertelt waarom er niets te bedienen valt.
+     *
+     * `inactive` splitst op status: bij een afgeronde competitie is "pas de
+     * status aan onder Algemeen" verkeerd advies (die competitie is historie),
+     * dus die krijgt de alleen-lezen zin. Een concept houdt de bestaande hint,
+     * want daar is het activeren van de competitie wél de volgende stap.
+     */
     const disabledReason = (() => {
         switch (schedule.blocked_reason) {
             case 'inactive':
-                return t(
-                    'Matches can only be scheduled for an active competition. Change the status under General.',
-                );
+                return schedule.status === 'finished'
+                    ? t(
+                          'This competition is finished. The schedule is read-only.',
+                      )
+                    : t(
+                          'Matches can only be scheduled for an active competition. Change the status under General.',
+                      );
             case 'no_match_days':
                 return t('Add match days before scheduling.');
             case 'no_fields':
@@ -165,15 +185,6 @@ export default function SchedulePanel({
         }
     })();
 
-    /**
-     * De tab waar de beheerder de blokkade kan opheffen. Alleen bij een reden
-     * die met één stap te verhelpen is; `inactive` en `nothing_to_schedule`
-     * horen thuis in respectievelijk de tab Algemeen en nergens.
-     *
-     * `no_match_days` staat er bewust niet bij: zonder speeldagen toont de
-     * `EmptyState` eronder al een knop "Naar speeldagen", en twee identieke
-     * knoppen boven elkaar helpen niemand.
-     */
     /**
      * Bijsturen (verplaatsen, vastzetten, opnieuw plannen) hangt aan dezelfde
      * statusguard als de schrijfroutes: `allowsScheduling()`. Van alle redenen
@@ -196,6 +207,15 @@ export default function SchedulePanel({
         (schedule.can_schedule ||
             schedule.blocked_reason === 'nothing_to_schedule');
 
+    /**
+     * De tab waar de beheerder de blokkade kan opheffen. Alleen bij een reden
+     * die met één stap te verhelpen is; `inactive` en `nothing_to_schedule`
+     * horen thuis in respectievelijk de tab Algemeen en nergens.
+     *
+     * `no_match_days` staat er bewust niet bij: zonder speeldagen toont de
+     * `EmptyState` eronder al een knop "Naar speeldagen", en twee identieke
+     * knoppen boven elkaar helpen niemand.
+     */
     const resolveAction = (() => {
         switch (schedule.blocked_reason) {
             case 'no_fields':
@@ -232,6 +252,9 @@ export default function SchedulePanel({
                     <p className="text-muted-foreground text-sm">
                         {t(
                             'Scheduling fills empty slots around the existing schedule. Played and pinned matches never move.',
+                        )}{' '}
+                        {t(
+                            'Rescheduling clears everything that is not played or pinned and plans it again.',
                         )}
                     </p>
                     <div className="flex flex-wrap items-center gap-2">
@@ -316,7 +339,18 @@ export default function SchedulePanel({
                     {canRebuild && (
                         <ConfirmDialog
                             trigger={
-                                <Button variant="outline" size="sm">
+                                // Zodra de inplanknop dood is, is opnieuw
+                                // plannen de enige knop die nog iets doet;
+                                // dan hoort de visuele nadruk daarop te
+                                // liggen in plaats van op de dode knop.
+                                <Button
+                                    variant={
+                                        schedule.can_schedule
+                                            ? 'outline'
+                                            : 'default'
+                                    }
+                                    size="sm"
+                                >
                                     <RefreshCw />
                                     {t('Reschedule everything')}
                                 </Button>

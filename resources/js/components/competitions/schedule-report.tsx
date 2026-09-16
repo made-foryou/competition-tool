@@ -160,6 +160,13 @@ export default function ScheduleReport({
                                                         <Button
                                                             variant="outline"
                                                             size="sm"
+                                                            aria-label={t(
+                                                                'Move :first against :second',
+                                                                {
+                                                                    first: match.first_player,
+                                                                    second: match.second_player,
+                                                                },
+                                                            )}
                                                         >
                                                             <MoveRight />
                                                             {t('Move match')}

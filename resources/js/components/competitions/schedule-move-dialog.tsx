@@ -1,7 +1,6 @@
 import { Form, usePage } from '@inertiajs/react';
 import type { ReactNode, RefObject } from 'react';
 import { useId, useState } from 'react';
-import { toast } from 'sonner';
 import MatchScheduleController from '@/actions/App/Http/Controllers/MatchScheduleController';
 import type { ScheduleMatchDayProps } from '@/components/competitions/schedule-panel';
 import InputError from '@/components/input-error';
@@ -71,8 +70,9 @@ type Props = {
  *
  * De server zet een verplaatste wedstrijd meteen vast, zodat een volgende
  * planning hem laat staan; dat staat ook in de beschrijving van de dialoog.
- * De harde randvoorwaarden (bestaat het slot, is iedereen vrij) komen als
- * veldfout op `starts_at` terug.
+ * De harde randvoorwaarden (bestaat het slot, is iedereen vrij) komen terug
+ * als veldfout op het veld dat de beheerder kan aanpassen -- de speeldag, de
+ * tafel of het tijdslot -- en alle drie de velden tonen die fout.
  */
 export default function ScheduleMoveDialog({
     competitionId,
@@ -108,7 +108,7 @@ export default function ScheduleMoveDialog({
                     <DialogTitle>{t('Move match')}</DialogTitle>
                     <DialogDescription>
                         {t(
-                            'Pick a match day, a field and a time slot. The match stays in place afterwards, also when you reschedule.',
+                            'Pick a match day, a field and a time slot. The match is pinned afterwards, so rescheduling leaves it in place.',
                         )}
                     </DialogDescription>
                 </DialogHeader>
@@ -227,28 +227,44 @@ function MoveMatchForm({
     const hasFields = (selectedMatchDay?.fields.length ?? 0) > 0;
     const hasSlots = (selectedMatchDay?.slots.length ?? 0) > 0;
 
-    const unavailableReason = (() => {
+    /**
+     * Waarom deze speeldag niets te kiezen heeft, en onder welk veld die
+     * reden hoort: het veld dat daardoor leeg blijft. Zonder dat verband
+     * leest een losse regel onder alle velden als algemene uitleg in plaats
+     * van als de reden dat het formulier niet verstuurd kan worden.
+     */
+    const unavailable = (() => {
         if (selectedMatchDay === null) {
             return null;
         }
 
         if (!hasFields) {
-            return t('This match day has no fields yet.');
+            return {
+                field: 'field' as const,
+                text: t('This match day has no fields yet.'),
+            };
         }
 
         if (!hasSlots) {
-            return t('No slot fits in the opening hours of this match day.');
+            return {
+                field: 'slot' as const,
+                text: `${t('No slot fits in the opening hours of this match day.')} ${t('Shorten the match duration or extend the opening hours in the planning settings.')}`,
+            };
         }
 
         return null;
     })();
+
+    const unavailableId = `${fieldId}-unavailable`;
+
+    /** Zonder tafel of zonder tijdslot valt er niets te versturen. */
+    const canSubmit = hasFields && hasSlots;
 
     return (
         <Form
             {...MatchScheduleController.update.form([competitionId, match.id])}
             options={{ preserveScroll: true }}
             onSuccess={onMoved}
-            onError={() => toast.error(t('Something went wrong.'))}
             className="flex flex-col gap-4"
         >
             {({ processing, errors }) => (
@@ -304,7 +320,17 @@ function MoveMatchForm({
 
                     <div className="grid gap-2">
                         <Label htmlFor={`${fieldId}-field`}>{t('Field')}</Label>
+                        {/* De `key` op de speeldag is nodig omdat de tafels
+                        per speeldag andere ids hebben: bij het wisselen van
+                        dag unmounten alle `SelectItem`s van de vorige dag en
+                        raakt Radix daarmee de gecontroleerde waarde kwijt --
+                        het verborgen `<select>` verstuurde dan een lege
+                        `match_day_field_id`. Met de key monteert de Select
+                        opnieuw, meteen met de nieuwe beginwaarde. De slots
+                        houden hun waarde wél vast, omdat een tijd als "19:00"
+                        op elke dag dezelfde `value` heeft. */}
                         <Select
+                            key={matchDayValue}
                             name="match_day_field_id"
                             value={fieldValue}
                             onValueChange={setFieldValue}
@@ -315,12 +341,21 @@ function MoveMatchForm({
                                 className="w-full"
                                 aria-invalid={!!errors.match_day_field_id}
                                 aria-describedby={
-                                    errors.match_day_field_id
-                                        ? `${fieldId}-field-error`
-                                        : undefined
+                                    [
+                                        errors.match_day_field_id
+                                            ? `${fieldId}-field-error`
+                                            : null,
+                                        unavailable?.field === 'field'
+                                            ? unavailableId
+                                            : null,
+                                    ]
+                                        .filter(Boolean)
+                                        .join(' ') || undefined
                                 }
                             >
-                                <SelectValue />
+                                <SelectValue
+                                    placeholder={t('Choose a field')}
+                                />
                             </SelectTrigger>
                             <SelectContent>
                                 {selectedMatchDay?.fields.map((field) => (
@@ -337,6 +372,14 @@ function MoveMatchForm({
                             id={`${fieldId}-field-error`}
                             message={errors.match_day_field_id}
                         />
+                        {unavailable?.field === 'field' && (
+                            <p
+                                id={unavailableId}
+                                className="text-destructive text-sm"
+                            >
+                                {unavailable.text}
+                            </p>
+                        )}
                     </div>
 
                     <div className="grid gap-2">
@@ -354,12 +397,21 @@ function MoveMatchForm({
                                 className="w-full"
                                 aria-invalid={!!errors.starts_at}
                                 aria-describedby={
-                                    errors.starts_at
-                                        ? `${fieldId}-slot-error`
-                                        : undefined
+                                    [
+                                        errors.starts_at
+                                            ? `${fieldId}-slot-error`
+                                            : null,
+                                        unavailable?.field === 'slot'
+                                            ? unavailableId
+                                            : null,
+                                    ]
+                                        .filter(Boolean)
+                                        .join(' ') || undefined
                                 }
                             >
-                                <SelectValue />
+                                <SelectValue
+                                    placeholder={t('Choose a time slot')}
+                                />
                             </SelectTrigger>
                             <SelectContent>
                                 {selectedMatchDay?.slots.map((slot) => (
@@ -376,13 +428,15 @@ function MoveMatchForm({
                             id={`${fieldId}-slot-error`}
                             message={errors.starts_at}
                         />
+                        {unavailable?.field === 'slot' && (
+                            <p
+                                id={unavailableId}
+                                className="text-destructive text-sm"
+                            >
+                                {unavailable.text}
+                            </p>
+                        )}
                     </div>
-
-                    {unavailableReason && (
-                        <p className="text-muted-foreground text-sm">
-                            {unavailableReason}
-                        </p>
-                    )}
 
                     <DialogFooter>
                         <DialogClose asChild>
@@ -390,9 +444,24 @@ function MoveMatchForm({
                                 {t('Cancel')}
                             </Button>
                         </DialogClose>
+                        {/* `aria-disabled` in plaats van `disabled` zodra de
+                        speeldag onbruikbaar is: een echt uitgeschakelde knop
+                        krijgt geen focus en dan leest niemand de reden die er
+                        via `aria-describedby` aan hangt. Zelfde patroon als de
+                        inplanknop in `schedule-panel.tsx`. */}
                         <Button
                             type="submit"
-                            disabled={processing || !hasFields || !hasSlots}
+                            disabled={processing}
+                            aria-disabled={!canSubmit}
+                            aria-describedby={
+                                unavailable === null ? undefined : unavailableId
+                            }
+                            className="aria-disabled:pointer-events-auto aria-disabled:opacity-50"
+                            onClick={(event) => {
+                                if (!canSubmit) {
+                                    event.preventDefault();
+                                }
+                            }}
                         >
                             {processing && <Spinner />}
                             {t('Move match')}

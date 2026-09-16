@@ -9,6 +9,7 @@ use App\Support\Scheduling\ClockTime;
 use App\Support\Scheduling\GreedyScheduler;
 use App\Support\Scheduling\MatchDaySchedule;
 use App\Support\Scheduling\Placement;
+use App\Support\Scheduling\PlacementFailure;
 use App\Support\Scheduling\PlacementValidator;
 use App\Support\Scheduling\Slot;
 use Illuminate\Support\Facades\DB;
@@ -46,7 +47,7 @@ class MoveCompetitionMatch
      *
      * @return bool of de wedstrijd met een schending van de minimale rusttijd geplaatst is
      *
-     * @throws ValidationException bij een harde schending, als veldfout op `starts_at`
+     * @throws ValidationException bij een harde schending, als veldfout op het veld waar de beheerder iets aan kan doen
      */
     public function handle(CompetitionMatch $match, int $matchDayId, int $fieldId, string $startsAt): bool
     {
@@ -57,10 +58,25 @@ class MoveCompetitionMatch
             // halverwege dezelfde plek inneemt.
             $locked = Competition::query()->whereKey($match->competition_id)->lockForUpdate()->firstOrFail();
 
+            // De lock beschermt niet tegen een instance die vóór de lock is
+            // gelezen: `$match` komt uit de route-binding en `MoveMatchRequest`
+            // heeft zijn status ook al vóór de lock bekeken. Tussen dat moment
+            // en deze transactie kan er een uitslag zijn ingevoerd, en een
+            // gespeelde wedstrijd verschuift nooit (besluit 6 van het
+            // ontwerp). Daarom hier opnieuw lezen en vanaf nu met de verse
+            // instantie verder.
+            $fresh = CompetitionMatch::query()->whereKey($match->id)->firstOrFail();
+
+            if ($fresh->isPlayed()) {
+                throw ValidationException::withMessages([
+                    'starts_at' => __('This match already has a result and cannot be moved.'),
+                ]);
+            }
+
             // Zonder de wedstrijd zelf: hij bezet zijn oude plek niet meer,
             // dus een verplaatsing binnen hetzelfde slot botst niet met zijn
             // eigen bezetting.
-            $context = $this->buildSchedulingContext->handle($locked, excludeMatchId: $match->id);
+            $context = $this->buildSchedulingContext->handle($locked, excludeMatchId: $fresh->id);
 
             $matchDay = $context->matchDay($matchDayId);
             $slot = $matchDay?->grid->slotAt($startsAt);
@@ -69,29 +85,27 @@ class MoveCompetitionMatch
                 // Een speeldag zonder raster of een tijd die op geen enkele
                 // slotgrens valt: dezelfde reden als een tijd buiten de
                 // openingstijden, want het slot bestaat simpelweg niet.
-                throw ValidationException::withMessages([
-                    'starts_at' => $this->messageFor(PlacementViolation::OutsideOpeningHours),
-                ]);
+                throw $this->reject(new PlacementFailure(PlacementViolation::OutsideOpeningHours), $fresh);
             }
 
             $placement = new Placement($matchDayId, $fieldId, $slot);
 
-            $violation = $this->placementValidator->violation(
+            $failure = $this->placementValidator->failure(
                 $placement,
-                $match->first_player_id,
-                $match->second_player_id,
+                $fresh->first_player_id,
+                $fresh->second_player_id,
                 $context,
             );
 
-            if ($violation instanceof PlacementViolation) {
-                throw ValidationException::withMessages(['starts_at' => $this->messageFor($violation)]);
+            if ($failure instanceof PlacementFailure) {
+                throw $this->reject($failure, $fresh);
             }
 
             // De rustschending komt uit de score van de planner, zodat
             // handmatig verplaatsen en automatisch plannen dezelfde definitie
             // van "te weinig rust" gebruiken.
             $restViolated = $this->greedyScheduler
-                ->score($placement, $match->first_player_id, $match->second_player_id, $context)
+                ->score($placement, $fresh->first_player_id, $fresh->second_player_id, $context)
                 ->restViolated;
 
             // Via de query builder: de planningskolommen zijn bewust niet
@@ -99,7 +113,7 @@ class MoveCompetitionMatch
             // niet -- dus zetten we de kloktijd zelf als `H:i:s`, zoals de
             // planner dat ook doet.
             CompetitionMatch::query()
-                ->whereKey($match->id)
+                ->whereKey($fresh->id)
                 ->update([
                     'match_day_id' => $matchDayId,
                     'match_day_field_id' => $fieldId,
@@ -114,18 +128,63 @@ class MoveCompetitionMatch
     }
 
     /**
-     * De tekst per harde schending. Eén plek, zodat een nieuwe schending
-     * meteen zichtbaar wordt als ontbrekende `match`-tak.
+     * De schending als veldfout op het veld dat de beheerder moet aanpassen.
      */
-    private function messageFor(PlacementViolation $violation): string
+    private function reject(PlacementFailure $failure, CompetitionMatch $match): ValidationException
+    {
+        return ValidationException::withMessages([
+            $this->fieldFor($failure->violation) => $this->messageFor($failure, $match),
+        ]);
+    }
+
+    /**
+     * Het formulierveld waar de schending thuishoort. Een melding onder het
+     * verkeerde veld stuurt de beheerder de verkeerde kant op, dus elke
+     * schending wijst naar de keuze die hij kan veranderen om hem op te
+     * lossen.
+     */
+    private function fieldFor(PlacementViolation $violation): string
     {
         return match ($violation) {
+            PlacementViolation::FieldNotOnMatchDay,
+            PlacementViolation::TableOccupied => 'match_day_field_id',
+            PlacementViolation::PlayerUnavailable,
+            PlacementViolation::MaxMatchesReached => 'match_day_id',
+            PlacementViolation::OutsideOpeningHours,
+            PlacementViolation::PlayerBusy => 'starts_at',
+        };
+    }
+
+    /**
+     * De tekst per harde schending. Eén plek, zodat een nieuwe schending
+     * meteen zichtbaar wordt als ontbrekende `match`-tak.
+     *
+     * Bij een schending over een speler noemt de tekst wélke speler: de
+     * validator geeft het id terug en dat is per definitie een van de twee
+     * spelers van deze wedstrijd.
+     */
+    private function messageFor(PlacementFailure $failure, CompetitionMatch $match): string
+    {
+        return match ($failure->violation) {
             PlacementViolation::FieldNotOnMatchDay => __('This field does not belong to the selected match day.'),
             PlacementViolation::OutsideOpeningHours => __('This time is not a slot within the opening hours of this match day.'),
-            PlacementViolation::PlayerUnavailable => __('One of the players is not available on this match day.'),
-            PlacementViolation::MaxMatchesReached => __('One of the players already plays the maximum number of matches on this match day.'),
-            PlacementViolation::PlayerBusy => __('One of the players already plays another match at this time.'),
+            PlacementViolation::PlayerUnavailable => __(':player is not available on this match day.', $this->playerBinding($failure, $match)),
+            PlacementViolation::MaxMatchesReached => __(':player already plays the maximum number of matches on this match day.', $this->playerBinding($failure, $match)),
+            PlacementViolation::PlayerBusy => __(':player already plays another match at this time.', $this->playerBinding($failure, $match)),
             PlacementViolation::TableOccupied => __('This field is already taken at this time.'),
         };
+    }
+
+    /**
+     * De naam van de speler die de schending veroorzaakte, als binding voor de
+     * `:player`-placeholder.
+     *
+     * @return array{player: string}
+     */
+    private function playerBinding(PlacementFailure $failure, CompetitionMatch $match): array
+    {
+        return ['player' => $failure->playerId === $match->second_player_id
+            ? $match->secondPlayer->display_name
+            : $match->firstPlayer->display_name];
     }
 }

@@ -4,6 +4,7 @@ use App\Actions\Competitions\MoveCompetitionMatch;
 use App\Actions\Competitions\SyncCompetitionMatches;
 use App\Enums\CompetitionStatus;
 use App\Enums\MatchStatus;
+use App\Enums\SchedulingFailure;
 use App\Models\Competition;
 use App\Models\CompetitionMatch;
 use App\Models\MatchDay;
@@ -12,6 +13,7 @@ use App\Models\MatchDayField;
 use App\Models\User;
 use App\Support\CompetitionSettings;
 use App\Support\Scheduling\ClockTime;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
@@ -199,6 +201,50 @@ test('rescheduling is blocked without match days', function () {
     expect($competition->matches()->whereNotNull('starts_at')->count())->toBe(0);
 });
 
+test('rescheduling is rate limited', function () {
+    $competition = adjustmentFixture();
+    $signature = sha1((string) auth()->id());
+
+    for ($attempt = 0; $attempt < 6; $attempt++) {
+        $this->post(route('competitions.schedule.rebuild', $competition))->assertRedirect();
+    }
+
+    $this->post(route('competitions.schedule.rebuild', $competition))->assertStatus(429);
+
+    // De teller hangt aan de ingelogde gebruiker en zou anders ook in een
+    // volgende test nog meetellen.
+    RateLimiter::clear($signature);
+});
+
+test('rescheduling keeps a pinned match that lies outside the current grid', function () {
+    $competition = adjustmentFixture();
+    $matchDay = $competition->matchDays()->first();
+    $field = $matchDay->fields()->orderBy('position')->first();
+    $match = $competition->matches()->first();
+
+    // 19:10 is geen slotgrens van het raster (19:00 in stappen van 25
+    // minuten), maar de wedstrijd bezet wel 19:10-19:30 plus wisseltijd.
+    placeMatchOn($match, $matchDay, $field, '19:10', ['pinned_at' => now()]);
+
+    $this->post(route('competitions.schedule.rebuild', $competition))->assertRedirect();
+
+    $kept = $match->fresh();
+
+    expect($kept->starts_at)->toBe('19:10')
+        ->and($kept->match_day_field_id)->toBe($field->id)
+        ->and($kept->isPinned())->toBeTrue();
+
+    // En hij blokkeert zijn tafel: de slots 19:00 en 19:25 overlappen met
+    // 19:10-19:35, dus daar mag niets anders op deze tafel staan.
+    $overlapping = $competition->matches()
+        ->whereKeyNot($match->id)
+        ->where('match_day_field_id', $field->id)
+        ->whereIn('starts_at', ['19:00:00', '19:25:00'])
+        ->count();
+
+    expect($overlapping)->toBe(0);
+});
+
 test('an admin can move a match to another field and slot and it becomes pinned', function () {
     $competition = adjustmentFixture();
     $matchDay = $competition->matchDays()->first();
@@ -245,7 +291,7 @@ test('moving a match onto an occupied field is rejected', function () {
         'starts_at' => '19:00',
     ])
         ->assertRedirect()
-        ->assertSessionHasErrors(['starts_at' => __('This field is already taken at this time.')]);
+        ->assertSessionHasErrors(['match_day_field_id' => __('This field is already taken at this time.')]);
 
     expect($match->fresh()->isScheduled())->toBeFalse();
 });
@@ -267,7 +313,9 @@ test('moving a match to a slot where a player is busy is rejected', function () 
         'starts_at' => '19:00',
     ])
         ->assertRedirect()
-        ->assertSessionHasErrors(['starts_at' => __('One of the players already plays another match at this time.')]);
+        ->assertSessionHasErrors([
+            'starts_at' => __(':player already plays another match at this time.', ['player' => $players[0]->display_name]),
+        ]);
 
     expect($match->fresh()->isScheduled())->toBeFalse();
 });
@@ -290,7 +338,9 @@ test('moving a match to a match day where a player is unavailable is rejected', 
         'starts_at' => '19:00',
     ])
         ->assertRedirect()
-        ->assertSessionHasErrors(['starts_at' => __('One of the players is not available on this match day.')]);
+        ->assertSessionHasErrors([
+            'match_day_id' => __(':player is not available on this match day.', ['player' => $players[0]->display_name]),
+        ]);
 
     expect($match->fresh()->isScheduled())->toBeFalse();
 });
@@ -330,7 +380,9 @@ test('moving a match beyond the daily maximum is rejected', function () {
         'starts_at' => '19:50',
     ])
         ->assertRedirect()
-        ->assertSessionHasErrors(['starts_at' => __('One of the players already plays the maximum number of matches on this match day.')]);
+        ->assertSessionHasErrors([
+            'match_day_id' => __(':player already plays the maximum number of matches on this match day.', ['player' => $players[0]->display_name]),
+        ]);
 
     expect($match->fresh()->isScheduled())->toBeFalse();
 });
@@ -469,6 +521,109 @@ test('form validation rejects a start time in the wrong format', function () {
     expect($match->fresh()->isScheduled())->toBeFalse();
 });
 
+test('an array start time is rejected with a validation error instead of a server error', function () {
+    $competition = adjustmentFixture();
+    $matchDay = $competition->matchDays()->first();
+    $match = $competition->matches()->first();
+
+    // `prepareForValidation()` werkt op ongevalideerde invoer: zonder
+    // typecontrole liep een array daar op een "Array to string conversion" en
+    // dus op een 500 in plaats van een nette veldfout.
+    $this->put(route('competitions.matches.schedule.update', [$competition, $match]), [
+        'match_day_id' => $matchDay->id,
+        'match_day_field_id' => $matchDay->fields()->first()->id,
+        'starts_at' => ['19:00'],
+    ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('starts_at');
+
+    expect($match->fresh()->isScheduled())->toBeFalse();
+});
+
+test('a match can be moved onto the slot it already occupies', function () {
+    $competition = adjustmentFixture();
+    $matchDay = $competition->matchDays()->first();
+    $fields = $matchDay->fields()->orderBy('position')->get();
+    $match = $competition->matches()->first();
+
+    placeMatchOn($match, $matchDay, $fields[0], '19:00');
+
+    // De wedstrijd bezet zijn eigen plek; zonder `excludeMatchId` in de
+    // context zou hij zichzelf als bezetting tegenkomen en zichzelf blokkeren.
+    $this->put(route('competitions.matches.schedule.update', [$competition, $match]), [
+        'match_day_id' => $matchDay->id,
+        'match_day_field_id' => $fields[0]->id,
+        'starts_at' => '19:00',
+    ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect($match->fresh()->starts_at)->toBe('19:00')
+        ->and($match->fresh()->match_day_field_id)->toBe($fields[0]->id)
+        ->and($match->fresh()->isPinned())->toBeTrue();
+
+    // Hetzelfde slot, andere tafel: ook dan zit alleen de eigen bezetting in
+    // de weg.
+    $this->put(route('competitions.matches.schedule.update', [$competition, $match]), [
+        'match_day_id' => $matchDay->id,
+        'match_day_field_id' => $fields[1]->id,
+        'starts_at' => '19:00',
+    ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect($match->fresh()->starts_at)->toBe('19:00')
+        ->and($match->fresh()->match_day_field_id)->toBe($fields[1]->id);
+});
+
+test('a match that got a result after the request started is not moved', function () {
+    $competition = adjustmentFixture();
+    $matchDay = $competition->matchDays()->first();
+    $field = $matchDay->fields()->first();
+    $match = $competition->matches()->first();
+
+    // De Form Request keek vóór de rijlock naar de status; deze test staat
+    // voor de wedstrijd die daarna een uitslag kreeg. De Action leest hem
+    // onder de lock opnieuw en weigert alsnog.
+    CompetitionMatch::query()->whereKey($match->id)->update(['status' => MatchStatus::Played->value]);
+
+    $move = fn () => app(MoveCompetitionMatch::class)->handle($match, $matchDay->id, $field->id, '19:00');
+
+    expect($move)->toThrow(
+        ValidationException::class,
+        __('This match already has a result and cannot be moved.'),
+    );
+
+    expect($match->fresh()->isScheduled())->toBeFalse();
+});
+
+test('an unscheduled match can be placed from the report and its failure reason is cleared', function () {
+    $competition = adjustmentFixture();
+    $matchDay = $competition->matchDays()->first();
+    $field = $matchDay->fields()->first();
+    $match = $competition->matches()->first();
+
+    CompetitionMatch::query()
+        ->whereKey($match->id)
+        ->update(['scheduling_failure' => SchedulingFailure::NoCapacity->value]);
+
+    // Het rapport stuurt exact dezelfde velden; alleen staat de wedstrijd nog
+    // nergens, dus er is geen huidige speeldag om vanuit te vertrekken.
+    $this->put(route('competitions.matches.schedule.update', [$competition, $match]), [
+        'match_day_id' => $matchDay->id,
+        'match_day_field_id' => $field->id,
+        'starts_at' => '19:00',
+    ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $placed = $match->fresh();
+
+    expect($placed->isScheduled())->toBeTrue()
+        ->and($placed->isPinned())->toBeTrue()
+        ->and($placed->scheduling_failure)->toBeNull();
+});
+
 test('a scheduled match can be pinned and unpinned', function () {
     $competition = adjustmentFixture();
     $matchDay = $competition->matchDays()->first();
@@ -508,6 +663,22 @@ test('a played match cannot be pinned', function () {
 
     $this->post(route('competitions.matches.pin.store', [$competition, $match]))
         ->assertForbidden();
+
+    expect($match->fresh()->isPinned())->toBeFalse();
+});
+
+test('a match of another competition gives a 404 on the pin routes', function () {
+    $competition = adjustmentFixture();
+    $other = adjustmentFixture();
+    $matchDay = $other->matchDays()->first();
+    $match = $other->matches()->first();
+
+    // Op zijn eigen competitie zou deze wedstrijd wél vastgezet kunnen worden;
+    // de scoped binding op `Competition::matches()` moet hem hier afwijzen.
+    placeMatchOn($match, $matchDay, $matchDay->fields()->first(), '19:00');
+
+    $this->post(route('competitions.matches.pin.store', [$competition, $match]))->assertNotFound();
+    $this->delete(route('competitions.matches.pin.destroy', [$competition, $match]))->assertNotFound();
 
     expect($match->fresh()->isPinned())->toBeFalse();
 });

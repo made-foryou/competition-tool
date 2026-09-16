@@ -41,9 +41,15 @@ trait SummarizesSchedule
      * bron; de hint op de uitgeschakelde knop en de toast kunnen niet
      * uiteenlopen.
      *
+     * `status` staat er los van: `blocked_reason` zegt alleen dát er niet
+     * gepland mag worden, terwijl het scherm bij een afgeronde competitie een
+     * ander verhaal moet vertellen dan bij een concept ("pas de status aan"
+     * slaat op een afgeronde competitie nergens op).
+     *
      * @return array{
      *     can_schedule: bool,
      *     blocked_reason: 'inactive'|'no_match_days'|'no_fields'|'no_availability'|'no_matches'|'nothing_to_schedule'|null,
+     *     status: 'draft'|'active'|'finished',
      *     summary: array{total: int, scheduled: int, unscheduled: int, played: int, pinned: int},
      *     match_days: list<array{
      *         id: int,
@@ -86,6 +92,7 @@ trait SummarizesSchedule
         return [
             'can_schedule' => $blockedReason === null,
             'blocked_reason' => $blockedReason,
+            'status' => $competition->status->value,
             'summary' => $this->scheduleSummary($competition),
             'match_days' => array_values($matchDays
                 ->map(fn (MatchDay $matchDay): array => $this->matchDayScheduleProps($competition, $matchDay))

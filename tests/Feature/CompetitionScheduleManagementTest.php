@@ -239,7 +239,11 @@ test('the edit page defers the schedule props and exposes the blocker in the sam
             ->missing('schedule')
             ->loadDeferredProps(fn (Assert $reload) => $reload
                 ->where('schedule.blocked_reason', $reason)
-                ->where('schedule.can_schedule', $reason === null),
+                ->where('schedule.can_schedule', $reason === null)
+                // De status staat los van de blokkade: alleen daarmee kan de
+                // tab een afgeronde competitie anders uitleggen dan een
+                // concept, terwijl beide dezelfde `inactive` opleveren.
+                ->where('schedule.status', $reason === 'inactive' ? 'draft' : 'active'),
             ),
         );
 })->with([
