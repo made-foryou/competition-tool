@@ -1,4 +1,5 @@
-import { Swords } from 'lucide-react';
+import { usePage } from '@inertiajs/react';
+import { Pin, Swords } from 'lucide-react';
 import EmptyState from '@/components/empty-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,8 +12,10 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useTranslations } from '@/hooks/use-translations';
+import { formatDate } from '@/lib/format-date';
 import { matchStatusBadgeVariant, matchStatusLabel } from '@/lib/match-status';
 import { pluralize } from '@/lib/plural';
+import { schedulingFailureLabel } from '@/lib/scheduling-failure';
 import { cn } from '@/lib/utils';
 
 /**
@@ -30,6 +33,13 @@ export type MatchProps = {
     second_player: string;
     second_player_is_participant: boolean;
     status: string;
+    match_day_date: string | null;
+    field_name: string | null;
+    starts_at: string | null;
+    ends_at: string | null;
+    is_pinned: boolean;
+    /** De reden waarom de planner deze wedstrijd niet kon plaatsen, `null` als hij nooit geprobeerd is. */
+    scheduling_failure: string | null;
 };
 
 type Props = {
@@ -43,6 +53,7 @@ export default function MatchList({
     onNavigateToParticipants,
 }: Props) {
     const { t } = useTranslations();
+    const { locale } = usePage().props;
 
     if (matches.length === 0) {
         return (
@@ -120,6 +131,12 @@ export default function MatchList({
                                 scope="col"
                                 className={cn('p-3', STICKY_HEADER_CLASSES)}
                             >
+                                {t('Scheduled')}
+                            </TableHead>
+                            <TableHead
+                                scope="col"
+                                className={cn('p-3', STICKY_HEADER_CLASSES)}
+                            >
                                 {t('Status')}
                             </TableHead>
                         </TableRow>
@@ -149,7 +166,48 @@ export default function MatchList({
                                         </Badge>
                                     )}
                                 </TableCell>
-                                <TableCell className="p-3">
+                                <TableCell className="p-3 align-top">
+                                    {match.match_day_date ? (
+                                        <div className="flex flex-col gap-0.5">
+                                            <span className="flex items-center gap-1.5">
+                                                {formatDate(
+                                                    match.match_day_date,
+                                                    locale,
+                                                )}
+                                                {match.is_pinned && (
+                                                    <>
+                                                        <Pin className="text-muted-foreground size-3.5" />
+                                                        <span className="sr-only">
+                                                            {t('Pinned')}
+                                                        </span>
+                                                    </>
+                                                )}
+                                            </span>
+                                            <span className="text-muted-foreground text-xs">
+                                                {match.starts_at} –{' '}
+                                                {match.ends_at} ·{' '}
+                                                {match.field_name ??
+                                                    t('No field')}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col gap-0.5">
+                                            <span className="text-muted-foreground">
+                                                {t('Not scheduled')}
+                                            </span>
+                                            {match.scheduling_failure !==
+                                                null && (
+                                                <span className="text-muted-foreground text-xs">
+                                                    {schedulingFailureLabel(
+                                                        match.scheduling_failure,
+                                                        t,
+                                                    )}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
+                                </TableCell>
+                                <TableCell className="p-3 align-top">
                                     <Badge
                                         variant={matchStatusBadgeVariant(
                                             match.status,

@@ -1,0 +1,365 @@
+import { Form } from '@inertiajs/react';
+import { CalendarClock, CalendarDays } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import CompetitionScheduleController from '@/actions/App/Http/Controllers/CompetitionScheduleController';
+import ScheduleDayPicker from '@/components/competitions/schedule-day-picker';
+import ScheduleGrid from '@/components/competitions/schedule-grid';
+import ScheduleReport from '@/components/competitions/schedule-report';
+import EmptyState from '@/components/empty-state';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Spinner } from '@/components/ui/spinner';
+import { useTranslations } from '@/hooks/use-translations';
+import { pluralize } from '@/lib/plural';
+
+/** Koppelt de uitleg onder de inplanknop aan die knop via `aria-describedby`. */
+const SCHEDULE_DISABLED_REASON_ID = 'schedule-disabled-hint';
+
+export type ScheduleFieldProps = {
+    id: number;
+    name: string;
+    position: number;
+};
+
+export type ScheduleSlotProps = {
+    index: number;
+    starts_at: string;
+    ends_at: string;
+};
+
+export type ScheduleMatchProps = {
+    id: number;
+    field_id: number | null;
+    starts_at: string | null;
+    ends_at: string | null;
+    first_player: string;
+    second_player: string;
+    status: string;
+    is_pinned: boolean;
+    /** `null` zodra de wedstrijd niet meer op een slotgrens van het huidige raster begint. */
+    slot_index: number | null;
+};
+
+export type ScheduleMatchDayProps = {
+    id: number;
+    date: string;
+    starts_at: string;
+    ends_at: string;
+    fields: ScheduleFieldProps[];
+    slots: ScheduleSlotProps[];
+    break: { starts_at: string; ends_at: string } | null;
+    matches: ScheduleMatchProps[];
+};
+
+export type ScheduleUnscheduledProps = {
+    id: number;
+    first_player: string;
+    second_player: string;
+    /** `null` zolang de planner deze wedstrijd nooit heeft geprobeerd. */
+    reason: string | null;
+};
+
+export type ScheduleRestViolationProps = {
+    match_id: number;
+    player: string;
+    gap_minutes: number;
+};
+
+export type ScheduleBlockedReason =
+    | 'inactive'
+    | 'no_match_days'
+    | 'no_fields'
+    | 'no_availability'
+    | 'no_matches'
+    | 'nothing_to_schedule'
+    | null;
+
+/** Spiegelt `SummarizesSchedule::scheduleProps()` één op één. */
+export type ScheduleProps = {
+    can_schedule: boolean;
+    blocked_reason: ScheduleBlockedReason;
+    summary: {
+        total: number;
+        scheduled: number;
+        unscheduled: number;
+        played: number;
+        pinned: number;
+    };
+    match_days: ScheduleMatchDayProps[];
+    unscheduled: ScheduleUnscheduledProps[];
+    rest_violations: ScheduleRestViolationProps[];
+};
+
+type Props = {
+    competitionId: number;
+    schedule: ScheduleProps;
+    /** Springt naar de tab Speeldagen. Toont een CTA wanneer meegegeven. */
+    onNavigateToMatchDays?: () => void;
+    /** Springt naar de tab Beschikbaarheid. Toont een CTA wanneer meegegeven. */
+    onNavigateToAvailability?: () => void;
+    /** Springt naar de tab Deelnemers. Toont een CTA wanneer meegegeven. */
+    onNavigateToParticipants?: () => void;
+};
+
+/**
+ * De tab "Schema": de inplanknop met de server-bepaalde reden waarom hij niet
+ * mag, de tellers, het grid van de gekozen speeldag en het planningsrapport.
+ *
+ * Het grid wordt ook getoond wanneer er niet (meer) ingepland mag worden —
+ * een afgeronde competitie moet haar schema kunnen laten zien. Alleen zonder
+ * speeldagen valt er niets te tonen.
+ */
+export default function SchedulePanel({
+    competitionId,
+    schedule,
+    onNavigateToMatchDays,
+    onNavigateToAvailability,
+    onNavigateToParticipants,
+}: Props) {
+    const { t } = useTranslations();
+
+    const [selectedMatchDayId, setSelectedMatchDayId] = useState<number | null>(
+        () => schedule.match_days[0]?.id ?? null,
+    );
+
+    // Valt terug op de eerste speeldag zodra de gekozen dag uit de props
+    // verdwijnt (verwijderd in een andere tab), zonder een effect dat na de
+    // eerste render nog een keer zou renderen.
+    const selectedMatchDay =
+        schedule.match_days.find(
+            (matchDay) => matchDay.id === selectedMatchDayId,
+        ) ??
+        schedule.match_days[0] ??
+        null;
+
+    const disabledReason = (() => {
+        switch (schedule.blocked_reason) {
+            case 'inactive':
+                return t(
+                    'Matches can only be scheduled for an active competition.',
+                );
+            case 'no_match_days':
+                return t('Add match days before scheduling.');
+            case 'no_fields':
+                return t(
+                    'Add fields to at least one match day before scheduling.',
+                );
+            case 'no_availability':
+                return t('Nobody has filled in their availability yet.');
+            case 'no_matches':
+                return t('There are no matches to schedule.');
+            case 'nothing_to_schedule':
+                return t('All matches are already scheduled.');
+            default:
+                return null;
+        }
+    })();
+
+    /**
+     * De tab waar de beheerder de blokkade kan opheffen. Alleen bij een reden
+     * die met één stap te verhelpen is; `inactive` en `nothing_to_schedule`
+     * horen thuis in respectievelijk de tab Algemeen en nergens.
+     */
+    const resolveAction = (() => {
+        switch (schedule.blocked_reason) {
+            case 'no_match_days':
+            case 'no_fields':
+                return onNavigateToMatchDays
+                    ? {
+                          label: t('Go to match days'),
+                          onClick: onNavigateToMatchDays,
+                      }
+                    : null;
+            case 'no_availability':
+                return onNavigateToAvailability
+                    ? {
+                          label: t('Go to availability'),
+                          onClick: onNavigateToAvailability,
+                      }
+                    : null;
+            case 'no_matches':
+                return onNavigateToParticipants
+                    ? {
+                          label: t('Go to participants'),
+                          onClick: onNavigateToParticipants,
+                      }
+                    : null;
+            default:
+                return null;
+        }
+    })();
+
+    return (
+        <section className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+                <h3 className="text-sm font-medium">{t('Schedule')}</h3>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-muted-foreground text-sm">
+                        {t(
+                            'Scheduling fills empty slots around the existing schedule. Played and pinned matches never move.',
+                        )}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline">
+                            {t(':scheduled of :total scheduled', {
+                                scheduled: schedule.summary.scheduled,
+                                total: schedule.summary.total,
+                            })}
+                        </Badge>
+                        {schedule.summary.unscheduled > 0 && (
+                            <Badge variant="secondary">
+                                {pluralize(
+                                    t,
+                                    schedule.summary.unscheduled,
+                                    ':count match not scheduled',
+                                    ':count matches not scheduled',
+                                )}
+                            </Badge>
+                        )}
+                        {schedule.summary.pinned > 0 && (
+                            <Badge variant="outline">
+                                {t(':count pinned', {
+                                    count: schedule.summary.pinned,
+                                })}
+                            </Badge>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap gap-2">
+                    {schedule.can_schedule ? (
+                        <Form
+                            {...CompetitionScheduleController.store.form(
+                                competitionId,
+                            )}
+                            options={{ preserveScroll: true }}
+                            onError={() =>
+                                toast.error(t('Something went wrong.'))
+                            }
+                        >
+                            {({ processing }) => (
+                                <Button
+                                    type="submit"
+                                    size="sm"
+                                    disabled={processing}
+                                >
+                                    {processing && <Spinner />}
+                                    <CalendarClock />
+                                    {t('Schedule matches')}
+                                </Button>
+                            )}
+                        </Form>
+                    ) : (
+                        <Button
+                            size="sm"
+                            aria-disabled="true"
+                            aria-describedby={
+                                disabledReason
+                                    ? SCHEDULE_DISABLED_REASON_ID
+                                    : undefined
+                            }
+                            className="aria-disabled:pointer-events-auto aria-disabled:opacity-50"
+                            onClick={(event) => event.preventDefault()}
+                        >
+                            <CalendarClock />
+                            {t('Schedule matches')}
+                        </Button>
+                    )}
+                    {resolveAction && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={resolveAction.onClick}
+                        >
+                            {resolveAction.label}
+                        </Button>
+                    )}
+                </div>
+                {disabledReason && (
+                    <p
+                        id={SCHEDULE_DISABLED_REASON_ID}
+                        className="text-muted-foreground text-sm"
+                    >
+                        {disabledReason}
+                    </p>
+                )}
+            </div>
+
+            {selectedMatchDay === null ? (
+                <EmptyState
+                    icon={CalendarDays}
+                    title={t('No schedule yet.')}
+                    description={t(
+                        'The schedule appears as soon as the competition has match days with fields.',
+                    )}
+                    action={
+                        onNavigateToMatchDays && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={onNavigateToMatchDays}
+                            >
+                                {t('Go to match days')}
+                            </Button>
+                        )
+                    }
+                />
+            ) : (
+                <>
+                    <ScheduleDayPicker
+                        matchDays={schedule.match_days}
+                        selectedMatchDayId={selectedMatchDay.id}
+                        onSelect={setSelectedMatchDayId}
+                    />
+                    <ScheduleGrid matchDay={selectedMatchDay} />
+                </>
+            )}
+
+            <ScheduleReport
+                unscheduled={schedule.unscheduled}
+                restViolations={schedule.rest_violations}
+            />
+        </section>
+    );
+}
+
+/**
+ * Placeholder in dezelfde omtrek als het grid, zodat het uitgesteld laden van
+ * de schedule-prop geen layout shift veroorzaakt.
+ */
+export function ScheduleSkeleton({
+    rows = 6,
+    columns = 3,
+}: {
+    rows?: number;
+    columns?: number;
+}) {
+    const { t } = useTranslations();
+
+    return (
+        <div
+            className="flex flex-col gap-3 rounded-xl border p-3"
+            aria-label={t('Loading schedule…')}
+            aria-busy="true"
+        >
+            <div className="flex items-center gap-3">
+                <Skeleton className="h-4 w-16" />
+                {Array.from({ length: columns }, (_, column) => (
+                    <Skeleton key={column} className="h-4 flex-1" />
+                ))}
+            </div>
+            {Array.from({ length: rows }, (_, row) => (
+                <div key={row} className="flex items-center gap-3">
+                    <Skeleton className="h-8 w-16" />
+                    {Array.from({ length: columns }, (_, column) => (
+                        <Skeleton key={column} className="h-8 flex-1" />
+                    ))}
+                </div>
+            ))}
+        </div>
+    );
+}
