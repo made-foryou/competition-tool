@@ -1,12 +1,22 @@
-import { usePage } from '@inertiajs/react';
-import { Pin, Table2 } from 'lucide-react';
-import { Fragment, useId } from 'react';
+import { router, usePage } from '@inertiajs/react';
+import { MoreHorizontal, MoveRight, Pin, PinOff, Table2 } from 'lucide-react';
+import { Fragment, useId, useRef, useState } from 'react';
+import { toast } from 'sonner';
+import MatchPinController from '@/actions/App/Http/Controllers/MatchPinController';
+import ScheduleMoveDialog from '@/components/competitions/schedule-move-dialog';
 import type {
     ScheduleMatchDayProps,
     ScheduleMatchProps,
 } from '@/components/competitions/schedule-panel';
 import EmptyState from '@/components/empty-state';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
     Table,
     TableBody,
@@ -23,7 +33,15 @@ import { STICKY_COLUMN_CLASSES } from '@/lib/table-classes';
 import { cn } from '@/lib/utils';
 
 type Props = {
+    competitionId: number;
     matchDay: ScheduleMatchDayProps;
+    /** Alle speeldagen, als doelen voor het verplaatsen van een wedstrijd. */
+    matchDays: ScheduleMatchDayProps[];
+    /**
+     * Of het schema bijgestuurd mag worden. Staat dit uit, dan blijft het grid
+     * gewoon leesbaar maar verdwijnen de acties per wedstrijd.
+     */
+    canEdit: boolean;
 };
 
 /**
@@ -32,7 +50,12 @@ type Props = {
  * het huidige raster vallen staan in een aparte lijst onder de tabel in plaats
  * van te verdwijnen.
  */
-export default function ScheduleGrid({ matchDay }: Props) {
+export default function ScheduleGrid({
+    competitionId,
+    matchDay,
+    matchDays,
+    canEdit,
+}: Props) {
     const { t } = useTranslations();
     const { locale } = usePage().props;
 
@@ -186,7 +209,15 @@ export default function ScheduleGrid({ matchDay }: Props) {
                                             >
                                                 {match && (
                                                     <ScheduleGridCell
+                                                        competitionId={
+                                                            competitionId
+                                                        }
                                                         match={match}
+                                                        matchDays={matchDays}
+                                                        currentMatchDayId={
+                                                            matchDay.id
+                                                        }
+                                                        canEdit={canEdit}
                                                     />
                                                 )}
                                             </TableCell>
@@ -229,6 +260,15 @@ export default function ScheduleGrid({ matchDay }: Props) {
                                     {match.first_player} – {match.second_player}
                                 </span>
                                 <MatchMarkers match={match} />
+                                <span className="ms-auto">
+                                    <ScheduleMatchActions
+                                        competitionId={competitionId}
+                                        match={match}
+                                        matchDays={matchDays}
+                                        currentMatchDayId={matchDay.id}
+                                        canEdit={canEdit}
+                                    />
+                                </span>
                             </li>
                         ))}
                     </ul>
@@ -246,18 +286,152 @@ export default function ScheduleGrid({ matchDay }: Props) {
  * Het streepje achter de eerste speler scheidt de twee namen ook voor een
  * schermlezer, die de twee regels anders als één naam achter elkaar voorleest.
  */
-function ScheduleGridCell({ match }: { match: ScheduleMatchProps }) {
+function ScheduleGridCell({
+    competitionId,
+    match,
+    matchDays,
+    currentMatchDayId,
+    canEdit,
+}: MatchActionsProps) {
     return (
-        <div className="flex flex-col gap-1">
-            <span className="text-sm whitespace-normal">
-                {match.first_player}
-                <span className="text-muted-foreground"> –</span>
-            </span>
-            <span className="text-sm whitespace-normal">
-                {match.second_player}
-            </span>
-            <MatchMarkers match={match} />
+        <div className="flex items-start justify-between gap-2">
+            <div className="flex flex-col gap-1">
+                <span className="text-sm whitespace-normal">
+                    {match.first_player}
+                    <span className="text-muted-foreground"> –</span>
+                </span>
+                <span className="text-sm whitespace-normal">
+                    {match.second_player}
+                </span>
+                <MatchMarkers match={match} />
+            </div>
+            <ScheduleMatchActions
+                competitionId={competitionId}
+                match={match}
+                matchDays={matchDays}
+                currentMatchDayId={currentMatchDayId}
+                canEdit={canEdit}
+            />
         </div>
+    );
+}
+
+type MatchActionsProps = {
+    competitionId: number;
+    match: ScheduleMatchProps;
+    matchDays: ScheduleMatchDayProps[];
+    currentMatchDayId: number;
+    canEdit: boolean;
+};
+
+/**
+ * Het menu met de acties op één wedstrijd: verplaatsen, vastzetten en
+ * losmaken. Een gespeelde wedstrijd krijgt geen menu — die is alleen-lezen
+ * (besluit 6 van het ontwerp) en de server weigert er sowieso elke wijziging
+ * op.
+ *
+ * Vastzetten en losmaken gaan via `router` in plaats van een `<Form>`: een
+ * `DropdownMenuItem` is geen submitknop, en de menu-inhoud hangt in een portal
+ * buiten het formulier, dus een formulier eromheen zou de knop niet bereiken.
+ * Met `onSelect` werkt het item gewoon met muis én toetsenbord.
+ *
+ * Het menu sluit bij het openen van de verplaatsdialoog. Dat moet ook: twee
+ * modale Radix-lagen over elkaar zetten de dialoog achter het `aria-hidden`
+ * van het menu. De dialoog staat daarom buiten het menu, met haar eigen
+ * `open`-state, en geeft bij sluiten de focus terug aan de menuknop.
+ */
+function ScheduleMatchActions({
+    competitionId,
+    match,
+    matchDays,
+    currentMatchDayId,
+    canEdit,
+}: MatchActionsProps) {
+    const { t } = useTranslations();
+    const [menuOpen, setMenuOpen] = useState(false);
+    const [moveOpen, setMoveOpen] = useState(false);
+    const triggerRef = useRef<HTMLButtonElement>(null);
+
+    if (!canEdit || match.status === 'played') {
+        return null;
+    }
+
+    /** Vastzetten betekent "laat staan waar hij staat" en kan dus alleen met een volledige plek. */
+    const isScheduled = match.field_id !== null && match.starts_at !== null;
+
+    const onError = () => toast.error(t('Something went wrong.'));
+
+    return (
+        <>
+            <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+                <DropdownMenuTrigger asChild>
+                    <Button
+                        ref={triggerRef}
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 shrink-0"
+                    >
+                        <MoreHorizontal />
+                        <span className="sr-only">{t('Match actions')}</span>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                        onSelect={(event) => {
+                            event.preventDefault();
+                            setMenuOpen(false);
+                            setMoveOpen(true);
+                        }}
+                    >
+                        <MoveRight />
+                        {t('Move match')}
+                    </DropdownMenuItem>
+                    {match.is_pinned ? (
+                        <DropdownMenuItem
+                            onSelect={() =>
+                                router.delete(
+                                    MatchPinController.destroy.url([
+                                        competitionId,
+                                        match.id,
+                                    ]),
+                                    { preserveScroll: true, onError },
+                                )
+                            }
+                        >
+                            <PinOff />
+                            {t('Unpin match')}
+                        </DropdownMenuItem>
+                    ) : (
+                        isScheduled && (
+                            <DropdownMenuItem
+                                onSelect={() =>
+                                    router.post(
+                                        MatchPinController.store.url([
+                                            competitionId,
+                                            match.id,
+                                        ]),
+                                        {},
+                                        { preserveScroll: true, onError },
+                                    )
+                                }
+                            >
+                                <Pin />
+                                {t('Pin match')}
+                            </DropdownMenuItem>
+                        )
+                    )}
+                </DropdownMenuContent>
+            </DropdownMenu>
+            <ScheduleMoveDialog
+                competitionId={competitionId}
+                match={match}
+                matchDays={matchDays}
+                currentMatchDayId={currentMatchDayId}
+                open={moveOpen}
+                onOpenChange={setMoveOpen}
+                restoreFocusRef={triggerRef}
+            />
+        </>
     );
 }
 

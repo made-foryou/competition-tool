@@ -1,11 +1,12 @@
 import { Form } from '@inertiajs/react';
-import { CalendarClock, CalendarDays } from 'lucide-react';
+import { CalendarClock, CalendarDays, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import CompetitionScheduleController from '@/actions/App/Http/Controllers/CompetitionScheduleController';
 import ScheduleDayPicker from '@/components/competitions/schedule-day-picker';
 import ScheduleGrid from '@/components/competitions/schedule-grid';
 import ScheduleReport from '@/components/competitions/schedule-report';
+import ConfirmDialog from '@/components/confirm-dialog';
 import EmptyState from '@/components/empty-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -173,6 +174,28 @@ export default function SchedulePanel({
      * `EmptyState` eronder al een knop "Naar speeldagen", en twee identieke
      * knoppen boven elkaar helpen niemand.
      */
+    /**
+     * Bijsturen (verplaatsen, vastzetten, opnieuw plannen) hangt aan dezelfde
+     * statusguard als de schrijfroutes: `allowsScheduling()`. Van alle redenen
+     * die het plannen blokkeren is `inactive` de enige die uit die guard komt;
+     * de rest zegt alleen dat er niets te plannen valt. Een afgerond of
+     * concept-schema blijft dus leesbaar, maar zonder acties die de server
+     * toch met een 403 zou weigeren.
+     */
+    const canEdit = schedule.blocked_reason !== 'inactive';
+
+    /**
+     * Opnieuw plannen kan zodra er iets ingepland staat. Bewust niet aan
+     * `can_schedule` gekoppeld: die vlag geldt voor het aanvullen en staat
+     * juist op `false` met reden `nothing_to_schedule` zodra alles gepland is
+     * — precies de situatie waarin opnieuw plannen zinvol is. De overige
+     * redenen blokkeren ook het opnieuw plannen, dus dan verdwijnt de knop.
+     */
+    const canRebuild =
+        schedule.summary.scheduled > 0 &&
+        (schedule.can_schedule ||
+            schedule.blocked_reason === 'nothing_to_schedule');
+
     const resolveAction = (() => {
         switch (schedule.blocked_reason) {
             case 'no_fields':
@@ -290,6 +313,25 @@ export default function SchedulePanel({
                             {t('Schedule matches')}
                         </Button>
                     )}
+                    {canRebuild && (
+                        <ConfirmDialog
+                            trigger={
+                                <Button variant="outline" size="sm">
+                                    <RefreshCw />
+                                    {t('Reschedule everything')}
+                                </Button>
+                            }
+                            title={t('Reschedule everything?')}
+                            description={t(
+                                'This clears the current schedule except played and pinned matches, and plans everything again. Participants may see their matches move.',
+                            )}
+                            action={CompetitionScheduleController.rebuild.form(
+                                competitionId,
+                            )}
+                            confirmLabel={t('Reschedule everything')}
+                            confirmVariant="destructive"
+                        />
+                    )}
                     {resolveAction && (
                         <Button
                             variant="outline"
@@ -336,11 +378,19 @@ export default function SchedulePanel({
                         selectedMatchDayId={selectedMatchDay.id}
                         onSelect={setSelectedMatchDayId}
                     />
-                    <ScheduleGrid matchDay={selectedMatchDay} />
+                    <ScheduleGrid
+                        competitionId={competitionId}
+                        matchDay={selectedMatchDay}
+                        matchDays={schedule.match_days}
+                        canEdit={canEdit}
+                    />
                     <ScheduleReport
+                        competitionId={competitionId}
                         unscheduled={schedule.unscheduled}
                         restViolations={schedule.rest_violations}
                         scheduledCount={schedule.summary.scheduled}
+                        matchDays={schedule.match_days}
+                        canEdit={canEdit}
                     />
                 </>
             )}
