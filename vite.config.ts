@@ -75,6 +75,11 @@ export default defineConfig({
         ignorePatterns: [
             '.github/**',
             'composer.json',
+            // Ontwerp- en planningsdocumenten zijn handgeschreven proza met
+            // bewuste regelafbrekingen; de formatter herschikt die en trok
+            // eerder een losse zin een genummerd lijstitem in. Inhoud gaat
+            // hier voor uniforme opmaak.
+            'docs/**',
             'resources/js/components/ui/*',
             'resources/views/mail/*',
         ],
