@@ -14,6 +14,8 @@ use App\Http\Controllers\CompetitionSettingsController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MatchDayController;
 use App\Http\Controllers\MatchDayFieldController;
+use App\Http\Controllers\MatchPinController;
+use App\Http\Controllers\MatchScheduleController;
 use App\Http\Controllers\Participant\AvailabilityController;
 use App\Http\Controllers\Participant\CompetitionDashboardController;
 use App\Http\Controllers\Participant\CompetitionLoginController;
@@ -121,6 +123,23 @@ Route::middleware(['auth', 'verified', EnsureUserIsAdmin::class])->group(functio
             Route::post('schedule', [CompetitionScheduleController::class, 'store'])
                 ->middleware('throttle:6,1')
                 ->name('schedule.store');
+
+            // Zelfde throttle als aanvullen: opnieuw plannen rekent het hele
+            // schema synchroon uit en laat eerst alles los, dus doorklikken is
+            // hier nog duurder.
+            Route::post('schedule/rebuild', [CompetitionScheduleController::class, 'rebuild'])
+                ->middleware('throttle:6,1')
+                ->name('schedule.rebuild');
+
+            // {match} resolvet via de scoped binding op Competition::matches(),
+            // zodat een wedstrijd van een andere competitie een 404 geeft --
+            // zelfde mechaniek als {participant} en {invitation} hierboven.
+            Route::put('matches/{match}/schedule', [MatchScheduleController::class, 'update'])
+                ->name('matches.schedule.update');
+            Route::post('matches/{match}/pin', [MatchPinController::class, 'store'])
+                ->name('matches.pin.store');
+            Route::delete('matches/{match}/pin', [MatchPinController::class, 'destroy'])
+                ->name('matches.pin.destroy');
 
             Route::post('match-days', [MatchDayController::class, 'store'])
                 ->name('match-days.store');

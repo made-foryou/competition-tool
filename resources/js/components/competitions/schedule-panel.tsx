@@ -1,17 +1,19 @@
 import { Form } from '@inertiajs/react';
-import { CalendarClock, CalendarDays } from 'lucide-react';
+import { CalendarClock, CalendarDays, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import CompetitionScheduleController from '@/actions/App/Http/Controllers/CompetitionScheduleController';
 import ScheduleDayPicker from '@/components/competitions/schedule-day-picker';
 import ScheduleGrid from '@/components/competitions/schedule-grid';
 import ScheduleReport from '@/components/competitions/schedule-report';
+import ConfirmDialog from '@/components/confirm-dialog';
 import EmptyState from '@/components/empty-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { useTranslations } from '@/hooks/use-translations';
+import type { CompetitionStatusValue } from '@/lib/competition-status';
 import { pluralize } from '@/lib/plural';
 
 /** Koppelt de uitleg onder de inplanknop aan die knop via `aria-describedby`. */
@@ -87,6 +89,12 @@ export type ScheduleBlockedReason =
 export type ScheduleProps = {
     can_schedule: boolean;
     blocked_reason: ScheduleBlockedReason;
+    /**
+     * De status van de competitie. Nodig naast `blocked_reason`: die zegt
+     * alleen dát er niet gepland mag worden, terwijl een afgeronde competitie
+     * een andere uitleg verdient dan een concept.
+     */
+    status: CompetitionStatusValue;
     summary: {
         total: number;
         scheduled: number;
@@ -141,12 +149,25 @@ export default function SchedulePanel({
         schedule.match_days[0] ??
         null;
 
+    /**
+     * De uitleg onder de knoppen — en daarmee de enige regel direct boven het
+     * grid die vertelt waarom er niets te bedienen valt.
+     *
+     * `inactive` splitst op status: bij een afgeronde competitie is "pas de
+     * status aan onder Algemeen" verkeerd advies (die competitie is historie),
+     * dus die krijgt de alleen-lezen zin. Een concept houdt de bestaande hint,
+     * want daar is het activeren van de competitie wél de volgende stap.
+     */
     const disabledReason = (() => {
         switch (schedule.blocked_reason) {
             case 'inactive':
-                return t(
-                    'Matches can only be scheduled for an active competition. Change the status under General.',
-                );
+                return schedule.status === 'finished'
+                    ? t(
+                          'This competition is finished. The schedule is read-only.',
+                      )
+                    : t(
+                          'Matches can only be scheduled for an active competition. Change the status under General.',
+                      );
             case 'no_match_days':
                 return t('Add match days before scheduling.');
             case 'no_fields':
@@ -163,6 +184,28 @@ export default function SchedulePanel({
                 return null;
         }
     })();
+
+    /**
+     * Bijsturen (verplaatsen, vastzetten, opnieuw plannen) hangt aan dezelfde
+     * statusguard als de schrijfroutes: `allowsScheduling()`. Van alle redenen
+     * die het plannen blokkeren is `inactive` de enige die uit die guard komt;
+     * de rest zegt alleen dat er niets te plannen valt. Een afgerond of
+     * concept-schema blijft dus leesbaar, maar zonder acties die de server
+     * toch met een 403 zou weigeren.
+     */
+    const canEdit = schedule.blocked_reason !== 'inactive';
+
+    /**
+     * Opnieuw plannen kan zodra er iets ingepland staat. Bewust niet aan
+     * `can_schedule` gekoppeld: die vlag geldt voor het aanvullen en staat
+     * juist op `false` met reden `nothing_to_schedule` zodra alles gepland is
+     * — precies de situatie waarin opnieuw plannen zinvol is. De overige
+     * redenen blokkeren ook het opnieuw plannen, dus dan verdwijnt de knop.
+     */
+    const canRebuild =
+        schedule.summary.scheduled > 0 &&
+        (schedule.can_schedule ||
+            schedule.blocked_reason === 'nothing_to_schedule');
 
     /**
      * De tab waar de beheerder de blokkade kan opheffen. Alleen bij een reden
@@ -209,6 +252,9 @@ export default function SchedulePanel({
                     <p className="text-muted-foreground text-sm">
                         {t(
                             'Scheduling fills empty slots around the existing schedule. Played and pinned matches never move.',
+                        )}{' '}
+                        {t(
+                            'Rescheduling clears everything that is not played or pinned and plans it again.',
                         )}
                     </p>
                     <div className="flex flex-wrap items-center gap-2">
@@ -290,6 +336,36 @@ export default function SchedulePanel({
                             {t('Schedule matches')}
                         </Button>
                     )}
+                    {canRebuild && (
+                        <ConfirmDialog
+                            trigger={
+                                // Zodra de inplanknop dood is, is opnieuw
+                                // plannen de enige knop die nog iets doet;
+                                // dan hoort de visuele nadruk daarop te
+                                // liggen in plaats van op de dode knop.
+                                <Button
+                                    variant={
+                                        schedule.can_schedule
+                                            ? 'outline'
+                                            : 'default'
+                                    }
+                                    size="sm"
+                                >
+                                    <RefreshCw />
+                                    {t('Reschedule everything')}
+                                </Button>
+                            }
+                            title={t('Reschedule everything?')}
+                            description={t(
+                                'This clears the current schedule except played and pinned matches, and plans everything again. Participants may see their matches move.',
+                            )}
+                            action={CompetitionScheduleController.rebuild.form(
+                                competitionId,
+                            )}
+                            confirmLabel={t('Reschedule everything')}
+                            confirmVariant="destructive"
+                        />
+                    )}
                     {resolveAction && (
                         <Button
                             variant="outline"
@@ -336,11 +412,19 @@ export default function SchedulePanel({
                         selectedMatchDayId={selectedMatchDay.id}
                         onSelect={setSelectedMatchDayId}
                     />
-                    <ScheduleGrid matchDay={selectedMatchDay} />
+                    <ScheduleGrid
+                        competitionId={competitionId}
+                        matchDay={selectedMatchDay}
+                        matchDays={schedule.match_days}
+                        canEdit={canEdit}
+                    />
                     <ScheduleReport
+                        competitionId={competitionId}
                         unscheduled={schedule.unscheduled}
                         restViolations={schedule.rest_violations}
                         scheduledCount={schedule.summary.scheduled}
+                        matchDays={schedule.match_days}
+                        canEdit={canEdit}
                     />
                 </>
             )}

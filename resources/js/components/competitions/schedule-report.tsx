@@ -1,8 +1,12 @@
+import { MoveRight } from 'lucide-react';
+import ScheduleMoveDialog from '@/components/competitions/schedule-move-dialog';
 import type {
+    ScheduleMatchDayProps,
     ScheduleRestViolationProps,
     ScheduleUnscheduledProps,
 } from '@/components/competitions/schedule-panel';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/hooks/use-translations';
 import {
     schedulingFailureDescription,
@@ -23,10 +27,15 @@ const REASON_ORDER = [
 ] as const;
 
 type Props = {
+    competitionId: number;
     unscheduled: ScheduleUnscheduledProps[];
     restViolations: ScheduleRestViolationProps[];
     /** Het aantal ingeplande wedstrijden van de hele competitie. */
     scheduledCount: number;
+    /** Alle speeldagen, als doelen voor het handmatig plaatsen van een wedstrijd. */
+    matchDays: ScheduleMatchDayProps[];
+    /** Of het schema bijgestuurd mag worden; anders blijft het rapport alleen-lezen. */
+    canEdit: boolean;
 };
 
 /**
@@ -39,9 +48,12 @@ type Props = {
  * melden valt, blijft het weg.
  */
 export default function ScheduleReport({
+    competitionId,
     unscheduled,
     restViolations,
     scheduledCount,
+    matchDays,
+    canEdit,
 }: Props) {
     const { t } = useTranslations();
 
@@ -130,10 +142,38 @@ export default function ScheduleReport({
                                     {matches.map((match) => (
                                         <li
                                             key={match.id}
-                                            className="p-3 text-sm"
+                                            className="flex items-center justify-between gap-2 p-3 text-sm"
                                         >
-                                            {match.first_player} –{' '}
-                                            {match.second_player}
+                                            <span>
+                                                {match.first_player} –{' '}
+                                                {match.second_player}
+                                            </span>
+                                            {canEdit && (
+                                                <ScheduleMoveDialog
+                                                    competitionId={
+                                                        competitionId
+                                                    }
+                                                    match={match}
+                                                    matchDays={matchDays}
+                                                    currentMatchDayId={null}
+                                                    trigger={
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            aria-label={t(
+                                                                'Move :first against :second',
+                                                                {
+                                                                    first: match.first_player,
+                                                                    second: match.second_player,
+                                                                },
+                                                            )}
+                                                        >
+                                                            <MoveRight />
+                                                            {t('Move match')}
+                                                        </Button>
+                                                    }
+                                                />
+                                            )}
                                         </li>
                                     ))}
                                 </ul>

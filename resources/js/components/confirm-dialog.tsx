@@ -46,7 +46,12 @@ export default function ConfirmDialog({
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>{trigger}</DialogTrigger>
-            <DialogContent closeLabel={t('Close')}>
+            {/* `alertdialog` in plaats van `dialog`: dit is altijd een
+            bevestiging van een ingrijpende actie, en die rol laat een
+            schermlezer titel én beschrijving meteen voorlezen. Radix zet zelf
+            `role="dialog"`; een eigen `role` overschrijft dat en laat de rest
+            van het dialooggedrag ongemoeid. */}
+            <DialogContent role="alertdialog" closeLabel={t('Close')}>
                 <DialogHeader>
                     <DialogTitle>{title}</DialogTitle>
                     <DialogDescription>{description}</DialogDescription>
