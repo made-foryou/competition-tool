@@ -22,6 +22,10 @@ import type {
     PendingInvitationProps,
 } from '@/components/competitions/participant-manager';
 import ParticipantManager from '@/components/competitions/participant-manager';
+import type { ScheduleProps } from '@/components/competitions/schedule-panel';
+import SchedulePanel, {
+    ScheduleSkeleton,
+} from '@/components/competitions/schedule-panel';
 import ConfirmDialog from '@/components/confirm-dialog';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +44,7 @@ type Props = {
     availability: AvailabilityRow[];
     availabilityReminder: AvailabilityReminderProps;
     matches?: MatchProps[];
+    schedule?: ScheduleProps;
     pendingInvitations: PendingInvitationProps[];
     settings: CompetitionSettingsProps;
     settingsLimits: CompetitionSettingsLimits;
@@ -51,6 +56,7 @@ const TABS = [
     'participants',
     'availability',
     'matches',
+    'schedule',
     'settings',
 ] as const;
 
@@ -95,6 +101,7 @@ export default function CompetitionsEdit({
     availability,
     availabilityReminder,
     matches,
+    schedule,
     pendingInvitations,
     settings,
     settingsLimits,
@@ -185,8 +192,11 @@ export default function CompetitionsEdit({
                             <TabsTrigger value="matches" className="shrink-0">
                                 {t('Matches')}
                             </TabsTrigger>
+                            <TabsTrigger value="schedule" className="shrink-0">
+                                {t('Schedule')}
+                            </TabsTrigger>
                             <TabsTrigger value="settings" className="shrink-0">
-                                {t('Planning')}
+                                {t('Planning settings')}
                             </TabsTrigger>
                         </TabsList>
                     </div>
@@ -280,6 +290,29 @@ export default function CompetitionsEdit({
                                     setActiveTab('participants')
                                 }
                             />
+                        </Deferred>
+                    </TabsContent>
+
+                    <TabsContent value="schedule">
+                        <Deferred
+                            data="schedule"
+                            fallback={<ScheduleSkeleton />}
+                        >
+                            {schedule && (
+                                <SchedulePanel
+                                    competitionId={competition.id}
+                                    schedule={schedule}
+                                    onNavigateToMatchDays={() =>
+                                        setActiveTab('match-days')
+                                    }
+                                    onNavigateToAvailability={() =>
+                                        setActiveTab('availability')
+                                    }
+                                    onNavigateToParticipants={() =>
+                                        setActiveTab('participants')
+                                    }
+                                />
+                            )}
                         </Deferred>
                     </TabsContent>
 

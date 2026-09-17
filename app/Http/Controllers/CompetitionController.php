@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Actions\Competitions\SyncCompetitionMatches;
 use App\Concerns\SummarizesAvailability;
 use App\Concerns\SummarizesMatchDay;
+use App\Concerns\SummarizesSchedule;
 use App\Enums\CompetitionStatus;
 use App\Http\Requests\Competitions\IndexCompetitionRequest;
 use App\Http\Requests\Competitions\StoreCompetitionRequest;
@@ -22,7 +23,7 @@ use Inertia\Response;
 
 class CompetitionController extends Controller
 {
-    use SummarizesAvailability, SummarizesMatchDay;
+    use SummarizesAvailability, SummarizesMatchDay, SummarizesSchedule;
 
     public function index(IndexCompetitionRequest $request): Response
     {
@@ -114,6 +115,7 @@ class CompetitionController extends Controller
             'availability' => $this->availabilityRows($competition),
             'availabilityReminder' => $this->availabilityReminderProps($competition),
             'matches' => Inertia::defer(fn (): array => $this->matchRows($competition)),
+            'schedule' => Inertia::defer(fn (): array => $this->scheduleProps($competition)),
             'matchDays' => $competition->matchDays()
                 ->withCount('fields')
                 ->get()
@@ -161,7 +163,13 @@ class CompetitionController extends Controller
      * spelers markeren die inmiddels uit de competitie zijn vertrokken (hun
      * gespeelde wedstrijden blijven immers staan).
      *
-     * @return list<array{id: int, first_player: string, first_player_is_participant: bool, second_player: string, second_player_is_participant: bool, status: string}>
+     * Sinds de planner (`ScheduleCompetitionMatches`) deze kolommen vult,
+     * draagt elke rij ook zijn plek in het schema: speeldag, tafel en tijden,
+     * of de reden waarom de wedstrijd geen plek kreeg. De lijst blijft de
+     * platte weergave van alle wedstrijden; het grid per speeldag zit in de
+     * `schedule`-props.
+     *
+     * @return list<array{id: int, first_player: string, first_player_is_participant: bool, second_player: string, second_player_is_participant: bool, status: string, match_day_date: string|null, field_name: string|null, starts_at: string|null, ends_at: string|null, is_pinned: bool, scheduling_failure: string|null}>
      */
     protected function matchRows(Competition $competition): array
     {
@@ -169,7 +177,7 @@ class CompetitionController extends Controller
         $participantIds = $competition->participants()->pluck('users.id')->all();
 
         return array_values($competition->matches()
-            ->with(['firstPlayer', 'secondPlayer'])
+            ->with(['firstPlayer', 'secondPlayer', 'matchDay', 'matchDayField'])
             ->get()
             ->map(fn (CompetitionMatch $match): array => [
                 'id' => $match->id,
@@ -178,6 +186,12 @@ class CompetitionController extends Controller
                 'second_player' => $match->secondPlayer->display_name,
                 'second_player_is_participant' => in_array($match->second_player_id, $participantIds, true),
                 'status' => $match->status->value,
+                'match_day_date' => $match->matchDay?->date->toDateString(),
+                'field_name' => $match->matchDayField?->name,
+                'starts_at' => $match->starts_at,
+                'ends_at' => $match->ends_at,
+                'is_pinned' => $match->isPinned(),
+                'scheduling_failure' => $match->scheduling_failure?->value,
             ])
             ->all());
     }

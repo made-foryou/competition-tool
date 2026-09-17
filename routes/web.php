@@ -9,6 +9,7 @@ use App\Http\Controllers\CompetitionController;
 use App\Http\Controllers\CompetitionInvitationController;
 use App\Http\Controllers\CompetitionParticipantController;
 use App\Http\Controllers\CompetitionParticipantRoleController;
+use App\Http\Controllers\CompetitionScheduleController;
 use App\Http\Controllers\CompetitionSettingsController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MatchDayController;
@@ -113,6 +114,13 @@ Route::middleware(['auth', 'verified', EnsureUserIsAdmin::class])->group(functio
 
             Route::put('settings', CompetitionSettingsController::class)
                 ->name('settings.update');
+
+            // Throttle omdat dit endpoint het hele schema synchroon uitrekent
+            // en in één schrijfronde wegzet: de limiet houdt doorklikken in
+            // toom, net als bij de herinneringen.
+            Route::post('schedule', [CompetitionScheduleController::class, 'store'])
+                ->middleware('throttle:6,1')
+                ->name('schedule.store');
 
             Route::post('match-days', [MatchDayController::class, 'store'])
                 ->name('match-days.store');
