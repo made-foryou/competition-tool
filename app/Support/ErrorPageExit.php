@@ -10,6 +10,14 @@ use App\Models\User;
  * defaultUrlFor() stuurt hem naar het admin-dashboard, en dat is achter
  * EnsureUserIsAdmin de volgende 403 -- precies de lus die een foutpagina
  * hoort te doorbreken.
+ *
+ * Let op: op een url die op geen enkele route matcht draait de
+ * web-middlewaregroep niet, dus is de sessie niet gestart en is $user daar
+ * altijd null -- ook voor wie ingelogd is. Die bezoeker krijgt dan de
+ * startpagina als uitweg. Dat is een veilige bestemming, geen lus; het
+ * alternatief (een Route::fallback in de web-groep) zou EnsureAvailability-
+ * IsSubmitted over elke typefout laten lopen en een 404 in een redirect naar
+ * het beschikbaarheidsformulier veranderen.
  */
 class ErrorPageExit
 {

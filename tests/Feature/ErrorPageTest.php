@@ -50,9 +50,18 @@ test('a participant on an admin route gets a forbidden error page', function () 
         );
 });
 
+/*
+ * De uitweg voor een ingelogde gebruiker wordt getest op een 404 van een
+ * route die WEL matcht (een onbekende slug op de competitie-prefix). Op een
+ * url die op geen enkele route matcht draait de web-middlewaregroep niet,
+ * dus is er geen sessie en ziet ook een ingelogde bezoeker eruit als gast --
+ * zie de toelichting op App\Support\ErrorPageExit. actingAs() zou dat
+ * verschil maskeren, want dat zet de gebruiker rechtstreeks op de guard.
+ */
 test('an admin is sent back to the admin dashboard', function () {
     $this->actingAs(User::factory()->withTwoFactor()->create())
-        ->get('/bestaat-niet')
+        ->get('/onbekende-competitie/register')
+        ->assertNotFound()
         ->assertInertia(fn (Assert $page) => $page
             ->where('returnUrl', route('dashboard'))
             ->where('returnLabel', 'Naar je competities'),
@@ -61,7 +70,8 @@ test('an admin is sent back to the admin dashboard', function () {
 
 test('a participant without an active competition is sent to the no competition page', function () {
     $this->actingAs(User::factory()->participant()->create())
-        ->get('/bestaat-niet')
+        ->get('/onbekende-competitie/register')
+        ->assertNotFound()
         ->assertInertia(fn (Assert $page) => $page
             ->where('returnUrl', route('competition.none')),
         );
@@ -73,7 +83,8 @@ test('a participant is sent back to their active competition', function () {
     $competition->participants()->attach($participant);
 
     $this->actingAs($participant)
-        ->get('/bestaat-niet')
+        ->get('/onbekende-competitie/register')
+        ->assertNotFound()
         ->assertInertia(fn (Assert $page) => $page
             ->where('returnUrl', route('competition.dashboard', $competition)),
         );
