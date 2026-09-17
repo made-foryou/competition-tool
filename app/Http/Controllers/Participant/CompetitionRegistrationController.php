@@ -64,6 +64,10 @@ class CompetitionRegistrationController extends Controller
                 ? ['name' => $user->display_name, 'email' => $user->email]
                 : null,
             'registrationState' => $registrationState,
+            // De afwijzing van een verstuurd formulier: de staat hieronder
+            // legt uit waarom aanmelden niet kan, de flash waarom de knop
+            // niets deed.
+            'status' => $request->session()->get('status'),
             // Zonder uitweg is de pagina doodlopend voor wie al ingelogd is:
             // hij belandt hier ook via een oude link of doordat hij zijn
             // koppeling met de competitie kwijt is, en de competitie-login
@@ -82,8 +86,20 @@ class CompetitionRegistrationController extends Controller
         ]);
     }
 
+    /**
+     * Dezelfde race als bij een uitnodiging (InvitationController::store()):
+     * de competitie kan afgerond raken terwijl het formulier openstaat. Terug
+     * naar de inschrijfpagina, die de reden zelf toont -- een 404 zou het
+     * ingevulde formulier stil laten verdampen.
+     */
     public function store(StoreCompetitionRegistrationRequest $request, Competition $competition, SyncCompetitionMatches $syncCompetitionMatches, AcceptPendingInvitations $acceptPendingInvitations): RedirectResponse
     {
+        if (! $competition->status->allowsSignUp()) {
+            return redirect()
+                ->route('competition.register.show', $competition, 303)
+                ->with('status', $this->signUpClosedReason($competition));
+        }
+
         $existing = $request->user();
 
         $user = DB::transaction(function () use ($request, $competition, $existing, $syncCompetitionMatches, $acceptPendingInvitations): User {
@@ -112,6 +128,17 @@ class CompetitionRegistrationController extends Controller
         }
 
         return redirect()->route('competition.dashboard', $competition);
+    }
+
+    /**
+     * Dezelfde twee bronstrings die de inschrijfpagina zelf gebruikt, zodat
+     * de melding en de pagina waarop hij landt niet uiteenlopen.
+     */
+    protected function signUpClosedReason(Competition $competition): string
+    {
+        return $competition->status === CompetitionStatus::Finished
+            ? __('Registration for this competition is closed. Contact the organizer if you have any questions.')
+            : __('Registration for this competition has not opened yet.');
     }
 
     /**

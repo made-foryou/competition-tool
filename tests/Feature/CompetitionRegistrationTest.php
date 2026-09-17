@@ -171,7 +171,8 @@ test('guests cannot register on a finished competition', function () {
     $finished->participants()->attach(User::factory()->participant()->create());
 
     $this->post(route('competition.register.store', $finished), registrationPayload())
-        ->assertNotFound();
+        ->assertRedirect(route('competition.register.show', $finished))
+        ->assertSessionHas('status', 'Aanmelden voor deze competitie is gesloten. Neem contact op met de organisator als je vragen hebt.');
 
     expect(User::query()->where('email', 'sanne@example.com')->exists())->toBeFalse()
         ->and($finished->participants()->count())->toBe(1)
@@ -187,7 +188,8 @@ test('a logged in participant cannot register on a finished competition', functi
         ->post(route('competition.register.store', $finished), [
             'match_days' => [$matchDay->id],
         ])
-        ->assertNotFound();
+        ->assertRedirect(route('competition.register.show', $finished))
+        ->assertSessionHas('status', 'Aanmelden voor deze competitie is gesloten. Neem contact op met de organisator als je vragen hebt.');
 
     expect($finished->participants()->count())->toBe(0)
         ->and($participant->matchDayAvailabilities()->count())->toBe(0);
@@ -201,7 +203,8 @@ test('an admin cannot register on a draft competition', function () {
         ->post(route('competition.register.store', $draft), [
             'match_days' => [],
         ])
-        ->assertNotFound();
+        ->assertRedirect(route('competition.register.show', $draft))
+        ->assertSessionHas('status', 'Aanmelden voor deze competitie is nog niet geopend.');
 
     expect($draft->participants()->count())->toBe(0);
 });
@@ -276,5 +279,22 @@ test('a signed in non-participant sees the closed state of a finished competitio
             ->where('authenticated', true)
             ->where('registrationState', 'closed')
             ->where('returnUrl', route('competition.none')),
+        );
+});
+
+test('the registration page shows why a submitted form was refused', function () {
+    $finished = Competition::factory()->finished()->create();
+
+    $this->post(route('competition.register.store', $finished), registrationPayload())
+        ->assertRedirect(route('competition.register.show', $finished));
+
+    // Dezelfde sessie, dus de flash van de redirect hierboven staat nog
+    // klaar voor de pagina waar de bezoeker op landt.
+    $this->get(route('competition.register.show', $finished))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('auth/competition-register')
+            ->where('registrationState', 'closed')
+            ->where('status', 'Aanmelden voor deze competitie is gesloten. Neem contact op met de organisator als je vragen hebt.'),
         );
 });
