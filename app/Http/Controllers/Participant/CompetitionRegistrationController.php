@@ -64,6 +64,10 @@ class CompetitionRegistrationController extends Controller
                 ? ['name' => $user->display_name, 'email' => $user->email]
                 : null,
             'registrationState' => $registrationState,
+            // De afwijzing van een verstuurd formulier: de staat hieronder
+            // legt uit waarom aanmelden niet kan, de flash waarom de knop
+            // niets deed.
+            'status' => $request->session()->get('status'),
             // Zonder uitweg is de pagina doodlopend voor wie al ingelogd is:
             // hij belandt hier ook via een oude link of doordat hij zijn
             // koppeling met de competitie kwijt is, en de competitie-login
@@ -82,8 +86,20 @@ class CompetitionRegistrationController extends Controller
         ]);
     }
 
+    /**
+     * Dezelfde race als bij een uitnodiging (InvitationController::store()):
+     * de competitie kan afgerond raken terwijl het formulier openstaat. Terug
+     * naar de inschrijfpagina, die de reden zelf toont -- een 404 zou het
+     * ingevulde formulier stil laten verdampen.
+     */
     public function store(StoreCompetitionRegistrationRequest $request, Competition $competition, SyncCompetitionMatches $syncCompetitionMatches, AcceptPendingInvitations $acceptPendingInvitations): RedirectResponse
     {
+        if (! $competition->status->allowsSignUp()) {
+            return redirect()
+                ->route('competition.register.show', $competition, 303)
+                ->with('status', $this->signUpClosedReason($competition));
+        }
+
         $existing = $request->user();
 
         $user = DB::transaction(function () use ($request, $competition, $existing, $syncCompetitionMatches, $acceptPendingInvitations): User {
@@ -112,6 +128,19 @@ class CompetitionRegistrationController extends Controller
         }
 
         return redirect()->route('competition.dashboard', $competition);
+    }
+
+    /**
+     * Bewust een andere formulering dan de uitleg op de pagina zelf: die
+     * vertelt waarom aanmelden niet kan, deze melding wat er met het zojuist
+     * verstuurde formulier is gebeurd. Dezelfde zin twee keer onder elkaar
+     * leest als een fout in de pagina.
+     */
+    protected function signUpClosedReason(Competition $competition): string
+    {
+        return $competition->status === CompetitionStatus::Finished
+            ? __('Your sign-up was not processed: this competition has finished in the meantime.')
+            : __('Your sign-up was not processed: sign-up has not opened yet.');
     }
 
     /**

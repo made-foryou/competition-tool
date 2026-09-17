@@ -22,6 +22,7 @@ type Props = {
     authenticated: boolean;
     account: { name: string; email: string } | null;
     registrationState: RegistrationState;
+    status?: string;
     returnUrl: string | null;
     matchDays: MatchDayOption[];
     passwordRules: string;
@@ -39,6 +40,7 @@ export default function CompetitionRegister({
     authenticated,
     account,
     registrationState,
+    status,
     returnUrl,
     matchDays,
     passwordRules,
@@ -97,10 +99,30 @@ export default function CompetitionRegister({
                 className="mb-[18px]"
             />
 
+            {/*
+                De afwijzing van een verstuurd formulier. Anders dan op de
+                loginpagina is dit geen succesmelding, dus geen groene kleur --
+                het verhaal staat in de uitleg eronder.
+            */}
+            {status && (
+                <p
+                    role="status"
+                    className="made-anim text-console-error mb-4 text-sm leading-relaxed"
+                    style={{ '--made-delay': '0.76s' }}
+                >
+                    {status}
+                </p>
+            )}
+
             {!isOpen && (
                 <>
+                    {/*
+                        Twee live regions naast elkaar zouden bij het laden
+                        door elkaar heen praten: staat de flash er, dan is die
+                        het nieuws en is de uitleg de context eronder.
+                    */}
                     <p
-                        role="status"
+                        role={status ? undefined : 'status'}
                         className="made-anim text-console-text/65 mb-6 text-sm leading-relaxed"
                         style={{ '--made-delay': '0.82s' }}
                     >

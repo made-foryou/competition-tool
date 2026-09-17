@@ -16,6 +16,10 @@ void createInertiaApp({
             case name === 'welcome':
                 return null;
             case name.startsWith('auth/'):
+            // De foutpagina deelt de console-schil met de auth-pagina's: dat
+            // is de enige layout die geen ingelogde gebruiker veronderstelt,
+            // en een 403/404 treft net zo goed een uitgelogde bezoeker.
+            case name.startsWith('errors/'):
                 return AuthLayout;
             case name.startsWith('settings/'):
                 return [AppLayout, SettingsLayout];

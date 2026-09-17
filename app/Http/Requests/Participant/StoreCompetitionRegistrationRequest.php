@@ -16,22 +16,6 @@ class StoreCompetitionRegistrationRequest extends FormRequest
     use ProfileValidationRules;
 
     /**
-     * Welke competities aanmeldingen aannemen, weet de status zelf. Een 404
-     * in plaats van een 403: voor aanmelddoeleinden bestaat een concept- of
-     * afgeronde competitie niet, ook niet voor admins -- die koppelen
-     * deelnemers via het deelnemersbeheer.
-     */
-    public function authorize(): bool
-    {
-        /** @var Competition $competition */
-        $competition = $this->route('competition');
-
-        abort_unless($competition->status->allowsSignUp(), 404);
-
-        return true;
-    }
-
-    /**
      * Een leeg nickname-veld komt als lege string binnen; dan moet het NULL
      * worden, anders valt de weergavenaam niet terug op de echte naam.
      */
