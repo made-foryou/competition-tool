@@ -172,7 +172,7 @@ test('guests cannot register on a finished competition', function () {
 
     $this->post(route('competition.register.store', $finished), registrationPayload())
         ->assertRedirect(route('competition.register.show', $finished))
-        ->assertSessionHas('status', 'Aanmelden voor deze competitie is gesloten. Neem contact op met de organisator als je vragen hebt.');
+        ->assertSessionHas('status', 'Je aanmelding is niet verwerkt: deze competitie is inmiddels afgerond.');
 
     expect(User::query()->where('email', 'sanne@example.com')->exists())->toBeFalse()
         ->and($finished->participants()->count())->toBe(1)
@@ -189,7 +189,7 @@ test('a logged in participant cannot register on a finished competition', functi
             'match_days' => [$matchDay->id],
         ])
         ->assertRedirect(route('competition.register.show', $finished))
-        ->assertSessionHas('status', 'Aanmelden voor deze competitie is gesloten. Neem contact op met de organisator als je vragen hebt.');
+        ->assertSessionHas('status', 'Je aanmelding is niet verwerkt: deze competitie is inmiddels afgerond.');
 
     expect($finished->participants()->count())->toBe(0)
         ->and($participant->matchDayAvailabilities()->count())->toBe(0);
@@ -204,7 +204,7 @@ test('an admin cannot register on a draft competition', function () {
             'match_days' => [],
         ])
         ->assertRedirect(route('competition.register.show', $draft))
-        ->assertSessionHas('status', 'Aanmelden voor deze competitie is nog niet geopend.');
+        ->assertSessionHas('status', 'Je aanmelding is niet verwerkt: aanmelden is nog niet geopend.');
 
     expect($draft->participants()->count())->toBe(0);
 });
@@ -295,6 +295,6 @@ test('the registration page shows why a submitted form was refused', function ()
         ->assertInertia(fn (Assert $page) => $page
             ->component('auth/competition-register')
             ->where('registrationState', 'closed')
-            ->where('status', 'Aanmelden voor deze competitie is gesloten. Neem contact op met de organisator als je vragen hebt.'),
+            ->where('status', 'Je aanmelding is niet verwerkt: deze competitie is inmiddels afgerond.'),
         );
 });

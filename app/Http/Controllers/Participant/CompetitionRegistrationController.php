@@ -131,14 +131,16 @@ class CompetitionRegistrationController extends Controller
     }
 
     /**
-     * Dezelfde twee bronstrings die de inschrijfpagina zelf gebruikt, zodat
-     * de melding en de pagina waarop hij landt niet uiteenlopen.
+     * Bewust een andere formulering dan de uitleg op de pagina zelf: die
+     * vertelt waarom aanmelden niet kan, deze melding wat er met het zojuist
+     * verstuurde formulier is gebeurd. Dezelfde zin twee keer onder elkaar
+     * leest als een fout in de pagina.
      */
     protected function signUpClosedReason(Competition $competition): string
     {
         return $competition->status === CompetitionStatus::Finished
-            ? __('Registration for this competition is closed. Contact the organizer if you have any questions.')
-            : __('Registration for this competition has not opened yet.');
+            ? __('Your sign-up was not processed: this competition has finished in the meantime.')
+            : __('Your sign-up was not processed: sign-up has not opened yet.');
     }
 
     /**
