@@ -1,11 +1,12 @@
 ---
 paths:
-  - app/Providers/AppServiceProvider.php
+    - app/Providers/AppServiceProvider.php
 ---
 
 # Providers
 
 ## Foutpagina's renderen via Inertia, niet via Laravel's vendor-pagina
+
 403/404/419/500/503 renderen als Inertia-pagina `errors/error` in de console-stijl, geregistreerd met `Inertia::handleExceptionsUsing()` in `AppServiceProvider::configureErrorPages()`. Twee dingen die je niet mag weglaten of omdraaien:
 
 - `->withSharedData()` is verplicht: `useTranslations` indexeert op `usePage().props.translations` en crasht zonder gedeelde props. `tests/Feature/ErrorPageTest.php` bewaakt dit met `->has('translations')`.
