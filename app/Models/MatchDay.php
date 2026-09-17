@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Concerns\FormatsClockTime;
+use App\Enums\MatchStatus;
 use Database\Factories\MatchDayFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -23,10 +25,13 @@ use Illuminate\Support\Carbon;
  * @property int|null $fields_count
  * @property-read Competition $competition
  * @property-read Collection<int, MatchDayField> $fields
+ * @property-read Collection<int, CompetitionMatch> $matches
  */
 #[Fillable(['date', 'starts_at', 'ends_at'])]
 class MatchDay extends Model
 {
+    use FormatsClockTime;
+
     /** @use HasFactory<MatchDayFactory> */
     use HasFactory;
 
@@ -35,6 +40,35 @@ class MatchDay extends Model
      * één keer gegenereerd mag worden.
      */
     public const int MAX_FIELDS = 20;
+
+    /**
+     * `nullOnDelete` op de foreign keys zet bij het verwijderen van een
+     * speeldag alleen `match_day_id`/`match_day_field_id` op null; de
+     * ingeplande tijden en het vastzetten zouden blijven staan. Voor een
+     * openstaande wedstrijd is dat een spookplanning op een niet meer
+     * bestaande speeldag, dus deze hook maakt de hele planning leeg
+     * (speeldag, tafel, tijden, vastzetten, reden). Gespeelde wedstrijden
+     * houden hun tijden als historie. De DB-cascade speeldag → tafels vuurt
+     * geen Eloquent-events op de tafels, dus deze hook dekt die zelf mee af
+     * (de losse hook op `MatchDayField` is er voor het los verwijderen van
+     * één tafel).
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function (MatchDay $matchDay): void {
+            CompetitionMatch::query()
+                ->where('match_day_id', $matchDay->id)
+                ->where('status', MatchStatus::Pending->value)
+                ->update([
+                    'match_day_id' => null,
+                    'match_day_field_id' => null,
+                    'starts_at' => null,
+                    'ends_at' => null,
+                    'pinned_at' => null,
+                    'scheduling_failure' => null,
+                ]);
+        });
+    }
 
     /**
      * @return BelongsTo<Competition, $this>
@@ -53,32 +87,27 @@ class MatchDay extends Model
     }
 
     /**
-     * De begintijd altijd als `H:i` naar buiten, altijd als `H:i:s` naar de
-     * database. MySQL geeft een `time`-kolom als `09:00:00` terug en SQLite
-     * exact wat er is weggeschreven; zonder dit paar verschillen de twee.
-     * `<input type="time">` en `date_format:H:i` willen beide `09:00`.
-     *
+     * @return HasMany<CompetitionMatch, $this>
+     */
+    public function matches(): HasMany
+    {
+        return $this->hasMany(CompetitionMatch::class)->orderBy('starts_at')->orderBy('match_day_field_id')->orderBy('id');
+    }
+
+    /**
      * @return Attribute<string, string>
      */
     protected function startsAt(): Attribute
     {
-        return Attribute::make(
-            get: fn (string $value): string => substr($value, 0, 5),
-            set: fn (string $value): string => substr($value, 0, 5).':00',
-        );
+        return $this->clockTimeAttribute();
     }
 
     /**
-     * De eindtijd, zie startsAt().
-     *
      * @return Attribute<string, string>
      */
     protected function endsAt(): Attribute
     {
-        return Attribute::make(
-            get: fn (string $value): string => substr($value, 0, 5),
-            set: fn (string $value): string => substr($value, 0, 5).':00',
-        );
+        return $this->clockTimeAttribute();
     }
 
     /**

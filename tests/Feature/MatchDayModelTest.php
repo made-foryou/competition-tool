@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Competition;
+use App\Models\CompetitionMatch;
 use App\Models\MatchDay;
 use App\Models\MatchDayField;
 use Carbon\CarbonImmutable;
@@ -47,4 +48,61 @@ test('deleting a competition removes its match days and their fields', function 
 
     expect(MatchDay::query()->count())->toBe(0)
         ->and(MatchDayField::query()->count())->toBe(0);
+});
+
+test('deleting a match day clears the schedule of its pending matches', function () {
+    $matchDay = MatchDay::factory()->create();
+    $field = MatchDayField::factory()->create(['match_day_id' => $matchDay]);
+
+    $pending = CompetitionMatch::factory()->scheduled($matchDay, $field, '19:00')->create();
+    $pinned = CompetitionMatch::factory()->scheduled($matchDay, $field, '19:25')->pinned()->create();
+
+    $matchDay->delete();
+
+    foreach ([$pending, $pinned] as $match) {
+        $fresh = $match->fresh();
+
+        expect($fresh->match_day_id)->toBeNull()
+            ->and($fresh->match_day_field_id)->toBeNull()
+            ->and($fresh->starts_at)->toBeNull()
+            ->and($fresh->ends_at)->toBeNull()
+            ->and($fresh->pinned_at)->toBeNull()
+            ->and($fresh->scheduling_failure)->toBeNull();
+    }
+
+    expect(CompetitionMatch::query()->count())->toBe(2);
+});
+
+test('deleting a match day keeps the times of its played matches', function () {
+    $matchDay = MatchDay::factory()->create();
+    $field = MatchDayField::factory()->create(['match_day_id' => $matchDay]);
+
+    $played = CompetitionMatch::factory()->scheduled($matchDay, $field, '19:00')->played()->create();
+
+    $matchDay->delete();
+
+    $fresh = $played->fresh();
+
+    expect($fresh->match_day_id)->toBeNull()
+        ->and($fresh->match_day_field_id)->toBeNull()
+        ->and($fresh->starts_at)->toBe('19:00')
+        ->and($fresh->ends_at)->toBe('19:20');
+});
+
+test('deleting a field clears the schedule of pending matches on that field', function () {
+    $matchDay = MatchDay::factory()->create();
+    $field = MatchDayField::factory()->create(['match_day_id' => $matchDay]);
+
+    $pending = CompetitionMatch::factory()->scheduled($matchDay, $field, '19:00')->create();
+
+    $field->delete();
+
+    $fresh = $pending->fresh();
+
+    expect($fresh->match_day_id)->toBeNull()
+        ->and($fresh->match_day_field_id)->toBeNull()
+        ->and($fresh->starts_at)->toBeNull()
+        ->and($fresh->ends_at)->toBeNull()
+        ->and($fresh->pinned_at)->toBeNull()
+        ->and($fresh->scheduling_failure)->toBeNull();
 });
