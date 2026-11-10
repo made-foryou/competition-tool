@@ -17,9 +17,14 @@ class MatchDayController extends Controller
 {
     use SummarizesMatchDay;
 
+    /**
+     * Een nieuwe speeldag vraagt via `Competition::reopenAvailability()` alle
+     * deelnemers opnieuw om beschikbaarheid; anders leest de planner "geen rij"
+     * als "niet beschikbaar" op de nieuwe dag.
+     */
     public function store(StoreMatchDayRequest $request, Competition $competition): RedirectResponse
     {
-        $matchDay = DB::transaction(function () use ($request, $competition): MatchDay {
+        $reopenedCount = DB::transaction(function () use ($request, $competition): int {
             /** @var MatchDay $matchDay */
             $matchDay = $competition->matchDays()->create($request->safe()->except('field_count'));
 
@@ -32,10 +37,18 @@ class MatchDayController extends Controller
                     ->all(),
             );
 
-            return $matchDay;
+            return $competition->reopenAvailability();
         });
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Match day added.')]);
+        // Losse sleutelparen in plaats van trans_choice: dat is de conventie in
+        // dit project (zie CompetitionAvailabilityReminderController).
+        $message = match (true) {
+            $reopenedCount === 0 => __('Match day added.'),
+            $reopenedCount === 1 => __('Match day added. :count participant is asked for their availability again.', ['count' => $reopenedCount]),
+            default => __('Match day added. :count participants are asked for their availability again.', ['count' => $reopenedCount]),
+        };
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => $message]);
 
         return back();
     }

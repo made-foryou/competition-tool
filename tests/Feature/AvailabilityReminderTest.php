@@ -401,3 +401,30 @@ test('a window claimed by a simultaneous request reports the same error as the w
 
     Notification::assertNothingSent();
 });
+
+test('a participant who submitted before a match day was added gets the reminder', function () {
+    Notification::fake();
+
+    $competition = Competition::factory()->create();
+    $matchDay = MatchDay::factory()->create(['competition_id' => $competition]);
+    $participant = User::factory()->participant()->create();
+    $competition->participants()->attach($participant, ['availability_submitted_at' => now()]);
+
+    $newDate = $matchDay->date->addDay()->toDateString();
+    $competition->update(['ends_at' => $newDate]);
+
+    $this->post(route('competitions.match-days.store', $competition), [
+        'date' => $newDate,
+        'starts_at' => '09:00',
+        'ends_at' => '17:00',
+        'field_count' => 1,
+    ])->assertSessionHasNoErrors();
+
+    $this->post(route('competitions.availability.reminders', $competition))
+        ->assertInertiaFlash('toast', [
+            'type' => 'success',
+            'message' => __('Reminder sent to :count participant.', ['count' => 1]),
+        ]);
+
+    Notification::assertSentToTimes($participant, AvailabilityReminderNotification::class, 1);
+});

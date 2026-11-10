@@ -1,7 +1,9 @@
 <?php
 
+use App\Enums\CompetitionStatus;
 use App\Models\Competition;
 use App\Models\MatchDay;
+use App\Models\MatchDayAvailability;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -167,4 +169,66 @@ test('guests are redirected to the login page', function () {
 
     $this->get(route('competitions.match-days.edit', [$this->competition, MatchDay::factory()->create(['competition_id' => $this->competition])]))
         ->assertRedirect(route('login'));
+});
+
+test('adding a match day asks every participant of the competition for their availability again', function () {
+    $existingDay = MatchDay::factory()->create([
+        'competition_id' => $this->competition,
+        'date' => '2026-10-01',
+    ]);
+    $otherCompetition = Competition::factory()->create();
+
+    $first = User::factory()->participant()->create();
+    $second = User::factory()->participant()->create();
+    $outsider = User::factory()->participant()->create();
+
+    $this->competition->participants()->attach($first, ['availability_submitted_at' => now()]);
+    $this->competition->participants()->attach($second, ['availability_submitted_at' => now()]);
+    $otherCompetition->participants()->attach($outsider, ['availability_submitted_at' => now()]);
+
+    MatchDayAvailability::factory()->create(['match_day_id' => $existingDay, 'user_id' => $first]);
+    MatchDayAvailability::factory()->create(['match_day_id' => $existingDay, 'user_id' => $second]);
+
+    $this->post(route('competitions.match-days.store', $this->competition), [
+        'date' => '2026-10-02',
+        'starts_at' => '09:00',
+        'ends_at' => '17:00',
+        'field_count' => 2,
+    ])->assertInertiaFlash('toast', [
+        'type' => 'success',
+        'message' => __('Match day added. :count participants are asked for their availability again.', ['count' => 2]),
+    ]);
+
+    expect(DB::table('competition_user')->where('competition_id', $this->competition->id)->whereNotNull('availability_submitted_at')->count())->toBe(0)
+        ->and(DB::table('competition_user')->where('competition_id', $otherCompetition->id)->whereNotNull('availability_submitted_at')->count())->toBe(1)
+        ->and(MatchDayAvailability::query()->count())->toBe(2);
+});
+
+test('adding a match day reopens the availability regardless of the competition status', function (CompetitionStatus $status) {
+    $this->competition->update(['status' => $status]);
+    $participant = User::factory()->participant()->create();
+    $this->competition->participants()->attach($participant, ['availability_submitted_at' => now()]);
+
+    $this->post(route('competitions.match-days.store', $this->competition), [
+        'date' => '2026-10-02',
+        'starts_at' => '09:00',
+        'ends_at' => '17:00',
+        'field_count' => 1,
+    ])->assertInertiaFlash('toast', [
+        'type' => 'success',
+        'message' => __('Match day added. :count participant is asked for their availability again.', ['count' => 1]),
+    ]);
+
+    expect(DB::table('competition_user')->where('user_id', $participant->id)->value('availability_submitted_at'))->toBeNull();
+})->with([CompetitionStatus::Draft, CompetitionStatus::Finished]);
+
+test('adding a match day without submitted availability keeps the plain message', function () {
+    $this->competition->participants()->attach(User::factory()->participant()->create());
+
+    $this->post(route('competitions.match-days.store', $this->competition), [
+        'date' => '2026-10-02',
+        'starts_at' => '09:00',
+        'ends_at' => '17:00',
+        'field_count' => 1,
+    ])->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Match day added.')]);
 });

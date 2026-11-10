@@ -289,6 +289,8 @@
     "Remove field": "Tafel verwijderen",
     "Match day added.": "Speeldag toegevoegd.",
     "Match day updated.": "Speeldag bijgewerkt.",
+    "Match day added. :count participant is asked for their availability again.": "Speeldag toegevoegd. :count deelnemer wordt opnieuw om beschikbaarheid gevraagd.",
+    "Match day added. :count participants are asked for their availability again.": "Speeldag toegevoegd. :count deelnemers worden opnieuw om beschikbaarheid gevraagd.",
     "Match day removed.": "Speeldag verwijderd.",
     "Field added.": "Tafel toegevoegd.",
     "Field removed.": "Tafel verwijderd.",

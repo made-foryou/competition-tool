@@ -6,7 +6,7 @@ use App\Models\User;
 
 beforeEach(function () {
     $this->competition = Competition::factory()->create();
-    MatchDay::factory()->create(['competition_id' => $this->competition]);
+    $this->matchDay = MatchDay::factory()->create(['competition_id' => $this->competition]);
 
     $this->user = User::factory()->participant()->create();
     $this->competition->participants()->attach($this->user);
@@ -126,4 +126,66 @@ test('a blocked write request is redirected with 303 so the method is not replay
         ->patch(route('competition.settings.profile.update', $this->competition), ['name' => 'Ander'])
         ->assertStatus(303)
         ->assertRedirect(route('competition.availability.edit', $this->competition));
+});
+
+test('a participant who already submitted is sent back to the form after a match day is added', function () {
+    $this->actingAs($this->user)
+        ->put(route('competition.availability.update', $this->competition), [
+            'match_days' => [$this->matchDay->id],
+        ]);
+    $this->actingAs($this->user)
+        ->get(route('competition.dashboard', $this->competition))
+        ->assertOk();
+
+    $newDate = $this->matchDay->date->addDay()->toDateString();
+    $this->competition->update(['ends_at' => $newDate]);
+
+    $this->actingAs(User::factory()->withTwoFactor()->create())
+        ->post(route('competitions.match-days.store', $this->competition), [
+            'date' => $newDate,
+            'starts_at' => '09:00',
+            'ends_at' => '17:00',
+            'field_count' => 1,
+        ])->assertSessionHasNoErrors();
+
+    $newDay = MatchDay::query()->whereDate('date', $newDate)->firstOrFail();
+
+    $this->actingAs($this->user)
+        ->get(route('competition.dashboard', $this->competition))
+        ->assertRedirect(route('competition.availability.edit', $this->competition));
+
+    $this->actingAs($this->user)
+        ->put(route('competition.availability.update', $this->competition), [
+            'match_days' => [$this->matchDay->id, $newDay->id],
+        ]);
+
+    $this->actingAs($this->user)
+        ->get(route('competition.dashboard', $this->competition))
+        ->assertOk();
+
+    expect($this->user->matchDayAvailabilities()->where('match_day_id', $newDay->id)->exists())->toBeTrue();
+});
+
+test('an admin who participates is sent to the form after adding a match day themselves', function () {
+    $admin = User::factory()->withTwoFactor()->create();
+    $this->competition->participants()->attach($admin, ['availability_submitted_at' => now()]);
+
+    $newDate = $this->matchDay->date->addDay()->toDateString();
+    $this->competition->update(['ends_at' => $newDate]);
+
+    $this->actingAs($admin)
+        ->post(route('competitions.match-days.store', $this->competition), [
+            'date' => $newDate,
+            'starts_at' => '09:00',
+            'ends_at' => '17:00',
+            'field_count' => 1,
+        ])->assertSessionHasNoErrors();
+
+    $this->actingAs($admin)
+        ->get(route('competitions.edit', $this->competition))
+        ->assertRedirect(route('competition.availability.edit', $this->competition));
+
+    $this->actingAs($admin)
+        ->put(route('competition.availability.update', $this->competition), [])
+        ->assertRedirect(route('competitions.edit', $this->competition));
 });

@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * @property int $id
@@ -130,6 +131,26 @@ class Competition extends Model
     public function hasParticipant(User $user): bool
     {
         return $this->participants()->whereKey($user->getKey())->exists();
+    }
+
+    /**
+     * Vraagt alle deelnemers opnieuw om hun beschikbaarheid: wist het
+     * moment van inzending op de koppeltabel. De ingevulde speeldagen blijven
+     * staan, zodat een deelnemer alleen de nieuwe dag hoeft aan te vinken.
+     *
+     * Eén regel, ongeacht de status: een nieuwe speeldag heropent de
+     * beschikbaarheid altijd. Op een concept- of afgeronde competitie dwingt
+     * `EnsureAvailabilityIsSubmitted` niets af, maar zodra de competitie
+     * (weer) actief staat klopt de stand.
+     *
+     * @return int het aantal deelnemers dat opnieuw gevraagd wordt
+     */
+    public function reopenAvailability(): int
+    {
+        return DB::table('competition_user')
+            ->where('competition_id', $this->id)
+            ->whereNotNull('availability_submitted_at')
+            ->update(['availability_submitted_at' => null]);
     }
 
     /**
