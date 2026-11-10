@@ -207,3 +207,16 @@ test('a participant of the active competition sees the availability page as open
             ->where('availabilityState', 'open'),
         );
 });
+
+test('an admin who submits for the first time returns to the management page', function () {
+    $competition = Competition::factory()->create();
+    MatchDay::factory()->create(['competition_id' => $competition]);
+    $admin = User::factory()->withTwoFactor()->create();
+    $competition->participants()->attach($admin);
+
+    $this->actingAs($admin)
+        ->put(route('competition.availability.update', $competition), ['match_days' => []])
+        ->assertRedirect(route('competitions.edit', $competition));
+
+    $this->get(route('competitions.edit', $competition))->assertOk();
+});

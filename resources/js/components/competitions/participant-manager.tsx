@@ -697,7 +697,7 @@ function ParticipantRow({
                         description={
                             isAdmin
                                 ? t(
-                                      ':name loses access to the management of all competitions, not just this one. :name stays a participant here and has to submit availability again.',
+                                      ':name loses access to the management of all competitions, not just this one. :name stays a participant here.',
                                       { name: displayName },
                                   )
                                 : t(

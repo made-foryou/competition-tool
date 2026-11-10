@@ -52,6 +52,12 @@ class AvailabilityController extends Controller
         ]);
     }
 
+    /**
+     * Na een eerste inzending gaat een deelnemer naar zijn dashboard. Een
+     * beheerder gaat terug naar het beheer van de competitie: de
+     * deelnemerslayout heeft geen weg terug naar het beheer. Een latere
+     * wijziging blijft voor iedereen op het formulier.
+     */
     public function update(UpdateAvailabilityRequest $request, Competition $competition): RedirectResponse
     {
         $user = $request->user();
@@ -61,8 +67,10 @@ class AvailabilityController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Availability saved.')]);
 
-        return $wasSubmitted
-            ? to_route('competition.availability.edit', $competition)
-            : to_route('competition.dashboard', $competition);
+        return match (true) {
+            $wasSubmitted => to_route('competition.availability.edit', $competition),
+            $user->isAdmin() => to_route('competitions.edit', $competition),
+            default => to_route('competition.dashboard', $competition),
+        };
     }
 }
