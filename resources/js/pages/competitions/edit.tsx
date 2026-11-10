@@ -1,4 +1,4 @@
-import { Deferred, Head, router, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import CompetitionController from '@/actions/App/Http/Controllers/CompetitionController';
 import type {
@@ -15,7 +15,10 @@ import type {
 import CompetitionSettingsForm from '@/components/competitions/competition-settings-form';
 import type { MatchDayListItem } from '@/components/competitions/match-day-manager';
 import MatchDayManager from '@/components/competitions/match-day-manager';
-import type { MatchProps } from '@/components/competitions/match-list';
+import type {
+    MatchFormatProps,
+    MatchProps,
+} from '@/components/competitions/match-list';
 import MatchList from '@/components/competitions/match-list';
 import type {
     ParticipantProps,
@@ -32,6 +35,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useRetainedProp } from '@/hooks/use-retained-prop';
 import { useTranslations } from '@/hooks/use-translations';
 import { competitionStatusLabel } from '@/lib/competition-status';
 import { edit, index, update } from '@/routes/competitions';
@@ -48,6 +52,7 @@ type Props = {
     pendingInvitations: PendingInvitationProps[];
     settings: CompetitionSettingsProps;
     settingsLimits: CompetitionSettingsLimits;
+    matchFormat: MatchFormatProps;
 };
 
 const TABS = [
@@ -105,6 +110,7 @@ export default function CompetitionsEdit({
     pendingInvitations,
     settings,
     settingsLimits,
+    matchFormat,
 }: Props) {
     const { t } = useTranslations();
     const { url } = usePage();
@@ -112,28 +118,11 @@ export default function CompetitionsEdit({
     const [activeTab, setActiveTab] = useState<TabValue>(() => resolveTab(url));
     const tabListContainerRef = useRef<HTMLDivElement>(null);
 
-    /**
-     * De laatst geladen schedule-prop, zodat de tab Schema gemonteerd blijft
-     * zodra hij één keer geladen is.
-     *
-     * `schedule` is een `Inertia::defer`-prop: een antwoord met
-     * validatiefouten (bijvoorbeeld een geweigerde verplaatsing) bevat hem
-     * niet, waardoor `<Deferred>` terugvalt op het skelet en de hele tab --
-     * inclusief de open dialoog en haar foutmeldingen -- uit de boom haalt.
-     * De beheerder zag daardoor nooit wélk veld het probleem was en verloor
-     * bovendien de focus naar `<body>`. Door de vorige waarde vast te houden
-     * verschijnt het skelet alleen bij de allereerste load; zodra Inertia de
-     * uitgestelde prop opnieuw levert, vervangt de verse waarde de oude.
-     */
-    const [loadedSchedule, setLoadedSchedule] = useState<
-        ScheduleProps | undefined
-    >(schedule);
+    /** De verplaatsdialoog leeft in het schema en moet een geweigerde verplaatsing overleven. */
+    const loadedSchedule = useRetainedProp(schedule);
 
-    useEffect(() => {
-        if (schedule) {
-            setLoadedSchedule(schedule);
-        }
-    }, [schedule]);
+    /** Idem voor de uitslagdialoog in de wedstrijdenlijst en haar validatiefouten. */
+    const loadedMatches = useRetainedProp(matches);
 
     /**
      * Houdt de querystring gelijk aan de actieve tab met een client-side visit,
@@ -303,17 +292,22 @@ export default function CompetitionsEdit({
                     </TabsContent>
 
                     <TabsContent value="matches">
-                        <Deferred
-                            data="matches"
-                            fallback={<MatchListSkeleton />}
-                        >
+                        {loadedMatches ? (
                             <MatchList
-                                matches={matches ?? []}
+                                competitionId={competition.id}
+                                matches={loadedMatches}
+                                allowsResultChanges={
+                                    competition.allows_result_changes
+                                }
+                                competitionStatus={competition.status}
+                                matchFormat={matchFormat}
                                 onNavigateToParticipants={() =>
                                     setActiveTab('participants')
                                 }
                             />
-                        </Deferred>
+                        ) : (
+                            <MatchListSkeleton />
+                        )}
                     </TabsContent>
 
                     <TabsContent value="schedule">
@@ -340,6 +334,7 @@ export default function CompetitionsEdit({
                         <CompetitionSettingsForm
                             settings={settings}
                             limits={settingsLimits}
+                            matchFormatLocked={matchFormat.is_locked}
                             action={updateSettings(competition.id).url}
                         />
                     </TabsContent>
@@ -369,6 +364,7 @@ function MatchListSkeleton({ rows = 6 }: { rows?: number }) {
                 >
                     <Skeleton className="h-4 w-32" />
                     <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-10" />
                     <Skeleton className="h-5 w-20 rounded-md" />
                 </div>
             ))}

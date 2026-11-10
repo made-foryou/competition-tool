@@ -35,6 +35,8 @@ export type CompetitionProps = {
     type: string;
     allows_sign_up: boolean;
     is_visible_to_participants: boolean;
+    /** Of uitslagen ingevoerd, gecorrigeerd en gewist mogen worden: alleen bij een actieve competitie. */
+    allows_result_changes: boolean;
 };
 
 type Props = {
