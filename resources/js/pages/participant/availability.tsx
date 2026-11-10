@@ -68,7 +68,10 @@ export default function ParticipantAvailability({
                         <p className="text-muted-foreground text-sm">
                             {hasSubmitted
                                 ? t('You can change this at any time.')
-                                : t('Fill in your availability to continue.')}
+                                : t(
+                                      'You take part in :competition. Fill in your availability to continue.',
+                                      { competition: competition.name },
+                                  )}
                         </p>
                     ) : (
                         <p

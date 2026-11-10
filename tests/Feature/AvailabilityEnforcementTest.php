@@ -73,12 +73,34 @@ test('a draft competition stays hidden instead of redirecting to the form', func
         ->assertNotFound();
 });
 
-test('admins are never blocked', function () {
+test('an admin who participates without submitted availability is sent to the form', function () {
     $admin = User::factory()->withTwoFactor()->create();
     $this->competition->participants()->attach($admin);
 
     $this->actingAs($admin)
         ->get(route('competitions.edit', $this->competition))
+        ->assertRedirect(route('competition.availability.edit', $this->competition));
+});
+
+test('an admin who does not participate is not blocked', function () {
+    $admin = User::factory()->withTwoFactor()->create();
+
+    $this->actingAs($admin)
+        ->get(route('competitions.edit', $this->competition))
+        ->assertOk();
+});
+
+test('an admin participant without a second factor is sent to two factor setup first', function () {
+    $admin = User::factory()->create();
+    $this->competition->participants()->attach($admin);
+
+    $this->actingAs($admin)
+        ->get(route('dashboard'))
+        ->assertRedirect(route('two-factor.setup'));
+
+    $this->actingAs($admin)
+        ->withSession(['auth.password_confirmed_at' => time()])
+        ->get(route('two-factor.setup'))
         ->assertOk();
 });
 
@@ -97,4 +119,11 @@ test('after submitting one competition the next open one follows', function () {
     $this->actingAs($this->user)
         ->get(route('competition.dashboard', $this->competition))
         ->assertRedirect(route('competition.availability.edit', $second));
+});
+
+test('a blocked write request is redirected with 303 so the method is not replayed', function () {
+    $this->actingAs($this->user)
+        ->patch(route('competition.settings.profile.update', $this->competition), ['name' => 'Ander'])
+        ->assertStatus(303)
+        ->assertRedirect(route('competition.availability.edit', $this->competition));
 });

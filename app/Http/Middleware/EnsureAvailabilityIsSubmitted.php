@@ -12,7 +12,9 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Dwingt af dat iedere deelnemer zijn beschikbaarheid invult voor elke actieve
  * competitie waaraan hij deelneemt. Wie dat nog niet heeft gedaan wordt naar
- * het beschikbaarheidsformulier gestuurd; voor beheerders geldt dit niet.
+ * het beschikbaarheidsformulier gestuurd. Dat geldt ook voor een beheerder die
+ * zelf meedoet; een beheerder die nergens deelnemer is wordt niet geraakt,
+ * omdat de query via `$user->competitions()` loopt.
  */
 class EnsureAvailabilityIsSubmitted
 {
@@ -54,7 +56,16 @@ class EnsureAvailabilityIsSubmitted
     {
         $user = $request->user();
 
-        if (! $user instanceof User || $user->isAdmin()) {
+        if (! $user instanceof User) {
+            return $next($request);
+        }
+
+        /*
+         * De 2FA-setup gaat voor. EnsureTwoFactorIsConfigured draait eerder en
+         * laat alleen zijn eigen routes door; zonder deze guard ontstaat een
+         * redirect-lus tussen `two-factor.setup` en het beschikbaarheidsformulier.
+         */
+        if ($user->requiresSecondFactorSetup()) {
             return $next($request);
         }
 
@@ -68,7 +79,14 @@ class EnsureAvailabilityIsSubmitted
             return $next($request);
         }
 
-        return redirect()->route('competition.availability.edit', $competition);
+        /*
+         * Een 302 op PUT/PATCH/DELETE laat een client zonder X-Inertia-header
+         * (fetch, useHttp) zijn methode en body meenemen; dan wordt het
+         * `PUT availability` en dient hij stil een lege beschikbaarheid in.
+         * Daarom 303 bij niet-veilige methodes, zoals in
+         * EnsureUserParticipatesInCompetition::redirectTo().
+         */
+        return redirect()->route('competition.availability.edit', $competition, $request->isMethodSafe() ? 302 : 303);
     }
 
     /**

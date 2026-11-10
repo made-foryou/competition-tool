@@ -34,6 +34,21 @@ test('a reminder only goes to participants who have not submitted their availabi
     Notification::assertCount(1);
 });
 
+test('an admin who participates without submitted availability also gets a reminder', function () {
+    Notification::fake();
+
+    $competition = Competition::factory()->create();
+    MatchDay::factory()->create(['competition_id' => $competition]);
+    $adminParticipant = User::factory()->withTwoFactor()->create();
+    $competition->participants()->attach($adminParticipant);
+
+    $this->post(route('competitions.availability.reminders', $competition))
+        ->assertRedirect();
+
+    Notification::assertSentToTimes($adminParticipant, AvailabilityReminderNotification::class, 1);
+    Notification::assertCount(1);
+});
+
 test('a reminder is not sent to participants of another competition', function () {
     Notification::fake();
 

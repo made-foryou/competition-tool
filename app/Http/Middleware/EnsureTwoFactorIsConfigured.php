@@ -5,7 +5,6 @@ namespace App\Http\Middleware;
 use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
-use Laravel\Fortify\Features;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -57,15 +56,7 @@ class EnsureTwoFactorIsConfigured
             return $next($request);
         }
 
-        if (! $user->isAdmin()) {
-            return $next($request);
-        }
-
-        if (! Features::enabled(Features::twoFactorAuthentication()) && ! Features::enabled(Features::passkeys())) {
-            return $next($request);
-        }
-
-        if ($user->hasEnabledTwoFactorAuthentication() || $user->hasPasskeysEnabled()) {
+        if (! $user->requiresSecondFactorSetup()) {
             return $next($request);
         }
 

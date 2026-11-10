@@ -15,6 +15,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
 use Laravel\Fortify\Contracts\PasskeyUser;
+use Laravel\Fortify\Features;
 use Laravel\Fortify\PasskeyAuthenticatable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
@@ -79,6 +80,24 @@ class User extends Authenticatable implements PasskeyUser
     public function isAdmin(): bool
     {
         return $this->role === UserRole::Admin;
+    }
+
+    /**
+     * Moet deze gebruiker nog een tweede factor instellen voordat hij de
+     * applicatie in mag? Alleen beheerders zijn daartoe verplicht, en alleen
+     * zolang 2FA of passkeys als Fortify-feature aan staan.
+     */
+    public function requiresSecondFactorSetup(): bool
+    {
+        if (! $this->isAdmin()) {
+            return false;
+        }
+
+        if (! Features::enabled(Features::twoFactorAuthentication()) && ! Features::enabled(Features::passkeys())) {
+            return false;
+        }
+
+        return ! $this->hasEnabledTwoFactorAuthentication() && ! $this->hasPasskeysEnabled();
     }
 
     /**
