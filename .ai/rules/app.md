@@ -22,6 +22,7 @@ Het wedstrijdformat (`CompetitionSettings::bestOf`, 1/3/5/7) wordt strikt afgedw
 Val: de Form Requests lezen de competitie vóór de rijlock. `RecordMatchResult`, `ClearMatchResult` en `UpdateCompetitionSettings` controleren status, format en vergrendeling daarom opnieuw ná `lockForUpdate()` op de competitierij. Een nieuwe schrijfroute op uitslagen of instellingen moet dat ook doen.
 
 ## Beschikbaarheid hangt aan deelname, niet aan rol
+
 Wie deelnemer is van een actieve competitie met speeldagen moet beschikbaarheid indienen, ook een beheerder (besluit Menno bij #37). Bouw dus geen rol-uitzondering in `EnsureAvailabilityIsSubmitted` of in `SummarizesAvailability::pendingAvailabilityParticipantsQuery()`: matrix, teller, herinneringen en planner (die "geen rij" als "niet beschikbaar" leest) gaan er allemaal van uit dat elke deelnemer indient. Een beheerder die nergens deelnemer is, wordt niet geraakt.
 
 Val: de 2FA-setup gaat voor. `EnsureAvailabilityIsSubmitted` laat een gebruiker met `User::requiresSecondFactorSetup()` door; zonder die guard ontstaat een redirect-lus tussen `two-factor.setup` en het formulier. Na een eerste inzending landt een beheerder op `competitions.edit`, een deelnemer op `competition.dashboard`.
