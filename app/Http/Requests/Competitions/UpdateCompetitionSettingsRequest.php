@@ -2,8 +2,11 @@
 
 namespace App\Http\Requests\Competitions;
 
+use App\Models\Competition;
 use App\Support\CompetitionSettings;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateCompetitionSettingsRequest extends FormRequest
 {
@@ -33,6 +36,33 @@ class UpdateCompetitionSettingsRequest extends FormRequest
             'use_pools' => ['required', 'boolean'],
             'pool_size' => ['exclude_if:use_pools,false', 'required', 'integer', 'min:'.$limits['pool_size']['min'], 'max:'.$limits['pool_size']['max']],
             'max_matches_per_player_per_day' => ['required', 'integer', 'min:'.$limits['max_matches_per_player_per_day']['min'], 'max:'.$limits['max_matches_per_player_per_day']['max']],
+            'best_of' => ['required', 'integer', Rule::in(CompetitionSettings::BEST_OF_OPTIONS)],
+        ];
+    }
+
+    /**
+     * Zodra er een uitslag is geregistreerd, ligt het wedstrijdformat vast:
+     * alle uitslagen in een competitie hebben gegarandeerd hetzelfde format,
+     * anders trekt een klassement op games scheef. Dezelfde waarde opnieuw
+     * meesturen blijft toegestaan.
+     *
+     * @return array<int, callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                if ($validator->errors()->has('best_of')) {
+                    return;
+                }
+
+                /** @var Competition $competition */
+                $competition = $this->route('competition');
+
+                if ($competition->hasResults() && (int) $this->input('best_of') !== $competition->settings->bestOf) {
+                    $validator->errors()->add('best_of', __('The match format cannot be changed once a result has been recorded.'));
+                }
+            },
         ];
     }
 
@@ -56,6 +86,7 @@ class UpdateCompetitionSettingsRequest extends FormRequest
             'pool_size.max' => __('Choose a pool size between :min and :max.', $limits['pool_size']),
             'max_matches_per_player_per_day.min' => __('Enter a value between :min and :max.', $limits['max_matches_per_player_per_day']),
             'max_matches_per_player_per_day.max' => __('Enter a value between :min and :max.', $limits['max_matches_per_player_per_day']),
+            'best_of.in' => __('Choose a valid match format.'),
         ];
     }
 
@@ -71,6 +102,7 @@ class UpdateCompetitionSettingsRequest extends FormRequest
             usePools: (bool) $validated['use_pools'],
             poolSize: isset($validated['pool_size']) ? (int) $validated['pool_size'] : null,
             maxMatchesPerPlayerPerDay: (int) $validated['max_matches_per_player_per_day'],
+            bestOf: (int) $validated['best_of'],
         );
     }
 }

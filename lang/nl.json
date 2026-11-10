@@ -316,6 +316,8 @@
     "Planning settings saved.": "Planningsinstellingen opgeslagen.",
     "Enter a value between :min and :max minutes.": "Voer een waarde in tussen :min en :max minuten.",
     "Enter a value between :min and :max.": "Voer een waarde in tussen :min en :max.",
+    "The match format cannot be changed once a result has been recorded.": "Het wedstrijdformat kan niet meer gewijzigd worden zodra er een uitslag is geregistreerd.",
+    "Choose a valid match format.": "Kies een geldig wedstrijdformat.",
     "Choose a pool size between :min and :max.": "Kies een poulegrootte tussen :min en :max.",
 
     "Matches": "Wedstrijden",

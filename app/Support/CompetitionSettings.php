@@ -9,6 +9,7 @@ use Illuminate\Contracts\Support\Arrayable;
  * Planningsinstellingen van een competitie: hoe lang een wedstrijd en de
  * pauze ertussen duren, hoeveel rust een speler minimaal krijgt, of er met
  * poules gewerkt wordt en hoeveel wedstrijden een speler per dag mag spelen.
+ * Ook het wedstrijdformat (best-of-N games) hoort bij deze instellingen.
  *
  * @implements Arrayable<string, mixed>
  */
@@ -50,6 +51,15 @@ final readonly class CompetitionSettings implements Arrayable, Castable
 
     public const int MAX_MAX_MATCHES_PER_PLAYER_PER_DAY = 50;
 
+    /**
+     * Keuzes voor het wedstrijdformat: best-of-N games.
+     *
+     * @var list<int>
+     */
+    public const array BEST_OF_OPTIONS = [1, 3, 5, 7];
+
+    public const int DEFAULT_BEST_OF = 5;
+
     public function __construct(
         public int $matchDurationMinutes,
         public int $bufferMinutes,
@@ -58,6 +68,7 @@ final readonly class CompetitionSettings implements Arrayable, Castable
         public bool $usePools,
         public ?int $poolSize,
         public int $maxMatchesPerPlayerPerDay,
+        public int $bestOf,
     ) {}
 
     public static function defaults(): self
@@ -70,6 +81,7 @@ final readonly class CompetitionSettings implements Arrayable, Castable
             usePools: false,
             poolSize: null,
             maxMatchesPerPlayerPerDay: self::DEFAULT_MAX_MATCHES_PER_PLAYER_PER_DAY,
+            bestOf: self::DEFAULT_BEST_OF,
         );
     }
 
@@ -89,11 +101,12 @@ final readonly class CompetitionSettings implements Arrayable, Castable
             usePools: (bool) ($data['use_pools'] ?? false),
             poolSize: isset($data['pool_size']) ? (int) $data['pool_size'] : null,
             maxMatchesPerPlayerPerDay: (int) ($data['max_matches_per_player_per_day'] ?? self::DEFAULT_MAX_MATCHES_PER_PLAYER_PER_DAY),
+            bestOf: (int) ($data['best_of'] ?? self::DEFAULT_BEST_OF),
         );
     }
 
     /**
-     * @return array{match_duration_minutes: int, buffer_minutes: int, min_rest_minutes: int, break_duration_minutes: int, use_pools: bool, pool_size: int|null, max_matches_per_player_per_day: int}
+     * @return array{match_duration_minutes: int, buffer_minutes: int, min_rest_minutes: int, break_duration_minutes: int, use_pools: bool, pool_size: int|null, max_matches_per_player_per_day: int, best_of: int}
      */
     public function toArray(): array
     {
@@ -105,11 +118,20 @@ final readonly class CompetitionSettings implements Arrayable, Castable
             'use_pools' => $this->usePools,
             'pool_size' => $this->poolSize,
             'max_matches_per_player_per_day' => $this->maxMatchesPerPlayerPerDay,
+            'best_of' => $this->bestOf,
         ];
     }
 
     /**
-     * @return array{match_duration_minutes: array{min: int, max: int}, buffer_minutes: array{min: int, max: int}, min_rest_minutes: array{min: int, max: int}, break_duration_minutes: array{min: int, max: int}, pool_size: array{min: int, max: int, default: int}, max_matches_per_player_per_day: array{min: int, max: int}}
+     * Aantal games dat de winnaar van een wedstrijd heeft; volgt uit het format.
+     */
+    public function gamesToWin(): int
+    {
+        return intdiv($this->bestOf, 2) + 1;
+    }
+
+    /**
+     * @return array{match_duration_minutes: array{min: int, max: int}, buffer_minutes: array{min: int, max: int}, min_rest_minutes: array{min: int, max: int}, break_duration_minutes: array{min: int, max: int}, pool_size: array{min: int, max: int, default: int}, max_matches_per_player_per_day: array{min: int, max: int}, best_of: array{options: list<int>, default: int}}
      */
     public static function limits(): array
     {
@@ -120,6 +142,7 @@ final readonly class CompetitionSettings implements Arrayable, Castable
             'break_duration_minutes' => ['min' => self::MIN_BREAK_DURATION_MINUTES, 'max' => self::MAX_BREAK_DURATION_MINUTES],
             'pool_size' => ['min' => self::MIN_POOL_SIZE, 'max' => self::MAX_POOL_SIZE, 'default' => self::DEFAULT_POOL_SIZE],
             'max_matches_per_player_per_day' => ['min' => self::MIN_MAX_MATCHES_PER_PLAYER_PER_DAY, 'max' => self::MAX_MAX_MATCHES_PER_PLAYER_PER_DAY],
+            'best_of' => ['options' => self::BEST_OF_OPTIONS, 'default' => self::DEFAULT_BEST_OF],
         ];
     }
 
