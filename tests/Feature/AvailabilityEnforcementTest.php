@@ -1,9 +1,24 @@
 <?php
 
 use App\Http\Middleware\EnsureAvailabilityIsSubmitted;
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Competition;
 use App\Models\MatchDay;
 use App\Models\User;
+
+/**
+ * Een Inertia-paginabezoek, zoals de client het doet bij een link of redirect.
+ */
+function inertiaVisit(string $url): array
+{
+    return [
+        'url' => $url,
+        'headers' => [
+            'X-Inertia' => 'true',
+            'X-Inertia-Version' => (string) app(HandleInertiaRequests::class)->version(request()),
+        ],
+    ];
+}
 
 beforeEach(function () {
     $this->competition = Competition::factory()->create();
@@ -192,8 +207,10 @@ test('an admin who participates is sent to the form after adding a match day the
 });
 
 test('after the first submission a participant returns to the page they wanted', function () {
+    $visit = inertiaVisit(route('competition.settings.index', $this->competition));
+
     $this->actingAs($this->user)
-        ->get(route('competition.settings.index', $this->competition))
+        ->get($visit['url'], $visit['headers'])
         ->assertRedirect(route('competition.availability.edit', $this->competition));
 
     $this->actingAs($this->user)
@@ -207,8 +224,10 @@ test('an admin returns to the management tab they came from after submitting', f
 
     $managementUrl = route('competitions.edit', $this->competition).'?tab=match-days';
 
+    $visit = inertiaVisit($managementUrl);
+
     $this->actingAs($admin)
-        ->get($managementUrl)
+        ->get($visit['url'], $visit['headers'])
         ->assertRedirect(route('competition.availability.edit', $this->competition));
 
     $this->actingAs($admin)
@@ -230,7 +249,42 @@ test('changing availability later does not use a remembered page', function () {
     $this->competition->participants()->updateExistingPivot($this->user->id, ['availability_submitted_at' => now()]);
 
     $this->actingAs($this->user)
-        ->withSession([EnsureAvailabilityIsSubmitted::INTENDED_URL_SESSION_KEY => route('competition.settings.index', $this->competition)])
+        ->withSession([EnsureAvailabilityIsSubmitted::INTENDED_URL_SESSION_KEY => [
+            'competition_id' => $this->competition->id,
+            'url' => route('competition.settings.index', $this->competition),
+        ]])
         ->put(route('competition.availability.update', $this->competition), [])
         ->assertRedirect(route('competition.availability.edit', $this->competition));
+});
+
+test('a json request is not remembered as the page to return to', function () {
+    $this->actingAs($this->user)
+        ->getJson(route('competition.settings.index', $this->competition))
+        ->assertRedirect(route('competition.availability.edit', $this->competition));
+
+    $this->actingAs($this->user)
+        ->put(route('competition.availability.update', $this->competition), [])
+        ->assertRedirect(route('competition.dashboard', $this->competition));
+});
+
+test('a plain browser request is not remembered as the page to return to', function () {
+    $this->actingAs($this->user)
+        ->get(route('competition.settings.index', $this->competition))
+        ->assertRedirect(route('competition.availability.edit', $this->competition));
+
+    $this->actingAs($this->user)
+        ->put(route('competition.availability.update', $this->competition), [])
+        ->assertRedirect(route('competition.dashboard', $this->competition));
+});
+
+test('a remembered page of another competition is not used', function () {
+    $other = Competition::factory()->create();
+
+    $this->actingAs($this->user)
+        ->withSession([EnsureAvailabilityIsSubmitted::INTENDED_URL_SESSION_KEY => [
+            'competition_id' => $other->id,
+            'url' => route('competition.settings.index', $other),
+        ]])
+        ->put(route('competition.availability.update', $this->competition), [])
+        ->assertRedirect(route('competition.dashboard', $this->competition));
 });

@@ -19,10 +19,12 @@ use Symfony\Component\HttpFoundation\Response;
 class EnsureAvailabilityIsSubmitted
 {
     /**
-     * Sessiesleutel met de url die deze middleware onderschepte, zodat
-     * `AvailabilityController::update()` na de eerste inzending terugkeert
-     * naar waar de gebruiker heen wilde. Bewust niet `url.intended`: die is
-     * van de loginflow van Fortify.
+     * Sessiesleutel met `['competition_id' => int, 'url' => string]`: de url
+     * van het Inertia-paginabezoek dat deze middleware onderschepte, gekoppeld
+     * aan de competitie waarvoor naar het formulier is geredirect. Zo keert
+     * `AvailabilityController::update()` na de eerste inzending terug naar
+     * waar de gebruiker heen wilde. Bewust niet `url.intended`: die is van de
+     * loginflow van Fortify.
      */
     public const string INTENDED_URL_SESSION_KEY = 'availability.intended_url';
 
@@ -98,11 +100,17 @@ class EnsureAvailabilityIsSubmitted
 
         /*
          * Onthoud de onderschepte pagina voor na de eerste inzending. Alleen
-         * een echte GET: een niet-GET-verzoek kunnen we niet terugspelen, en
-         * een prefetch is geen bezoek en mag de bestemming niet overschrijven.
+         * een Inertia-paginabezoek via GET: een JSON-, download- of andere
+         * niet-Inertia-url zou na de inzending als Inertia-response mislukken,
+         * een niet-GET-verzoek kunnen we niet terugspelen en een prefetch is
+         * geen bezoek en mag de bestemming niet overschrijven. De koppeling aan
+         * de competitie voorkomt dat een oude url in een andere flow opduikt.
          */
-        if ($request->isMethod('GET') && ! $request->prefetch()) {
-            $request->session()->put(self::INTENDED_URL_SESSION_KEY, $request->fullUrl());
+        if ($request->isMethod('GET') && $request->inertia() && ! $request->prefetch()) {
+            $request->session()->put(self::INTENDED_URL_SESSION_KEY, [
+                'competition_id' => $competition->id,
+                'url' => $request->fullUrl(),
+            ]);
         }
 
         return $response;
