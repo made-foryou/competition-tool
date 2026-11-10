@@ -1,4 +1,4 @@
-import { Form, Head, Link, router } from '@inertiajs/react';
+import { Form, Head, Link, router, useHttp } from '@inertiajs/react';
 import { usePasskeyRegister } from '@laravel/passkeys/react';
 import { REGEXP_ONLY_DIGITS } from 'input-otp';
 import { ArrowRight, Check, Copy, KeyRound, ScanLine } from 'lucide-react';
@@ -54,7 +54,7 @@ const otpSlotClassName =
 export default function TwoFactorSetup({ requiresConfirmation }: Props) {
     const { t } = useTranslations();
     const [step, setStep] = useState<Step>('choice');
-    const [otpCode, setOtpCode] = useState('');
+    const confirmRequest = useHttp<{ code: string }>({ code: '' });
     const [copiedText, copy] = useClipboard();
     const {
         qrCodeSvg,
@@ -75,8 +75,16 @@ export default function TwoFactorSetup({ requiresConfirmation }: Props) {
         onSuccess: () => router.visit(dashboard()),
     });
 
+    /*
+     * De herstelcodes worden vóór de bevestiging opgehaald, omdat na de
+     * bevestiging ook EnsureAvailabilityIsSubmitted meedoet en een
+     * beheerder-deelnemer anders wordt omgeleid (#75).
+     */
     useEffect(() => {
-        if (step === 'recovery' && recoveryCodesList.length === 0) {
+        if (
+            (step === 'totp-confirm' || step === 'recovery') &&
+            recoveryCodesList.length === 0
+        ) {
             void fetchRecoveryCodes();
         }
     }, [step, recoveryCodesList.length, fetchRecoveryCodes]);
@@ -241,84 +249,77 @@ export default function TwoFactorSetup({ requiresConfirmation }: Props) {
                         {t('Enter the 6-digit code from your app to confirm.')}
                     </p>
 
-                    <Form
-                        {...confirm.form()}
-                        resetOnError
-                        onSuccess={() => setStep('recovery')}
+                    {/*
+                     * Bevestigen via useHttp (JSON), zodat Fortify 200 geeft in
+                     * plaats van back(). Anders volgt Inertia de redirect van
+                     * two-factor.setup naar het dashboard en verschijnt de
+                     * herstelcodes-stap nooit (#75).
+                     */}
+                    <form
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            void confirmRequest.submit(confirm(), {
+                                onSuccess: () => setStep('recovery'),
+                                onError: () => confirmRequest.reset('code'),
+                            });
+                        }}
                     >
-                        {({
-                            processing,
-                            errors,
-                        }: {
-                            processing: boolean;
-                            errors?: {
-                                confirmTwoFactorAuthentication?: {
-                                    code?: string;
-                                };
-                            };
-                        }) => (
-                            <>
-                                <div className="mb-5 flex flex-col items-center gap-3">
-                                    <InputOTP
-                                        name="code"
-                                        maxLength={OTP_MAX_LENGTH}
-                                        value={otpCode}
-                                        onChange={setOtpCode}
-                                        disabled={processing}
-                                        pattern={REGEXP_ONLY_DIGITS}
-                                        autoFocus
-                                    >
-                                        <InputOTPGroup>
-                                            {Array.from(
-                                                { length: OTP_MAX_LENGTH },
-                                                (_, index) => (
-                                                    <InputOTPSlot
-                                                        key={index}
-                                                        index={index}
-                                                        className={
-                                                            otpSlotClassName
-                                                        }
-                                                    />
-                                                ),
-                                            )}
-                                        </InputOTPGroup>
-                                    </InputOTP>
-                                    <ConsoleError
-                                        message={
-                                            errors
-                                                ?.confirmTwoFactorAuthentication
-                                                ?.code
-                                        }
-                                    />
-                                </div>
+                        <div className="mb-5 flex flex-col items-center gap-3">
+                            <InputOTP
+                                name="code"
+                                maxLength={OTP_MAX_LENGTH}
+                                value={confirmRequest.data.code}
+                                onChange={(value) =>
+                                    confirmRequest.setData('code', value)
+                                }
+                                disabled={confirmRequest.processing}
+                                pattern={REGEXP_ONLY_DIGITS}
+                                autoFocus
+                            >
+                                <InputOTPGroup>
+                                    {Array.from(
+                                        { length: OTP_MAX_LENGTH },
+                                        (_, index) => (
+                                            <InputOTPSlot
+                                                key={index}
+                                                index={index}
+                                                className={otpSlotClassName}
+                                            />
+                                        ),
+                                    )}
+                                </InputOTPGroup>
+                            </InputOTP>
+                            <ConsoleError
+                                message={confirmRequest.errors.code}
+                            />
+                        </div>
 
-                                <div className="flex gap-3">
-                                    <ConsoleButton
-                                        variant="secondary"
-                                        size="md"
-                                        className="flex-1"
-                                        onClick={() => setStep('totp')}
-                                        disabled={processing}
-                                    >
-                                        {t('Back')}
-                                    </ConsoleButton>
-                                    <ConsoleButton
-                                        type="submit"
-                                        variant="cta"
-                                        size="md"
-                                        className="flex-1"
-                                        disabled={
-                                            processing ||
-                                            otpCode.length < OTP_MAX_LENGTH
-                                        }
-                                    >
-                                        {processing && <Spinner />}
-                                        {t('Confirm')}
-                                    </ConsoleButton>
-                                </div>
-                            </>
-                        )}
-                    </Form>
+                        <div className="flex gap-3">
+                            <ConsoleButton
+                                variant="secondary"
+                                size="md"
+                                className="flex-1"
+                                onClick={() => setStep('totp')}
+                                disabled={confirmRequest.processing}
+                            >
+                                {t('Back')}
+                            </ConsoleButton>
+                            <ConsoleButton
+                                type="submit"
+                                variant="cta"
+                                size="md"
+                                className="flex-1"
+                                disabled={
+                                    confirmRequest.processing ||
+                                    confirmRequest.data.code.length <
+                                        OTP_MAX_LENGTH
+                                }
+                            >
+                                {confirmRequest.processing && <Spinner />}
+                                {t('Confirm')}
+                            </ConsoleButton>
+                        </div>
+                    </form>
                 </div>
             )}
 
@@ -335,21 +336,28 @@ export default function TwoFactorSetup({ requiresConfirmation }: Props) {
                     </p>
 
                     <div className="border-console-input-border rounded-console-sm mb-5 grid grid-cols-2 gap-x-4 gap-y-1.5 border p-4">
-                        {recoveryCodesList.length > 0 ? (
-                            recoveryCodesList.map((code) => (
-                                <span
-                                    key={code}
-                                    className="text-console-text font-mono text-[12.5px]"
-                                >
-                                    {code}
-                                </span>
-                            ))
-                        ) : (
-                            <span className="col-span-2 flex justify-center">
-                                <Spinner />
-                            </span>
-                        )}
+                        {recoveryCodesList.length > 0
+                            ? recoveryCodesList.map((code) => (
+                                  <span
+                                      key={code}
+                                      className="text-console-text font-mono text-[12.5px]"
+                                  >
+                                      {code}
+                                  </span>
+                              ))
+                            : setupErrors.length === 0 && (
+                                  <span className="col-span-2 flex justify-center">
+                                      <Spinner />
+                                  </span>
+                              )}
                     </div>
+
+                    {setupErrors.length > 0 && (
+                        <ConsoleError
+                            message={setupErrors.join(' ')}
+                            className="mb-4"
+                        />
+                    )}
 
                     <ConsoleButton
                         variant="cta"

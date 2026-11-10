@@ -1,8 +1,12 @@
 <?php
 
 use App\Models\Competition;
+use App\Models\MatchDay;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
+use Laravel\Fortify\Actions\EnableTwoFactorAuthentication;
+use Laravel\Fortify\Fortify;
+use PragmaRX\Google2FA\Google2FA;
 
 test('a user without a second factor is redirected to the forced setup page', function () {
     $user = User::factory()->create();
@@ -89,4 +93,44 @@ test('an admin without a second factor is still forced into two factor setup', f
     $this->actingAs($user)
         ->get(route('profile.edit'))
         ->assertRedirect(route('two-factor.setup'));
+});
+
+test('confirming totp over json responds without a redirect', function () {
+    $user = User::factory()->create();
+    app(EnableTwoFactorAuthentication::class)($user);
+    $code = app(Google2FA::class)->getCurrentOtp(
+        Fortify::currentEncrypter()->decrypt($user->fresh()->two_factor_secret),
+    );
+
+    $this->actingAs($user)
+        ->withSession(['auth.password_confirmed_at' => time()])
+        ->postJson(route('two-factor.confirm'), ['code' => $code])
+        ->assertOk();
+
+    expect($user->fresh()->two_factor_confirmed_at)->not->toBeNull();
+});
+
+test('an invalid totp code over json returns the error under code', function () {
+    $user = User::factory()->create();
+    app(EnableTwoFactorAuthentication::class)($user);
+
+    $this->actingAs($user)
+        ->withSession(['auth.password_confirmed_at' => time()])
+        ->postJson(route('two-factor.confirm'), ['code' => '000000'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('code');
+});
+
+test('an admin participant with pending availability can fetch recovery codes during setup', function () {
+    $competition = Competition::factory()->create();
+    MatchDay::factory()->create(['competition_id' => $competition]);
+    $admin = User::factory()->create();
+    $competition->participants()->attach($admin);
+    app(EnableTwoFactorAuthentication::class)($admin);
+
+    $this->actingAs($admin)
+        ->withSession(['auth.password_confirmed_at' => time()])
+        ->getJson(route('two-factor.recovery-codes'))
+        ->assertOk()
+        ->assertJsonCount(8);
 });
