@@ -11,8 +11,8 @@ use Inertia\Inertia;
 class CompetitionAvailabilityReminderController extends Controller
 {
     /**
-     * Verstuurt een herinnering naar de deelnemers die hun beschikbaarheid nog
-     * niet hebben ingediend.
+     * Verstuurt een herinnering naar de deelnemers die hun beschikbaarheid
+     * (opnieuw) moeten indienen.
      *
      * De statuscheck staat vooraan omdat een herinnering buiten een actieve
      * competitie schadelijk of zinloos is. Een concept-competitie is voor

@@ -410,6 +410,8 @@ test('a participant who submitted before a match day was added gets the reminder
     $participant = User::factory()->participant()->create();
     $competition->participants()->attach($participant, ['availability_submitted_at' => now()]);
 
+    $this->travel(1)->minutes();
+
     $newDate = $matchDay->date->addDay()->toDateString();
     $competition->update(['ends_at' => $newDate]);
 

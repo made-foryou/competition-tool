@@ -32,6 +32,11 @@ class AvailabilityController extends Controller
      * laat die door zonder deelnemer te zijn. De pagina toont in die staat
      * bewust geen speeldagenlijst: lege vinkjes van iemand die niet meedoet
      * zouden lezen als "deze persoon was nergens beschikbaar".
+     *
+     * `hasSubmitted` is of de inzending actueel is (geen speeldag meer
+     * bijgekomen); `hasSubmittedBefore` of er ooit is ingediend. Dat laatste
+     * bepaalt of lege vakjes bewuste antwoorden zijn, ook na een lege
+     * inzending.
      */
     public function edit(Request $request, Competition $competition): Response
     {
@@ -49,6 +54,7 @@ class AvailabilityController extends Controller
             'competition' => $this->competitionSummary($competition),
             'matchDays' => $this->availabilityProps($user, $competition),
             'hasSubmitted' => $user->hasSubmittedAvailabilityFor($competition),
+            'hasSubmittedBefore' => $user->hasEverSubmittedAvailabilityFor($competition),
             'availabilityState' => $availabilityState,
         ]);
     }
@@ -59,7 +65,9 @@ class AvailabilityController extends Controller
      * competitie hoort. Zonder bruikbare bewaarde pagina gaat een deelnemer
      * naar zijn dashboard en een beheerder naar het beheer van de competitie:
      * de deelnemerslayout heeft geen weg terug naar het beheer. Een latere
-     * wijziging blijft voor iedereen op het formulier.
+     * wijziging blijft voor iedereen op het formulier. "Eerste" betekent: de
+     * inzending was niet actueel. Wie opslaat nadat er een speeldag bijkwam,
+     * werd door de middleware tegengehouden en gaat dus ook terug.
      *
      * De bewaarde waarde is een array met `competition_id` en `url`; alles
      * wat daar niet aan voldoet, of bij een andere competitie hoort, wordt

@@ -96,15 +96,18 @@ class MatchDay extends Model
     }
 
     /**
-     * Of deze speeldag is aangemaakt nadat de deelnemer voor het laatst zijn
-     * beschikbaarheid doorgaf. `$lastAnsweredAt` is de nieuwste `created_at`
-     * van zijn `match_day_availabilities` in deze competitie, want
-     * `SyncsAvailability::syncAvailability()` schrijft bij elke inzending alle
-     * rijen opnieuw. Zonder antwoorden (`null`) is niets nieuw.
+     * Of deze speeldag is aangemaakt ná de laatste inzending van de
+     * deelnemer. `$submittedAt` is zijn `availability_submitted_at` in deze
+     * competitie, dat nooit geleegd wordt; ook na een lege inzending is een
+     * latere speeldag dus nieuw. Zonder inzending (`null`) is niets nieuw:
+     * dan is elke speeldag nog niet ingevuld.
+     *
+     * Strikt groter dan: een speeldag uit dezelfde seconde als de inzending
+     * is niet nieuw, net als bij `Competition::isCurrentSubmission()`.
      */
-    public function isNewSince(?CarbonInterface $lastAnsweredAt): bool
+    public function isNewSince(?CarbonInterface $submittedAt): bool
     {
-        return $lastAnsweredAt !== null && $this->created_at?->greaterThan($lastAnsweredAt) === true;
+        return $submittedAt !== null && $this->created_at?->greaterThan($submittedAt) === true;
     }
 
     /**

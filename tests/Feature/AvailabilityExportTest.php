@@ -203,7 +203,6 @@ test('a participant who is asked again keeps their earlier answers in the export
     // "nog niet ingevuld".
     $this->travel(1)->minutes();
     MatchDay::factory()->create(['competition_id' => $competition, 'date' => '2026-10-04']);
-    $competition->reopenAvailability();
 
     $rows = availabilityExportRows(
         $this->get(route('competitions.availability.export', $competition))->streamedContent(),

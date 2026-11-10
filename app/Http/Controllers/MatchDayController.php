@@ -20,11 +20,14 @@ class MatchDayController extends Controller
     use SummarizesMatchDay;
 
     /**
-     * Een nieuwe speeldag vraagt via `Competition::reopenAvailability()` alle
-     * deelnemers opnieuw om beschikbaarheid; anders leest de planner "geen rij"
-     * als "niet beschikbaar" op de nieuwe dag.
+     * Een nieuwe speeldag maakt iedereen met een oudere inzending weer
+     * pending, zonder iets op te slaan:
+     * `Competition::constrainToAwaitingAvailability()` vergelijkt het
+     * inzendmoment met de nieuwste speeldag. Anders leest de planner "geen
+     * rij" als "niet beschikbaar" op de nieuwe dag. Verwijderen van die
+     * speeldag herstelt de stand vanzelf.
      *
-     * De toast telt wie nu moet indienen, niet wie er net is heropend: bij een
+     * De toast telt wie nu moet indienen, niet wie er net pending werd: bij een
      * tweede speeldag direct na de eerste staat iedereen al open. De ingelogde
      * beheerder telt niet mee; als hij zelf deelnemer is stuurt
      * `EnsureAvailabilityIsSubmitted` hem direct naar het formulier. Op een
@@ -45,8 +48,6 @@ class MatchDayController extends Controller
                     ])
                     ->all(),
             );
-
-            $competition->reopenAvailability();
         });
 
         if (! $competition->status->allowsAvailabilityChanges()) {

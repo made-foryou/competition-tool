@@ -9,10 +9,10 @@ use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 /**
- * Herinnering aan een deelnemer die zijn beschikbaarheid nog niet heeft
- * ingediend. Wordt alleen verstuurd door de beheerder naar deelnemers zonder
- * `availability_submitted_at` op de koppeltabel. Dat zijn ook deelnemers die
- * eerder indienden maar door een nieuwe speeldag opnieuw gevraagd worden.
+ * Herinnering aan een deelnemer die zijn beschikbaarheid (opnieuw) moet
+ * indienen. Wordt alleen verstuurd door de beheerder naar deelnemers zonder
+ * actuele inzending (`Competition::constrainToAwaitingAvailability()`). Dat
+ * zijn ook deelnemers die eerder indienden, maar vóór de nieuwste speeldag.
  */
 class AvailabilityReminderNotification extends Notification implements ShouldQueue
 {

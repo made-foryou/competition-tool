@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\UserRole;
+use Carbon\CarbonInterface;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -14,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Laravel\Fortify\Contracts\PasskeyUser;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\PasskeyAuthenticatable;
@@ -119,16 +121,39 @@ class User extends Authenticatable implements PasskeyUser
     }
 
     /**
-     * Heeft de gebruiker zijn beschikbaarheid voor deze competitie ingediend?
-     * Een lege selectie telt ook als ingediend, vandaar de losse kolom op de
-     * koppeltabel. Het geldt voor de huidige speeldagen: een nieuwe speeldag
-     * leegt het moment weer (`Competition::reopenAvailability()`).
+     * Is de beschikbaarheid van de gebruiker voor deze competitie actueel?
+     * Dat is zo als hij heeft ingediend en er daarna geen speeldag meer is
+     * bijgekomen (`Competition::isCurrentSubmission()`). Een lege selectie
+     * telt ook als inzending, vandaar de losse kolom op de koppeltabel. Wie
+     * geen deelnemer is, heeft niets ingediend.
      */
     public function hasSubmittedAvailabilityFor(Competition $competition): bool
     {
-        return $this->competitions()
-            ->whereKey($competition->id)
-            ->wherePivotNotNull('availability_submitted_at')
-            ->exists();
+        return Competition::isCurrentSubmission(
+            $this->availabilitySubmittedAtFor($competition),
+            $competition->latestMatchDayCreatedAt(),
+        );
+    }
+
+    /**
+     * Heeft de gebruiker ooit beschikbaarheid voor deze competitie ingediend,
+     * ook als die inmiddels niet meer actueel is? Dan zijn zijn lege vakjes
+     * bewuste antwoorden en geen "nog niets ingevuld".
+     */
+    public function hasEverSubmittedAvailabilityFor(Competition $competition): bool
+    {
+        return $this->availabilitySubmittedAtFor($competition) !== null;
+    }
+
+    /**
+     * Het moment van de laatste inzending voor deze competitie, of `null` als
+     * de gebruiker nooit indiende of geen deelnemer is.
+     */
+    public function availabilitySubmittedAtFor(Competition $competition): ?CarbonInterface
+    {
+        return Competition::availabilitySubmittedAtFromPivot(DB::table('competition_user')
+            ->where('competition_id', $competition->id)
+            ->where('user_id', $this->id)
+            ->value('availability_submitted_at'));
     }
 }

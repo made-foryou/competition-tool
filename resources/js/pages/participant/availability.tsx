@@ -14,7 +14,10 @@ type AvailabilityState = 'open' | 'upcoming' | 'closed' | 'not-participating';
 type Props = {
     competition: { name: string; slug: string };
     matchDays: MatchDayOption[];
+    /** De laatste inzending is actueel: er kwam daarna geen speeldag bij. */
     hasSubmitted: boolean;
+    /** Er is ooit ingediend, ook als dat leeg was of niet meer actueel is. */
+    hasSubmittedBefore: boolean;
     availabilityState: AvailabilityState;
 };
 
@@ -22,6 +25,7 @@ export default function ParticipantAvailability({
     competition,
     matchDays,
     hasSubmitted,
+    hasSubmittedBefore,
     availabilityState,
 }: Props) {
     const { t } = useTranslations();
@@ -41,30 +45,25 @@ export default function ParticipantAvailability({
         ),
     };
 
-    // Een vinkje is een antwoord, ook zonder inzending: dat komt voor als er na
-    // de laatste inzending een speeldag bij kwam. Dit geldt voor de open staat
-    // (uitleg over opnieuw opslaan) en voor de alleen-lezenstaat (de lijst
-    // tonen in plaats van "je hebt niets ingevuld").
-    const hasEarlierAnswers = matchDays.some(
-        (matchDay) => matchDay.is_available,
-    );
-
     // De uitleg over de competitiestatus klopt alleen als er ook echt een
-    // ingevulde lijst onder staat. Zonder enig antwoord tonen we die regel dus
-    // niet, maar de melding dat er niets is ingevuld.
+    // ingevulde lijst onder staat. Wie ooit heeft ingediend, heeft die lijst:
+    // ook een lege inzending of een inzending van vóór een nieuwe speeldag is
+    // een antwoord, en nieuwe speeldagen staan daarin als "nog niet ingevuld".
+    // Zonder ooit in te dienen tonen we de melding dat er niets is ingevuld.
     const showMatchDays =
         !isOpen &&
-        (hasSubmitted || hasEarlierAnswers) &&
+        hasSubmittedBefore &&
         (availabilityState === 'closed' || availabilityState === 'upcoming');
 
+    // Speeldagen die na de laatste inzending zijn bijgekomen. Alleen relevant
+    // als de inzending niet meer actueel is: dan legt de open staat uit dat er
+    // opnieuw opgeslagen moet worden.
     const newMatchDayCount = matchDays.filter(
         (matchDay) => matchDay.is_new,
     ).length;
 
     const readOnlyExplanation =
-        availabilityState === 'not-participating' ||
-        hasSubmitted ||
-        hasEarlierAnswers
+        availabilityState === 'not-participating' || hasSubmittedBefore
             ? explanationByState[availabilityState]
             : t('You did not fill in your availability for this competition.');
 

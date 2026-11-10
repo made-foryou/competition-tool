@@ -117,15 +117,15 @@ class EnsureAvailabilityIsSubmitted
     }
 
     /**
-     * De eerstvolgende actieve competitie waarvoor de deelnemer nog niets heeft
-     * ingediend. Competities zonder speeldagen tellen niet mee: daar valt niets
-     * in te vullen.
+     * De eerstvolgende actieve competitie waarvoor de deelnemer (opnieuw)
+     * moet indienen: nooit ingediend, of ingediend vóór de nieuwste speeldag
+     * (`Competition::constrainToAwaitingAvailability()`). Competities zonder
+     * speeldagen tellen niet mee: daar valt niets in te vullen.
      */
     protected function competitionAwaitingAvailability(User $user): ?Competition
     {
-        return $user->competitions()
+        return Competition::constrainToAwaitingAvailability($user->competitions())
             ->where('competitions.status', CompetitionStatus::Active)
-            ->wherePivotNull('availability_submitted_at')
             ->whereHas('matchDays')
             ->orderByDesc('starts_at')
             ->first();

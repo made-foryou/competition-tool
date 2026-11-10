@@ -182,12 +182,16 @@ test('adding a match day asks every participant of the competition for their ava
     $second = User::factory()->participant()->create();
     $outsider = User::factory()->participant()->create();
 
-    $this->competition->participants()->attach($first, ['availability_submitted_at' => now()]);
-    $this->competition->participants()->attach($second, ['availability_submitted_at' => now()]);
-    $otherCompetition->participants()->attach($outsider, ['availability_submitted_at' => now()]);
+    $submittedAt = now()->startOfSecond();
+
+    $this->competition->participants()->attach($first, ['availability_submitted_at' => $submittedAt]);
+    $this->competition->participants()->attach($second, ['availability_submitted_at' => $submittedAt]);
+    $otherCompetition->participants()->attach($outsider, ['availability_submitted_at' => $submittedAt]);
 
     MatchDayAvailability::factory()->create(['match_day_id' => $existingDay, 'user_id' => $first]);
     MatchDayAvailability::factory()->create(['match_day_id' => $existingDay, 'user_id' => $second]);
+
+    $this->travel(1)->minutes();
 
     $this->post(route('competitions.match-days.store', $this->competition), [
         'date' => '2026-10-02',
@@ -199,15 +203,21 @@ test('adding a match day asks every participant of the competition for their ava
         'message' => __('Match day added. :count participants still have to submit their availability.', ['count' => 2]),
     ]);
 
-    expect(DB::table('competition_user')->where('competition_id', $this->competition->id)->whereNotNull('availability_submitted_at')->count())->toBe(0)
-        ->and(DB::table('competition_user')->where('competition_id', $otherCompetition->id)->whereNotNull('availability_submitted_at')->count())->toBe(1)
+    // Er wordt niets geleegd: het inzendmoment blijft staan en is nu ouder
+    // dan de nieuwste speeldag.
+    expect(DB::table('competition_user')->pluck('availability_submitted_at')->unique()->all())->toBe([$submittedAt->toDateTimeString()])
+        ->and($first->hasSubmittedAvailabilityFor($this->competition))->toBeFalse()
+        ->and($second->hasSubmittedAvailabilityFor($this->competition))->toBeFalse()
+        ->and($outsider->hasSubmittedAvailabilityFor($otherCompetition))->toBeTrue()
         ->and(MatchDayAvailability::query()->count())->toBe(2);
 });
 
-test('adding a match day reopens the availability regardless of the competition status', function (CompetitionStatus $status) {
+test('adding a match day asks for the availability again regardless of the competition status', function (CompetitionStatus $status) {
     $this->competition->update(['status' => $status]);
     $participant = User::factory()->participant()->create();
     $this->competition->participants()->attach($participant, ['availability_submitted_at' => now()]);
+
+    $this->travel(1)->minutes();
 
     $this->post(route('competitions.match-days.store', $this->competition), [
         'date' => '2026-10-02',
@@ -219,7 +229,7 @@ test('adding a match day reopens the availability regardless of the competition 
         'message' => __('Match day added. Participants submit their availability once the competition is active.'),
     ]);
 
-    expect(DB::table('competition_user')->where('user_id', $participant->id)->value('availability_submitted_at'))->toBeNull();
+    expect($participant->hasSubmittedAvailabilityFor($this->competition))->toBeFalse();
 })->with([CompetitionStatus::Draft, CompetitionStatus::Finished]);
 
 test('adding a match day without any participants keeps the plain message', function () {
@@ -249,6 +259,8 @@ test('a second match day still reports the participants who have to submit', fun
     $this->competition->participants()->attach(User::factory()->participant()->create(), ['availability_submitted_at' => now()]);
     $this->competition->participants()->attach(User::factory()->participant()->create(), ['availability_submitted_at' => now()]);
 
+    $this->travel(1)->minutes();
+
     $payload = ['starts_at' => '09:00', 'ends_at' => '17:00', 'field_count' => 1];
 
     $this->post(route('competitions.match-days.store', $this->competition), [...$payload, 'date' => '2026-10-02']);
@@ -266,6 +278,8 @@ test('the admin who adds the match day is not counted in the message', function 
 
     $this->competition->participants()->attach($admin, ['availability_submitted_at' => now()]);
     $this->competition->participants()->attach($other, ['availability_submitted_at' => now()]);
+
+    $this->travel(1)->minutes();
 
     $this->post(route('competitions.match-days.store', $this->competition), [
         'date' => '2026-10-02',

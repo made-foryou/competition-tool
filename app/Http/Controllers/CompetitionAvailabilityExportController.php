@@ -33,10 +33,10 @@ class CompetitionAvailabilityExportController extends Controller
      * beide is het bestand met dubbelklikken direct goed leesbaar.
      *
      * Eén regel, gelijk aan de matrix op het scherm en aan de alleen-lezenlijst
-     * van de deelnemer: een vinkje is "Beschikbaar", ook zonder inzendmoment.
-     * Een niet-aangevinkte speeldag is "Nog niet ingevuld" als de deelnemer niet
-     * heeft ingediend en óf nog niets heeft ingevuld óf de speeldag na zijn
-     * laatste antwoord is aangemaakt (`MatchDay::isNewSince()`, via
+     * van de deelnemer: een vinkje is "Beschikbaar", ook als de inzending niet
+     * meer actueel is. Een niet-aangevinkte speeldag is "Nog niet ingevuld" als
+     * de deelnemer nog nooit heeft ingediend of de speeldag na zijn laatste
+     * inzending is aangemaakt (`MatchDay::isNewSince()`, via
      * `unanswered_match_day_ids`). Elke andere lege speeldag is "Niet
      * beschikbaar": daar heeft de deelnemer eerder bewust nee gezegd. De
      * totaalrij telt alle vinkjes.
@@ -87,8 +87,9 @@ class CompetitionAvailabilityExportController extends Controller
                 ]);
             }
 
-            // Elk vinkje telt mee, ook zonder inzendmoment: dezelfde regel als
-            // de cellen hierboven, de matrix op het scherm en de planner.
+            // Elk vinkje telt mee, ook bij een niet-actuele inzending: dezelfde
+            // regel als de cellen hierboven, de matrix op het scherm en de
+            // planner.
             $this->writeRow($handle, [
                 __('Available count'),
                 ...$matchDays->map(fn (MatchDay $matchDay): string => (string) count(array_filter(

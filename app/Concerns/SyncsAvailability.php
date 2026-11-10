@@ -6,7 +6,6 @@ use App\Models\Competition;
 use App\Models\MatchDay;
 use App\Models\MatchDayAvailability;
 use App\Models\User;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -14,9 +13,9 @@ use Illuminate\Support\Facades\DB;
  * match_day_availabilities betekent aanwezig; afwezigheid wordt niet apart
  * opgeslagen. Omdat een lege selectie dus nul rijen oplevert, markeert
  * availability_submitted_at op de koppeltabel dat de deelnemer het formulier
- * daadwerkelijk heeft ingediend. Dat moment betekent "ingediend voor de
- * huidige speeldagen": `Competition::reopenAvailability()` leegt het zodra er
- * een speeldag bijkomt.
+ * daadwerkelijk heeft ingediend. Die kolom is altijd het moment van de laatste
+ * inzending en wordt nooit geleegd. Actueel is een inzending die niet ouder is
+ * dan de nieuwste speeldag (`Competition::isCurrentSubmission()`).
  */
 trait SyncsAvailability
 {
@@ -54,11 +53,9 @@ trait SyncsAvailability
     /**
      * De speeldagen van deze competitie met de aanwezigheid van de deelnemer.
      *
-     * `is_new` is afgeleid zonder extra kolom: `syncAvailability()` verwijdert
-     * bij elke opslag alle rijen van de deelnemer en schrijft ze opnieuw met
-     * `created_at = now()`. De nieuwste `created_at` is dus het moment van zijn
-     * laatste inzending met vinkjes. Een speeldag die daarna is aangemaakt is
-     * nieuw voor hem. Zonder rijen is niets nieuw.
+     * `is_new` volgt uit zijn inzendmoment: een speeldag die ná zijn laatste
+     * inzending is aangemaakt, is nieuw voor hem (`MatchDay::isNewSince()`),
+     * ook als die inzending leeg was. Zonder inzending is niets nieuw.
      *
      * @return list<array{id: int, date: string, starts_at: string, ends_at: string, is_available: bool, is_new: bool}>
      */
@@ -69,23 +66,17 @@ trait SyncsAvailability
             ->pluck('match_day_id')
             ->all();
 
-        $matchDays = $competition->matchDays()->get();
+        $submittedAt = $user->availabilitySubmittedAtFor($competition);
 
-        $lastAnsweredAt = MatchDayAvailability::query()
-            ->where('user_id', $user->id)
-            ->whereIn('match_day_id', $matchDays->pluck('id'))
-            ->max('created_at');
-
-        $lastAnsweredAt = $lastAnsweredAt === null ? null : Carbon::parse($lastAnsweredAt);
-
-        return array_values($matchDays
+        return array_values($competition->matchDays()
+            ->get()
             ->map(fn (MatchDay $matchDay): array => [
                 'id' => $matchDay->id,
                 'date' => $matchDay->date->toDateString(),
                 'starts_at' => $matchDay->starts_at,
                 'ends_at' => $matchDay->ends_at,
                 'is_available' => in_array($matchDay->id, $available, true),
-                'is_new' => $matchDay->isNewSince($lastAnsweredAt),
+                'is_new' => $matchDay->isNewSince($submittedAt),
             ])
             ->all());
     }
