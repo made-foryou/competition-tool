@@ -9,16 +9,6 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Inertia\Testing\AssertableInertia as Assert;
 
-/*
- * De pagina `participant/matches` komt in de frontendfase; tot die er is
- * bestaat er geen bestand of Vite-chunk voor. TODO frontendfase: deze
- * beforeEach verwijderen zodra `resources/js/pages/participant/matches.tsx` er is.
- */
-beforeEach(function () {
-    config(['inertia.testing.ensure_pages_exist' => false]);
-    $this->withoutVite();
-});
-
 /**
  * Een competitie met één speeldag (standaard in de toekomst) en één tafel,
  * waaraan de kijker en zijn tegenstanders zijn gekoppeld met een actuele
@@ -228,6 +218,7 @@ test('an admin who is not linked sees both pages without matches', function () {
         ->get(route('competition.matches', $competition))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
+            ->component('participant/matches')
             ->where('isParticipant', false)
             ->where('matches', null));
 });

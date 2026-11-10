@@ -20,3 +20,15 @@ export function formatDate(date: string, locale: string): string {
         year: 'numeric',
     }).format(parseIsoDate(date));
 }
+
+/**
+ * Formats a `YYYY-MM-DD` date string with its weekday in the given locale,
+ * e.g. "dinsdag 17 november".
+ */
+export function formatDateWithWeekday(date: string, locale: string): string {
+    return new Intl.DateTimeFormat(locale, {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+    }).format(parseIsoDate(date));
+}
