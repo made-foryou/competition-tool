@@ -6,8 +6,10 @@ import {
     Swords,
     Users,
 } from 'lucide-react';
-import EmptyState from '@/components/empty-state';
 import ParticipantMatchList, {
+    isNothingScheduled,
+    MatchTally,
+    NoMatchesEmptyState,
     ParticipantMatchListSkeleton,
 } from '@/components/participant-match-list';
 import type { ParticipantMatchOverview } from '@/components/participant-match-list';
@@ -43,6 +45,7 @@ export default function ParticipantDashboard({
     availableMatchDays,
     totalMatchDays,
     isParticipant,
+    matchOverview,
 }: Props) {
     const { t } = useTranslations();
     const { locale } = usePage().props;
@@ -102,12 +105,15 @@ export default function ParticipantDashboard({
                             data="matchOverview"
                             fallback={<ParticipantMatchListSkeleton />}
                         >
-                            <MatchOverview competition={competition} />
+                            <MatchOverview
+                                competition={competition}
+                                overview={matchOverview}
+                            />
                         </Deferred>
                     ) : (
                         <p className="text-muted-foreground text-sm">
                             {t(
-                                'You are viewing this competition as an administrator. You do not take part yourself, so there are no matches of your own to show.',
+                                'You are viewing this competition as an administrator and do not take part yourself, so you have no matches of your own.',
                             )}
                         </p>
                     )}
@@ -167,78 +173,72 @@ export default function ParticipantDashboard({
     );
 }
 
-function MatchOverview({ competition }: { competition: Props['competition'] }) {
+function MatchOverview({
+    competition,
+    overview,
+}: {
+    competition: Props['competition'];
+    overview?: ParticipantMatchOverview | null;
+}) {
     const { t } = useTranslations();
-    const { matchOverview } = usePage<{
-        matchOverview?: ParticipantMatchOverview | null;
-    }>().props;
 
-    if (!matchOverview) {
+    if (!overview) {
         return null;
     }
 
-    if (matchOverview.total_count === 0) {
-        return (
-            <EmptyState
-                size="sm"
-                icon={Swords}
-                title={t('No opponents yet.')}
-                description={t(
-                    'Your matches appear here automatically once another participant joins.',
-                )}
-            />
-        );
+    const { counts } = overview;
+    const isFinished = competition.status === 'finished';
+
+    if (counts.total === 0) {
+        return <NoMatchesEmptyState isFinished={isFinished} size="sm" />;
     }
 
-    const isFinished = competition.status === 'finished';
-    const hasPlayedAll = matchOverview.open_count === 0;
+    const viewAll = (
+        <div>
+            <Button asChild variant="secondary" size="sm">
+                <Link href={matchesRoute(competition.slug)} prefetch>
+                    {t('View all matches (:count)', { count: counts.total })}
+                </Link>
+            </Button>
+        </div>
+    );
 
-    return (
-        <>
-            {isFinished ? (
+    if (isFinished) {
+        return (
+            <>
                 <p className="text-muted-foreground text-sm">
                     {t('This competition has finished.')}
                 </p>
-            ) : hasPlayedAll ? (
+                <MatchTally counts={counts} />
+                {viewAll}
+            </>
+        );
+    }
+
+    if (counts.open === 0) {
+        return (
+            <>
                 <p className="text-sm">
                     {t('You have played all your matches.')}
                 </p>
-            ) : (
-                <>
-                    {matchOverview.unscheduled_count ===
-                        matchOverview.open_count && (
-                        <p className="text-muted-foreground text-sm">
-                            {t(
-                                'None of your matches have been scheduled yet. The organizer plans them on the match days.',
-                            )}
-                        </p>
+                <MatchTally counts={counts} />
+                {viewAll}
+            </>
+        );
+    }
+
+    return (
+        <>
+            {isNothingScheduled(counts) && (
+                <p className="text-muted-foreground text-sm">
+                    {t(
+                        'None of your matches have been scheduled yet. The organizer plans them on the match days.',
                     )}
-                    <ParticipantMatchList
-                        matches={matchOverview.next_matches}
-                        highlightNextMatch
-                    />
-                </>
+                </p>
             )}
-
-            <p className="text-muted-foreground text-sm">
-                {matchOverview.played_count > 0
-                    ? t('Played :played · Won :won · Lost :lost', {
-                          played: matchOverview.played_count,
-                          won: matchOverview.won_count,
-                          lost: matchOverview.lost_count,
-                      })
-                    : t('No results yet.')}
-            </p>
-
-            <div>
-                <Button asChild variant="secondary" size="sm">
-                    <Link href={matchesRoute(competition.slug)} prefetch>
-                        {t('View all matches (:count)', {
-                            count: matchOverview.total_count,
-                        })}
-                    </Link>
-                </Button>
-            </div>
+            <ParticipantMatchList matches={overview.next_matches} />
+            <MatchTally counts={counts} />
+            {viewAll}
         </>
     );
 }

@@ -41,11 +41,17 @@ trait SummarizesParticipantMatches
      * staat en moment. De scores staan vanuit de deelnemer: `own_score` is
      * zijn eigen score, ongeacht in welke kolom die is opgeslagen.
      *
+     * `is_next` markeert precies de eerste `upcoming`-rij: een `awaiting_result`
+     * is nooit de eerstvolgende (besluit product-owner). De server bepaalt dit,
+     * net als de tellers, zodat het dashboard en "Mijn wedstrijden" dezelfde
+     * regel volgen.
+     *
      * @return list<array{
      *     id: int,
      *     opponent: string,
      *     opponent_is_participant: bool,
      *     state: 'upcoming'|'awaiting_result'|'unscheduled'|'not_played'|'played',
+     *     is_next: bool,
      *     own_score: int|null,
      *     opponent_score: int|null,
      *     outcome: 'won'|'lost'|null,
@@ -78,6 +84,7 @@ trait SummarizesParticipantMatches
                     'opponent' => $opponent->display_name,
                     'opponent_is_participant' => in_array($opponent->id, $participantIds, true),
                     'state' => $this->participantMatchState($match, $competition, $today),
+                    'is_next' => false,
                     'own_score' => $ownScore,
                     'opponent_score' => $opponentScore,
                     'outcome' => match (true) {
@@ -96,12 +103,22 @@ trait SummarizesParticipantMatches
 
         usort($rows, $this->compareParticipantMatchRows(...));
 
+        foreach ($rows as $index => $row) {
+            if ($row['state'] === 'upcoming') {
+                $rows[$index]['is_next'] = true;
+
+                break;
+            }
+        }
+
         return $rows;
     }
 
     /**
      * Samenvatting voor het dashboard: de eerste drie openstaande wedstrijden
      * (upcoming, awaiting_result, unscheduled, in die volgorde) plus tellers.
+     * De tellers komen van de server, net als `is_next`, zodat het dashboard en
+     * de wedstrijdenpagina dezelfde regel volgen.
      *
      * @return array{
      *     next_matches: list<array{
@@ -109,6 +126,7 @@ trait SummarizesParticipantMatches
      *         opponent: string,
      *         opponent_is_participant: bool,
      *         state: 'upcoming'|'awaiting_result'|'unscheduled'|'not_played'|'played',
+     *         is_next: bool,
      *         own_score: int|null,
      *         opponent_score: int|null,
      *         outcome: 'won'|'lost'|null,
@@ -117,12 +135,7 @@ trait SummarizesParticipantMatches
      *         starts_at: string|null,
      *         ends_at: string|null,
      *     }>,
-     *     total_count: int,
-     *     open_count: int,
-     *     unscheduled_count: int,
-     *     played_count: int,
-     *     won_count: int,
-     *     lost_count: int,
+     *     counts: array{total: int, open: int, unscheduled: int, not_played: int, played: int, won: int, lost: int},
      * }
      */
     protected function participantMatchOverview(User $user, Competition $competition): array
@@ -134,20 +147,78 @@ trait SummarizesParticipantMatches
             fn (array $row): bool => in_array($row['state'], ['upcoming', 'awaiting_result', 'unscheduled'], true),
         ));
 
-        $countWhere = fn (callable $callback): int => count(array_filter($rows, $callback));
-
         return [
             'next_matches' => array_slice($open, 0, 3),
-            'total_count' => count($rows),
-            'open_count' => count($open),
-            'unscheduled_count' => $countWhere(fn (array $row): bool => $row['state'] === 'unscheduled'),
-            'played_count' => $countWhere(fn (array $row): bool => $row['state'] === 'played'),
-            'won_count' => $countWhere(fn (array $row): bool => $row['outcome'] === 'won'),
-            'lost_count' => $countWhere(fn (array $row): bool => $row['outcome'] === 'lost'),
+            'counts' => $this->participantMatchCounts($rows),
         ];
     }
 
     /**
+     * De volledige lijst voor de wedstrijdenpagina plus dezelfde tellers als
+     * het dashboard.
+     *
+     * @return array{matches: list<array{
+     *     id: int,
+     *     opponent: string,
+     *     opponent_is_participant: bool,
+     *     state: 'upcoming'|'awaiting_result'|'unscheduled'|'not_played'|'played',
+     *     is_next: bool,
+     *     own_score: int|null,
+     *     opponent_score: int|null,
+     *     outcome: 'won'|'lost'|null,
+     *     match_day_date: string|null,
+     *     field_name: string|null,
+     *     starts_at: string|null,
+     *     ends_at: string|null,
+     * }>, counts: array{total: int, open: int, unscheduled: int, not_played: int, played: int, won: int, lost: int}}
+     */
+    protected function participantMatchList(User $user, Competition $competition): array
+    {
+        $rows = $this->participantMatchRows($user, $competition);
+
+        return [
+            'matches' => $rows,
+            'counts' => $this->participantMatchCounts($rows),
+        ];
+    }
+
+    /**
+     * `open` is upcoming, awaiting_result en unscheduled samen.
+     *
+     * @param  list<array{
+     *     id: int,
+     *     opponent: string,
+     *     opponent_is_participant: bool,
+     *     state: 'upcoming'|'awaiting_result'|'unscheduled'|'not_played'|'played',
+     *     is_next: bool,
+     *     own_score: int|null,
+     *     opponent_score: int|null,
+     *     outcome: 'won'|'lost'|null,
+     *     match_day_date: string|null,
+     *     field_name: string|null,
+     *     starts_at: string|null,
+     *     ends_at: string|null,
+     * }>  $rows
+     * @return array{total: int, open: int, unscheduled: int, not_played: int, played: int, won: int, lost: int}
+     */
+    private function participantMatchCounts(array $rows): array
+    {
+        $countWhere = fn (callable $callback): int => count(array_filter($rows, $callback));
+
+        return [
+            'total' => count($rows),
+            'open' => $countWhere(fn (array $row): bool => in_array($row['state'], ['upcoming', 'awaiting_result', 'unscheduled'], true)),
+            'unscheduled' => $countWhere(fn (array $row): bool => $row['state'] === 'unscheduled'),
+            'not_played' => $countWhere(fn (array $row): bool => $row['state'] === 'not_played'),
+            'played' => $countWhere(fn (array $row): bool => $row['state'] === 'played'),
+            'won' => $countWhere(fn (array $row): bool => $row['outcome'] === 'won'),
+            'lost' => $countWhere(fn (array $row): bool => $row['outcome'] === 'lost'),
+        ];
+    }
+
+    /**
+     * "Vandaag" volgt de app-tijdzone (UTC); dat valt onder #33.
+     *
      * @return 'upcoming'|'awaiting_result'|'unscheduled'|'not_played'|'played'
      */
     private function participantMatchState(CompetitionMatch $match, Competition $competition, CarbonInterface $today): string

@@ -9,6 +9,8 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Inertia\Testing\AssertableInertia as Assert;
 
+beforeEach(fn () => $this->freezeSecond());
+
 /**
  * Een competitie met één speeldag (standaard in de toekomst) en één tafel,
  * waaraan de kijker en zijn tegenstanders zijn gekoppeld met een actuele
@@ -55,11 +57,11 @@ test('the opponent is the other player whichever side the viewer is on', functio
         ->get(route('competition.matches', $competition))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->missing('matches')
+            ->missing('matchList')
             ->loadDeferredProps(fn (Assert $reload) => $reload
-                ->has('matches', 1)
-                ->where('matches.0.opponent', $opponent->display_name)
-                ->where('matches.0.opponent_is_participant', true)));
+                ->has('matchList.matches', 1)
+                ->where('matchList.matches.0.opponent', $opponent->display_name)
+                ->where('matchList.matches.0.opponent_is_participant', true)));
 })->with(['lowest id' => 'first', 'highest id' => 'second']);
 
 test('scores and outcome are shown from the viewer perspective', function (string $viewerSide, int $viewerScore, int $opponentScore, string $outcome) {
@@ -77,10 +79,10 @@ test('scores and outcome are shown from the viewer perspective', function (strin
         ->get(route('competition.matches', $competition))
         ->assertInertia(fn (Assert $page) => $page
             ->loadDeferredProps(fn (Assert $reload) => $reload
-                ->where('matches.0.state', 'played')
-                ->where('matches.0.own_score', $viewerScore)
-                ->where('matches.0.opponent_score', $opponentScore)
-                ->where('matches.0.outcome', $outcome)));
+                ->where('matchList.matches.0.state', 'played')
+                ->where('matchList.matches.0.own_score', $viewerScore)
+                ->where('matchList.matches.0.opponent_score', $opponentScore)
+                ->where('matchList.matches.0.outcome', $outcome)));
 })->with([
     'win as first player' => ['first', 3, 1, 'won'],
     'win as second player' => ['second', 3, 1, 'won'],
@@ -103,8 +105,8 @@ test('only the own matches of this competition are listed', function () {
         ->get(route('competition.matches', $competition))
         ->assertInertia(fn (Assert $page) => $page
             ->loadDeferredProps(fn (Assert $reload) => $reload
-                ->has('matches', 1)
-                ->where('matches.0.id', $own->id)));
+                ->has('matchList.matches', 1)
+                ->where('matchList.matches.0.id', $own->id)));
 });
 
 test('the state is derived per match', function () {
@@ -124,14 +126,14 @@ test('the state is derived per match', function () {
         ->get(route('competition.matches', $competition))
         ->assertInertia(fn (Assert $page) => $page
             ->loadDeferredProps(fn (Assert $reload) => $reload
-                ->where('matches.0.id', $upcoming->id)
-                ->where('matches.0.state', 'upcoming')
-                ->where('matches.1.id', $awaiting->id)
-                ->where('matches.1.state', 'awaiting_result')
-                ->where('matches.2.id', $unscheduled->id)
-                ->where('matches.2.state', 'unscheduled')
-                ->where('matches.3.id', $played->id)
-                ->where('matches.3.state', 'played')));
+                ->where('matchList.matches.0.id', $upcoming->id)
+                ->where('matchList.matches.0.state', 'upcoming')
+                ->where('matchList.matches.1.id', $awaiting->id)
+                ->where('matchList.matches.1.state', 'awaiting_result')
+                ->where('matchList.matches.2.id', $unscheduled->id)
+                ->where('matchList.matches.2.state', 'unscheduled')
+                ->where('matchList.matches.3.id', $played->id)
+                ->where('matchList.matches.3.state', 'played')));
 });
 
 test('an open match on a finished competition is not played', function () {
@@ -144,7 +146,7 @@ test('an open match on a finished competition is not played', function () {
     $this->actingAs($viewer)
         ->get(route('competition.matches', $competition))
         ->assertInertia(fn (Assert $page) => $page
-            ->loadDeferredProps(fn (Assert $reload) => $reload->where('matches.0.state', 'not_played')));
+            ->loadDeferredProps(fn (Assert $reload) => $reload->where('matchList.matches.0.state', 'not_played')));
 });
 
 test('matches are ordered by time with unscheduled last and played newest first', function () {
@@ -166,12 +168,12 @@ test('matches are ordered by time with unscheduled last and played newest first'
         ->get(route('competition.matches', $competition))
         ->assertInertia(fn (Assert $page) => $page
             ->loadDeferredProps(fn (Assert $reload) => $reload
-                ->where('matches.0.id', $earliest->id)
-                ->where('matches.1.id', $early->id)
-                ->where('matches.2.id', $late->id)
-                ->where('matches.3.id', $unscheduled->id)
-                ->where('matches.4.id', $playedLater->id)
-                ->where('matches.5.id', $played->id)));
+                ->where('matchList.matches.0.id', $earliest->id)
+                ->where('matchList.matches.1.id', $early->id)
+                ->where('matchList.matches.2.id', $late->id)
+                ->where('matchList.matches.3.id', $unscheduled->id)
+                ->where('matchList.matches.4.id', $playedLater->id)
+                ->where('matchList.matches.5.id', $played->id)));
 });
 
 test('the dashboard overview shows at most three next matches and correct counters', function () {
@@ -180,8 +182,9 @@ test('the dashboard overview shows at most three next matches and correct counte
 
     ['competition' => $competition, 'day' => $day, 'field' => $field] = participantMatchesFixture($viewer, $opponents);
 
+    $nextIds = [];
     foreach (['17:00', '18:00', '19:00'] as $index => $time) {
-        participantMatchesMake($competition, $viewer, $opponents[$index])->scheduled($day, $field, $time)->create();
+        $nextIds[] = participantMatchesMake($competition, $viewer, $opponents[$index])->scheduled($day, $field, $time)->create()->id;
     }
     participantMatchesMake($competition, $viewer, $opponents[3])->unschedulable()->create();
     participantMatchesMake($competition, $viewer, $opponents[4])->played()->create(['first_player_score' => 3, 'second_player_score' => 0]);
@@ -195,12 +198,155 @@ test('the dashboard overview shows at most three next matches and correct counte
             ->missing('matchOverview')
             ->loadDeferredProps(fn (Assert $reload) => $reload
                 ->has('matchOverview.next_matches', 3)
-                ->where('matchOverview.total_count', 7)
-                ->where('matchOverview.open_count', 4)
-                ->where('matchOverview.unscheduled_count', 1)
-                ->where('matchOverview.played_count', 3)
-                ->where('matchOverview.won_count', 2)
-                ->where('matchOverview.lost_count', 1)));
+                ->where('matchOverview.next_matches.0.id', $nextIds[0])
+                ->where('matchOverview.next_matches.1.id', $nextIds[1])
+                ->where('matchOverview.next_matches.2.id', $nextIds[2])
+                ->where('matchOverview.next_matches.0.state', 'upcoming')
+                ->where('matchOverview.next_matches.1.state', 'upcoming')
+                ->where('matchOverview.next_matches.2.state', 'upcoming')
+                ->where('matchOverview.counts.total', 7)
+                ->where('matchOverview.counts.open', 4)
+                ->where('matchOverview.counts.unscheduled', 1)
+                ->where('matchOverview.counts.not_played', 0)
+                ->where('matchOverview.counts.played', 3)
+                ->where('matchOverview.counts.won', 2)
+                ->where('matchOverview.counts.lost', 1)));
+});
+
+test('the dashboard overview lists a single open match next to played ones', function () {
+    $viewer = User::factory()->participant()->create();
+    [$a, $b, $c] = User::factory()->participant()->count(3)->create()->all();
+    ['competition' => $competition, 'day' => $day, 'field' => $field] = participantMatchesFixture($viewer, [$a, $b, $c]);
+
+    $open = participantMatchesMake($competition, $viewer, $a)->scheduled($day, $field, '19:00')->create();
+    participantMatchesMake($competition, $viewer, $b)->played()->create();
+    participantMatchesMake($competition, $viewer, $c)->played()->create();
+
+    $this->actingAs($viewer)
+        ->get(route('competition.dashboard', $competition))
+        ->assertInertia(fn (Assert $page) => $page
+            ->loadDeferredProps(fn (Assert $reload) => $reload
+                ->has('matchOverview.next_matches', 1)
+                ->where('matchOverview.next_matches.0.id', $open->id)
+                ->where('matchOverview.counts.open', 1)
+                ->where('matchOverview.counts.played', 2)));
+});
+
+test('an awaiting result match comes after the upcoming match in the overview', function () {
+    $viewer = User::factory()->participant()->create();
+    [$a, $b] = User::factory()->participant()->count(2)->create()->all();
+    ['competition' => $competition, 'day' => $futureDay, 'field' => $futureField] = participantMatchesFixture($viewer, [$a, $b]);
+    $pastDay = MatchDay::factory()->create(['competition_id' => $competition->id, 'date' => now()->subDay()->toDateString()]);
+    $pastField = MatchDayField::factory()->create(['match_day_id' => $pastDay->id]);
+
+    $awaiting = participantMatchesMake($competition, $viewer, $a)->scheduled($pastDay, $pastField, '19:00')->create();
+    $upcoming = participantMatchesMake($competition, $viewer, $b)->scheduled($futureDay, $futureField, '19:00')->create();
+
+    $this->actingAs($viewer)
+        ->get(route('competition.dashboard', $competition))
+        ->assertInertia(fn (Assert $page) => $page
+            ->loadDeferredProps(fn (Assert $reload) => $reload
+                ->where('matchOverview.next_matches.0.id', $upcoming->id)
+                ->where('matchOverview.next_matches.1.id', $awaiting->id)
+                ->where('matchOverview.next_matches.1.state', 'awaiting_result')));
+});
+
+test('only the first upcoming match is marked as next', function () {
+    $viewer = User::factory()->participant()->create();
+    [$a, $b] = User::factory()->participant()->count(2)->create()->all();
+    ['competition' => $competition, 'day' => $day, 'field' => $field] = participantMatchesFixture($viewer, [$a, $b]);
+
+    participantMatchesMake($competition, $viewer, $a)->scheduled($day, $field, '18:00')->create();
+    participantMatchesMake($competition, $viewer, $b)->scheduled($day, $field, '19:00')->create();
+
+    $this->actingAs($viewer)
+        ->get(route('competition.matches', $competition))
+        ->assertInertia(fn (Assert $page) => $page
+            ->loadDeferredProps(fn (Assert $reload) => $reload
+                ->where('matchList.matches.0.is_next', true)
+                ->where('matchList.matches.1.is_next', false)));
+});
+
+test('no match is next when there is only awaiting result and unscheduled', function () {
+    $viewer = User::factory()->participant()->create();
+    [$a, $b] = User::factory()->participant()->count(2)->create()->all();
+    ['competition' => $competition] = participantMatchesFixture($viewer, [$a, $b]);
+    $pastDay = MatchDay::factory()->create(['competition_id' => $competition->id, 'date' => now()->subDay()->toDateString()]);
+    $pastField = MatchDayField::factory()->create(['match_day_id' => $pastDay->id]);
+
+    participantMatchesMake($competition, $viewer, $a)->scheduled($pastDay, $pastField, '19:00')->create();
+    participantMatchesMake($competition, $viewer, $b)->unschedulable()->create();
+
+    $this->actingAs($viewer)
+        ->get(route('competition.matches', $competition))
+        ->assertInertia(fn (Assert $page) => $page
+            ->loadDeferredProps(fn (Assert $reload) => $reload
+                ->where('matchList.matches.0.state', 'awaiting_result')
+                ->where('matchList.matches.0.is_next', false)
+                ->where('matchList.matches.1.state', 'unscheduled')
+                ->where('matchList.matches.1.is_next', false)));
+});
+
+test('a match day dated today is upcoming', function () {
+    $viewer = User::factory()->participant()->create();
+    $opponent = User::factory()->participant()->create();
+    ['competition' => $competition, 'day' => $day, 'field' => $field] = participantMatchesFixture($viewer, [$opponent], now()->toDateString());
+    participantMatchesMake($competition, $viewer, $opponent)->scheduled($day, $field, '19:00')->create();
+
+    $this->actingAs($viewer)
+        ->get(route('competition.matches', $competition))
+        ->assertInertia(fn (Assert $page) => $page
+            ->loadDeferredProps(fn (Assert $reload) => $reload->where('matchList.matches.0.state', 'upcoming')));
+});
+
+test('an administrator who participates gets their own list', function () {
+    $admin = User::factory()->withTwoFactor()->create();
+    $opponent = User::factory()->participant()->create();
+    ['competition' => $competition] = participantMatchesFixture($admin, [$opponent]);
+    participantMatchesMake($competition, $admin, $opponent)->create();
+
+    $this->actingAs($admin)
+        ->get(route('competition.matches', $competition))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('isParticipant', true)
+            ->loadDeferredProps(fn (Assert $reload) => $reload
+                ->has('matchList.matches', 1)
+                ->where('matchList.counts.total', 1)));
+});
+
+test('a played match on a finished competition stays played next to a not played one', function () {
+    $viewer = User::factory()->participant()->create();
+    [$a, $b] = User::factory()->participant()->count(2)->create()->all();
+    $competition = Competition::factory()->finished()->create();
+    ['day' => $day, 'field' => $field] = participantMatchesFixture($viewer, [$a, $b], competition: $competition);
+    participantMatchesMake($competition, $viewer, $a)->played()->create(['first_player_score' => 3, 'second_player_score' => 1]);
+    participantMatchesMake($competition, $viewer, $b)->scheduled($day, $field, '19:00')->create();
+
+    $this->actingAs($viewer)
+        ->get(route('competition.matches', $competition))
+        ->assertInertia(fn (Assert $page) => $page
+            ->loadDeferredProps(fn (Assert $reload) => $reload
+                ->where('matchList.matches.0.state', 'not_played')
+                ->where('matchList.matches.1.state', 'played')
+                ->where('matchList.matches.1.own_score', 3)
+                ->where('matchList.matches.1.opponent_score', 1)
+                ->where('matchList.counts.not_played', 1)
+                ->where('matchList.counts.played', 1)
+                ->where('matchList.counts.open', 0)));
+});
+
+test('an opponent who is no longer a participant is flagged', function () {
+    $viewer = User::factory()->participant()->create();
+    $gone = User::factory()->participant()->create();
+    ['competition' => $competition] = participantMatchesFixture($viewer);
+    participantMatchesMake($competition, $viewer, $gone)->create();
+
+    $this->actingAs($viewer)
+        ->get(route('competition.matches', $competition))
+        ->assertInertia(fn (Assert $page) => $page
+            ->loadDeferredProps(fn (Assert $reload) => $reload
+                ->where('matchList.matches.0.opponent_is_participant', false)));
 });
 
 test('an admin who is not linked sees both pages without matches', function () {
@@ -220,7 +366,7 @@ test('an admin who is not linked sees both pages without matches', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('participant/matches')
             ->where('isParticipant', false)
-            ->where('matches', null));
+            ->where('matchList', null));
 });
 
 test('opponents are shown by nickname and the real name is never sent', function () {
@@ -232,14 +378,14 @@ test('opponents are shown by nickname and the real name is never sent', function
     $this->actingAs($viewer)
         ->get(route('competition.matches', $competition))
         ->assertInertia(fn (Assert $page) => $page
-            ->loadDeferredProps(fn (Assert $reload) => $reload->where('matches.0.opponent', 'Speedy')));
+            ->loadDeferredProps(fn (Assert $reload) => $reload->where('matchList.matches.0.opponent', 'Speedy')));
 
     $content = $this->actingAs($viewer)
         ->get(route('competition.matches', $competition), [
             'X-Inertia' => 'true',
             'X-Inertia-Version' => (string) app(HandleInertiaRequests::class)->version(request()),
             'X-Inertia-Partial-Component' => 'participant/matches',
-            'X-Inertia-Partial-Data' => 'matches',
+            'X-Inertia-Partial-Data' => 'matchList',
         ])
         ->assertOk()
         ->getContent();

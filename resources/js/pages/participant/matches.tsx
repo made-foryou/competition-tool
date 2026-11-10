@@ -2,9 +2,12 @@ import { Deferred, Head, Link } from '@inertiajs/react';
 import { Swords, Trophy } from 'lucide-react';
 import EmptyState from '@/components/empty-state';
 import ParticipantMatchList, {
+    isNothingScheduled,
+    MatchTally,
+    NoMatchesEmptyState,
     ParticipantMatchListSkeleton,
 } from '@/components/participant-match-list';
-import type { ParticipantMatch } from '@/components/participant-match-list';
+import type { ParticipantMatchListProps } from '@/components/participant-match-list';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/hooks/use-translations';
 import type { CompetitionStatusValue } from '@/lib/competition-status';
@@ -19,13 +22,13 @@ type Competition = {
 type Props = {
     competition: Competition;
     isParticipant: boolean;
-    matches?: ParticipantMatch[] | null;
+    matchList?: ParticipantMatchListProps | null;
 };
 
 export default function ParticipantMatches({
     competition,
     isParticipant,
-    matches,
+    matchList,
 }: Props) {
     const { t } = useTranslations();
 
@@ -41,18 +44,18 @@ export default function ParticipantMatches({
 
                 {isParticipant ? (
                     <Deferred
-                        data="matches"
+                        data="matchList"
                         fallback={<ParticipantMatchListSkeleton rows={5} />}
                     >
                         <MatchesContent
                             competition={competition}
-                            matches={matches}
+                            matchList={matchList}
                         />
                     </Deferred>
                 ) : (
-                    <p role="status" className="text-muted-foreground text-sm">
+                    <p className="text-muted-foreground text-sm">
                         {t(
-                            'You are viewing this competition as an administrator. You do not take part yourself, so there are no matches of your own to show.',
+                            'You are viewing this competition as an administrator and do not take part yourself, so you have no matches of your own.',
                         )}
                     </p>
                 )}
@@ -71,27 +74,22 @@ export default function ParticipantMatches({
 
 function MatchesContent({
     competition,
-    matches,
+    matchList,
 }: {
     competition: Competition;
-    matches?: ParticipantMatch[] | null;
+    matchList?: ParticipantMatchListProps | null;
 }) {
     const { t } = useTranslations();
 
-    if (!matches) {
+    if (!matchList) {
         return null;
     }
 
-    if (matches.length === 0) {
-        return (
-            <EmptyState
-                icon={Swords}
-                title={t('No opponents yet.')}
-                description={t(
-                    'Your matches appear here automatically once another participant joins.',
-                )}
-            />
-        );
+    const { matches, counts } = matchList;
+    const isFinished = competition.status === 'finished';
+
+    if (counts.total === 0) {
+        return <NoMatchesEmptyState isFinished={isFinished} />;
     }
 
     const open = matches.filter(
@@ -102,20 +100,28 @@ function MatchesContent({
     );
     const notPlayed = matches.filter((match) => match.state === 'not_played');
     const played = matches.filter((match) => match.state === 'played');
-    const isFinished = competition.status === 'finished';
 
     const playedSection = (
         <section className="flex flex-col gap-2">
             <h2 className="font-semibold">{t('Played')}</h2>
+            <MatchTally counts={counts} />
             {played.length === 0 ? (
-                <EmptyState
-                    size="sm"
-                    icon={Trophy}
-                    title={t('No results yet.')}
-                    description={t(
-                        'Results appear here once the organizer has entered them.',
-                    )}
-                />
+                isFinished ? (
+                    <EmptyState
+                        size="sm"
+                        icon={Trophy}
+                        title={t('No results were entered.')}
+                    />
+                ) : (
+                    <EmptyState
+                        size="sm"
+                        icon={Trophy}
+                        title={t('No results yet.')}
+                        description={t(
+                            'Results appear here once the organizer has entered them.',
+                        )}
+                    />
+                )
             ) : (
                 <>
                     <p className="text-muted-foreground text-sm">
@@ -127,62 +133,45 @@ function MatchesContent({
         </section>
     );
 
+    if (isFinished) {
+        return (
+            <>
+                <p className="text-muted-foreground text-sm">
+                    {t('This competition has finished.')}
+                </p>
+                {playedSection}
+                {notPlayed.length > 0 && (
+                    <section className="flex flex-col gap-2">
+                        <h2 className="font-semibold">{t('Not played')}</h2>
+                        <ParticipantMatchList matches={notPlayed} />
+                    </section>
+                )}
+            </>
+        );
+    }
+
     return (
         <>
-            {played.length > 0 && (
-                <p className="text-muted-foreground text-sm">
-                    {t('Played :played · Won :won · Lost :lost', {
-                        played: played.length,
-                        won: played.filter((match) => match.outcome === 'won')
-                            .length,
-                        lost: played.filter((match) => match.outcome === 'lost')
-                            .length,
-                    })}
-                </p>
-            )}
-
-            {isFinished ? (
-                <>
-                    <p role="status" className="text-muted-foreground text-sm">
-                        {t('This competition has finished.')}
+            <section className="flex flex-col gap-2">
+                <h2 className="font-semibold">{t('To play')}</h2>
+                {open.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">
+                        {t('You have played all your matches.')}
                     </p>
-                    {playedSection}
-                    {notPlayed.length > 0 && (
-                        <section className="flex flex-col gap-2">
-                            <h2 className="font-semibold">{t('Not played')}</h2>
-                            <ParticipantMatchList matches={notPlayed} />
-                        </section>
-                    )}
-                </>
-            ) : (
-                <>
-                    <section className="flex flex-col gap-2">
-                        <h2 className="font-semibold">{t('To play')}</h2>
-                        {open.length === 0 ? (
+                ) : (
+                    <>
+                        {isNothingScheduled(counts) && (
                             <p className="text-muted-foreground text-sm">
-                                {t('You have played all your matches.')}
-                            </p>
-                        ) : (
-                            <>
-                                {open.every(
-                                    (match) => match.state === 'unscheduled',
-                                ) && (
-                                    <p className="text-muted-foreground text-sm">
-                                        {t(
-                                            'None of your matches have been scheduled yet. The organizer plans them on the match days.',
-                                        )}
-                                    </p>
+                                {t(
+                                    'None of your matches have been scheduled yet. The organizer plans them on the match days.',
                                 )}
-                                <ParticipantMatchList
-                                    matches={open}
-                                    highlightNextMatch
-                                />
-                            </>
+                            </p>
                         )}
-                    </section>
-                    {playedSection}
-                </>
-            )}
+                        <ParticipantMatchList matches={open} />
+                    </>
+                )}
+            </section>
+            {playedSection}
         </>
     );
 }

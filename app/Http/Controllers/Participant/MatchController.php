@@ -28,8 +28,8 @@ class MatchController extends Controller
         return Inertia::render('participant/matches', [
             'competition' => [...$this->competitionSummary($competition), 'status' => $competition->status->value],
             'isParticipant' => $isParticipant,
-            'matches' => $isParticipant
-                ? Inertia::defer(fn (): array => $this->participantMatchRows($user, $competition))
+            'matchList' => $isParticipant
+                ? Inertia::defer(fn (): array => $this->participantMatchList($user, $competition))
                 : null,
         ]);
     }
