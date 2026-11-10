@@ -121,16 +121,27 @@ test('an invalid totp code over json returns the error under code', function () 
         ->assertJsonValidationErrors('code');
 });
 
-test('an admin participant with pending availability can fetch recovery codes during setup', function () {
+test('recovery codes fetched during setup stay valid after confirming, even for an admin participant with pending availability', function () {
     $competition = Competition::factory()->create();
     MatchDay::factory()->create(['competition_id' => $competition]);
     $admin = User::factory()->create();
     $competition->participants()->attach($admin);
     app(EnableTwoFactorAuthentication::class)($admin);
+    $code = app(Google2FA::class)->getCurrentOtp(
+        Fortify::currentEncrypter()->decrypt($admin->fresh()->two_factor_secret),
+    );
 
-    $this->actingAs($admin)
+    $fetched = $this->actingAs($admin)
         ->withSession(['auth.password_confirmed_at' => time()])
         ->getJson(route('two-factor.recovery-codes'))
         ->assertOk()
-        ->assertJsonCount(8);
+        ->assertJsonCount(8)
+        ->json();
+
+    $this->postJson(route('two-factor.confirm'), ['code' => $code])->assertOk();
+
+    expect($admin->fresh()->recoveryCodes())->toBe($fetched);
+
+    $this->getJson(route('two-factor.recovery-codes'))
+        ->assertRedirect(route('competition.availability.edit', $competition));
 });

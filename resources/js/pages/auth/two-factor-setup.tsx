@@ -2,7 +2,7 @@ import { Form, Head, Link, router, useHttp } from '@inertiajs/react';
 import { usePasskeyRegister } from '@laravel/passkeys/react';
 import { REGEXP_ONLY_DIGITS } from 'input-otp';
 import { ArrowRight, Check, Copy, KeyRound, ScanLine } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ConsoleButton from '@/components/console/console-button';
 import ConsoleError from '@/components/console/console-error';
 import ConsoleHeading from '@/components/console/console-heading';
@@ -55,6 +55,7 @@ export default function TwoFactorSetup({ requiresConfirmation }: Props) {
     const { t } = useTranslations();
     const [step, setStep] = useState<Step>('choice');
     const confirmRequest = useHttp<{ code: string }>({ code: '' });
+    const otpInputRef = useRef<HTMLInputElement>(null);
     const [copiedText, copy] = useClipboard();
     const {
         qrCodeSvg,
@@ -78,7 +79,9 @@ export default function TwoFactorSetup({ requiresConfirmation }: Props) {
     /*
      * De herstelcodes worden vóór de bevestiging opgehaald, omdat na de
      * bevestiging ook EnsureAvailabilityIsSubmitted meedoet en een
-     * beheerder-deelnemer anders wordt omgeleid (#75).
+     * beheerder-deelnemer anders wordt omgeleid (#75). De bevestigknop
+     * wacht daarom op de codes, zodat de herstelcodes-stap na bevestigen
+     * altijd al codes in state heeft en niet meer hoeft op te halen.
      */
     useEffect(() => {
         if (
@@ -88,6 +91,13 @@ export default function TwoFactorSetup({ requiresConfirmation }: Props) {
             void fetchRecoveryCodes();
         }
     }, [step, recoveryCodesList.length, fetchRecoveryCodes]);
+
+    useEffect(() => {
+        // Het veld is tijdens het request disabled en verliest daardoor de focus.
+        if (!confirmRequest.processing && confirmRequest.errors.code) {
+            otpInputRef.current?.focus();
+        }
+    }, [confirmRequest.processing, confirmRequest.errors.code]);
 
     const CopyIcon = copiedText === manualSetupKey ? Check : Copy;
 
@@ -222,7 +232,11 @@ export default function TwoFactorSetup({ requiresConfirmation }: Props) {
                     </div>
 
                     {setupErrors.length > 0 && (
-                        <ConsoleError message={setupErrors.join(' ')} />
+                        <ConsoleError
+                            message={setupErrors
+                                .map((error) => t(error))
+                                .join(' ')}
+                        />
                     )}
 
                     <ConsoleButton
@@ -273,6 +287,7 @@ export default function TwoFactorSetup({ requiresConfirmation }: Props) {
                     >
                         <div className="mb-5 flex flex-col items-center gap-3">
                             <InputOTP
+                                ref={otpInputRef}
                                 name="code"
                                 maxLength={OTP_MAX_LENGTH}
                                 value={confirmRequest.data.code}
@@ -301,12 +316,35 @@ export default function TwoFactorSetup({ requiresConfirmation }: Props) {
                             />
                         </div>
 
+                        {recoveryCodesList.length === 0 &&
+                            setupErrors.length > 0 && (
+                                <div className="mb-5 flex flex-col items-center gap-2">
+                                    <ConsoleError
+                                        message={setupErrors
+                                            .map((error) => t(error))
+                                            .join(' ')}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            void fetchRecoveryCodes()
+                                        }
+                                        className="text-console-text/70 hover:text-console-text text-[13.5px] underline-offset-2 transition-colors hover:underline"
+                                    >
+                                        {t('Try again')}
+                                    </button>
+                                </div>
+                            )}
+
                         <div className="flex gap-3">
                             <ConsoleButton
                                 variant="secondary"
                                 size="md"
                                 className="flex-1"
-                                onClick={() => setStep('totp')}
+                                onClick={() => {
+                                    confirmRequest.resetAndClearErrors();
+                                    setStep('totp');
+                                }}
                                 disabled={confirmRequest.processing}
                             >
                                 {t('Back')}
@@ -317,6 +355,7 @@ export default function TwoFactorSetup({ requiresConfirmation }: Props) {
                                 size="md"
                                 className="flex-1"
                                 disabled={
+                                    recoveryCodesList.length === 0 ||
                                     confirmRequest.processing ||
                                     confirmRequest.data.code.length <
                                         OTP_MAX_LENGTH
@@ -361,7 +400,9 @@ export default function TwoFactorSetup({ requiresConfirmation }: Props) {
 
                     {setupErrors.length > 0 && (
                         <ConsoleError
-                            message={setupErrors.join(' ')}
+                            message={setupErrors
+                                .map((error) => t(error))
+                                .join(' ')}
                             className="mb-4"
                         />
                     )}
