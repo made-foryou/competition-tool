@@ -258,10 +258,17 @@ export default function TwoFactorSetup({ requiresConfirmation }: Props) {
                     <form
                         onSubmit={(event) => {
                             event.preventDefault();
-                            void confirmRequest.submit(confirm(), {
-                                onSuccess: () => setStep('recovery'),
-                                onError: () => confirmRequest.reset('code'),
-                            });
+                            confirmRequest
+                                .submit(confirm(), {
+                                    onSuccess: () => setStep('recovery'),
+                                    onError: () => confirmRequest.reset('code'),
+                                })
+                                .catch(() =>
+                                    confirmRequest.setError(
+                                        'code',
+                                        t('Something went wrong.'),
+                                    ),
+                                );
                         }}
                     >
                         <div className="mb-5 flex flex-col items-center gap-3">
