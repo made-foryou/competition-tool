@@ -49,6 +49,13 @@ export default function ParticipantAvailability({
         hasSubmitted &&
         (availabilityState === 'closed' || availabilityState === 'upcoming');
 
+    // Staan er al vinkjes zonder inzending, dan is de beschikbaarheid heropend
+    // doordat er een speeldag bij kwam. Dan vraagt de uitleg om controle, niet
+    // om een eerste keer invullen.
+    const hasEarlierAnswers = matchDays.some(
+        (matchDay) => matchDay.is_available,
+    );
+
     const readOnlyExplanation =
         availabilityState === 'not-participating' || hasSubmitted
             ? explanationByState[availabilityState]
@@ -68,10 +75,15 @@ export default function ParticipantAvailability({
                         <p className="text-muted-foreground text-sm">
                             {hasSubmitted
                                 ? t('You can change this at any time.')
-                                : t(
-                                      'You take part in :competition. Fill in your availability to continue.',
-                                      { competition: competition.name },
-                                  )}
+                                : hasEarlierAnswers
+                                  ? t(
+                                        'A match day was added to :competition. Check your availability and save it again to continue.',
+                                        { competition: competition.name },
+                                    )
+                                  : t(
+                                        'You take part in :competition. Fill in your availability to continue.',
+                                        { competition: competition.name },
+                                    )}
                         </p>
                     ) : (
                         <p

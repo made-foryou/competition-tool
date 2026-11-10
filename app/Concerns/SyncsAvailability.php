@@ -13,7 +13,9 @@ use Illuminate\Support\Facades\DB;
  * match_day_availabilities betekent aanwezig; afwezigheid wordt niet apart
  * opgeslagen. Omdat een lege selectie dus nul rijen oplevert, markeert
  * availability_submitted_at op de koppeltabel dat de deelnemer het formulier
- * daadwerkelijk heeft ingediend.
+ * daadwerkelijk heeft ingediend. Dat moment betekent "ingediend voor de
+ * huidige speeldagen": `Competition::reopenAvailability()` leegt het zodra er
+ * een speeldag bijkomt.
  */
 trait SyncsAvailability
 {

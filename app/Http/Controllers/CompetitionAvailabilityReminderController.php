@@ -22,9 +22,7 @@ class CompetitionAvailabilityReminderController extends Controller
      * vast en heeft niemand er nog iets aan om beschikbaarheid door te geven.
      *
      * Daarna de speeldagen: zonder speeldagen landt de ontvanger op een leeg
-     * formulier dat hij leeg kan indienen, waarna hij als "ingevuld" geboekt
-     * staat en nooit meer een herinnering krijgt zodra de speeldagen er wél
-     * zijn.
+     * formulier zonder iets om in te vullen; een herinnering is daar zinloos.
      *
      * Pas daarna het anti-spamvenster van 24 uur: dat is een grens op het
      * herhaald mailen van dezelfde deelnemers en hoort niet af te hangen van

@@ -121,7 +121,8 @@ class User extends Authenticatable implements PasskeyUser
     /**
      * Heeft de gebruiker zijn beschikbaarheid voor deze competitie ingediend?
      * Een lege selectie telt ook als ingediend, vandaar de losse kolom op de
-     * koppeltabel.
+     * koppeltabel. Het geldt voor de huidige speeldagen: een nieuwe speeldag
+     * leegt het moment weer (`Competition::reopenAvailability()`).
      */
     public function hasSubmittedAvailabilityFor(Competition $competition): bool
     {

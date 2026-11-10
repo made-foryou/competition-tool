@@ -11,8 +11,8 @@ use Illuminate\Notifications\Notification;
 /**
  * Herinnering aan een deelnemer die zijn beschikbaarheid nog niet heeft
  * ingediend. Wordt alleen verstuurd door de beheerder naar deelnemers zonder
- * `availability_submitted_at` op de koppeltabel, nooit naar wie al heeft
- * ingevuld.
+ * `availability_submitted_at` op de koppeltabel. Dat zijn ook deelnemers die
+ * eerder indienden maar door een nieuwe speeldag opnieuw gevraagd worden.
  */
 class AvailabilityReminderNotification extends Notification implements ShouldQueue
 {
@@ -44,6 +44,6 @@ class AvailabilityReminderNotification extends Notification implements ShouldQue
             ->subject(__('Reminder: fill in your availability for :competition', ['competition' => $this->competition->name]))
             ->line(__('We still need your availability for :competition to build the match schedule.', ['competition' => $this->competition->name]))
             ->action(__('Fill in availability'), route('competition.availability.edit', $this->competition))
-            ->line(__('If you already submitted your availability, you can ignore this email.'));
+            ->line(__('Did you fill in your availability before? A match day has been added since. Check your choice and save it again.'));
     }
 }
