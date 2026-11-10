@@ -11,13 +11,16 @@ import { index as settingsIndex } from '@/routes/competition/settings';
 
 type ParticipantPageProps = {
     competition?: { name: string; slug: string };
+    availabilityState?: string;
+    hasSubmitted?: boolean;
 };
 
 /**
  * Shared shell for the participant-facing pages under `participant/*`:
  * a slim header with the app logo, the active competition name and a
  * logout button, and a max-width, mobile-first content area. Inside the
- * settings section the settings button turns into a back button.
+ * settings section the settings button turns into a back button. The
+ * settings button is hidden while the availability still has to be submitted.
  */
 export default function ParticipantLayout({
     children,
@@ -25,8 +28,15 @@ export default function ParticipantLayout({
     children: ReactNode;
 }) {
     const { t } = useTranslations();
-    const { competition } = usePage<ParticipantPageProps>().props;
+    const { competition, availabilityState, hasSubmitted } =
+        usePage<ParticipantPageProps>().props;
     const { currentUrl, isCurrentUrl } = useCurrentUrl();
+
+    // Zolang de beschikbaarheid nog ingediend moet worden, houdt
+    // EnsureAvailabilityIsSubmitted de instellingen dicht: de knop zou
+    // alleen terugsturen naar dit formulier.
+    const mustSubmitAvailability =
+        availabilityState === 'open' && hasSubmitted === false;
 
     const settingsUrl = competition
         ? settingsIndex.url({ competition: competition.slug })
@@ -68,21 +78,23 @@ export default function ParticipantLayout({
                         </div>
                     )}
                     <div className="flex items-center gap-1">
-                        {settingsUrl && !isInSettings && (
-                            <Button
-                                asChild
-                                variant="ghost"
-                                size="sm"
-                                aria-label={t('Settings')}
-                            >
-                                <Link href={settingsUrl} prefetch>
-                                    <Settings />
-                                    <span className="hidden sm:inline">
-                                        {t('Settings')}
-                                    </span>
-                                </Link>
-                            </Button>
-                        )}
+                        {settingsUrl &&
+                            !isInSettings &&
+                            !mustSubmitAvailability && (
+                                <Button
+                                    asChild
+                                    variant="ghost"
+                                    size="sm"
+                                    aria-label={t('Settings')}
+                                >
+                                    <Link href={settingsUrl} prefetch>
+                                        <Settings />
+                                        <span className="hidden sm:inline">
+                                            {t('Settings')}
+                                        </span>
+                                    </Link>
+                                </Button>
+                            )}
                         <Form action={logout().url} method="post">
                             {() => (
                                 <Button
