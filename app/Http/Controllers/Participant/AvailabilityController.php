@@ -56,9 +56,10 @@ class AvailabilityController extends Controller
     /**
      * Na een eerste inzending gaat iedereen terug naar de pagina die
      * `EnsureAvailabilityIsSubmitted` onderschepte, mits die bij deze
-     * competitie hoort. Zonder bruikbare bewaarde pagina gaat een deelnemer naar zijn dashboard en een beheerder naar het beheer
-     * van de competitie: de deelnemerslayout heeft geen weg terug naar het
-     * beheer. Een latere wijziging blijft voor iedereen op het formulier.
+     * competitie hoort. Zonder bruikbare bewaarde pagina gaat een deelnemer
+     * naar zijn dashboard en een beheerder naar het beheer van de competitie:
+     * de deelnemerslayout heeft geen weg terug naar het beheer. Een latere
+     * wijziging blijft voor iedereen op het formulier.
      *
      * De bewaarde waarde is een array met `competition_id` en `url`; alles
      * wat daar niet aan voldoet, of bij een andere competitie hoort, wordt
