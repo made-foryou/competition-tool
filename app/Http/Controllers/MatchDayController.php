@@ -44,8 +44,8 @@ class MatchDayController extends Controller
         // dit project (zie CompetitionAvailabilityReminderController).
         $message = match (true) {
             $reopenedCount === 0 => __('Match day added.'),
-            $reopenedCount === 1 => __('Match day added. :count participant is asked for their availability again.', ['count' => $reopenedCount]),
-            default => __('Match day added. :count participants are asked for their availability again.', ['count' => $reopenedCount]),
+            $reopenedCount === 1 => __('Match day added. :count participant has to submit their availability again.', ['count' => $reopenedCount]),
+            default => __('Match day added. :count participants have to submit their availability again.', ['count' => $reopenedCount]),
         };
 
         Inertia::flash('toast', ['type' => 'success', 'message' => $message]);

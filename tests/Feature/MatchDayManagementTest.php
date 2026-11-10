@@ -196,7 +196,7 @@ test('adding a match day asks every participant of the competition for their ava
         'field_count' => 2,
     ])->assertInertiaFlash('toast', [
         'type' => 'success',
-        'message' => __('Match day added. :count participants are asked for their availability again.', ['count' => 2]),
+        'message' => __('Match day added. :count participants have to submit their availability again.', ['count' => 2]),
     ]);
 
     expect(DB::table('competition_user')->where('competition_id', $this->competition->id)->whereNotNull('availability_submitted_at')->count())->toBe(0)
@@ -216,7 +216,7 @@ test('adding a match day reopens the availability regardless of the competition 
         'field_count' => 1,
     ])->assertInertiaFlash('toast', [
         'type' => 'success',
-        'message' => __('Match day added. :count participant is asked for their availability again.', ['count' => 1]),
+        'message' => __('Match day added. :count participant has to submit their availability again.', ['count' => 1]),
     ]);
 
     expect(DB::table('competition_user')->where('user_id', $participant->id)->value('availability_submitted_at'))->toBeNull();

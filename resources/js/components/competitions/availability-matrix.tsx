@@ -259,7 +259,7 @@ export default function AvailabilityMatrix({
                                             variant="secondary"
                                             className="ml-2"
                                         >
-                                            {t('Not filled in yet')}
+                                            {t('Awaiting answer')}
                                         </Badge>
                                     )}
                                 </TableHead>

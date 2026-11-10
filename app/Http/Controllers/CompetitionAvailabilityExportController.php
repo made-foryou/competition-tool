@@ -32,11 +32,12 @@ class CompetitionAvailabilityExportController extends Controller
      * accenten of een 'ij' uit een andere bron verminkt in beeld komen. Met
      * beide is het bestand met dubbelklikken direct goed leesbaar.
      *
-     * Een deelnemer die het formulier nog niet heeft ingediend krijgt in elke
-     * speeldagkolom "nog niet ingevuld" in plaats van "niet beschikbaar".
-     * Ontbrekende vinkjes zijn immers geen antwoord: ze betekenen alleen dat
-     * deze deelnemer nog niets heeft doorgegeven. "Niet beschikbaar" zou de
-     * beheerder laten denken dat de deelnemer die dag is afgevallen.
+     * Eén regel, gelijk aan de matrix op het scherm en aan de planner: een
+     * vinkje is een antwoord, ook zonder inzendmoment. Een deelnemer die door
+     * een nieuwe speeldag (`Competition::reopenAvailability()`) opnieuw
+     * gevraagd wordt, houdt zijn eerdere vinkjes. Een leeg vakje is pas "niet
+     * beschikbaar" na een inzending; daarvoor is het "nog niet ingevuld". Zo
+     * leest de beheerder een ontbrekend vinkje niet als afgevallen. Totaal, matrix en planner tellen hetzelfde.
      */
     public function __invoke(Competition $competition): StreamedResponse
     {
@@ -73,33 +74,22 @@ class CompetitionAvailabilityExportController extends Controller
                 $this->writeRow($handle, [
                     $row['name'],
                     ...$matchDays->map(function (MatchDay $matchDay) use ($row): string {
-                        if ($row['submitted'] === false) {
-                            return __('Not filled in yet');
+                        if (in_array($matchDay->id, $row['match_day_ids'], true)) {
+                            return __('Available');
                         }
 
-                        return in_array($matchDay->id, $row['match_day_ids'], true)
-                            ? __('Available')
-                            : __('Not available');
+                        return $row['submitted'] ? __('Not available') : __('Not filled in yet');
                     })->all(),
                 ]);
             }
 
-            // Dezelfde `submitted`-voorwaarde als de cellen hierboven: de CSV
-            // telt bewust alleen beschikbaarheid die ook echt is ingediend.
-            // Zonder die voorwaarde kan één bestand zichzelf tegenspreken —
-            // een deelnemer met achtergebleven beschikbaarheidsrijen maar
-            // zonder indienmoment staat in elke kolom op "nog niet ingevuld"
-            // en zou tegelijk in de totalen meetellen.
-            //
-            // Let op: de voettekst van de matrix in de interface telt die
-            // verouderde rijen op dit moment wél mee, dus in dat randgeval
-            // wijken CSV en scherm van elkaar af. Dat verschil is apart als
-            // issue vastgelegd.
+            // Elk vinkje telt mee, ook zonder inzendmoment: dezelfde regel als
+            // de cellen hierboven, de matrix op het scherm en de planner.
             $this->writeRow($handle, [
                 __('Available count'),
                 ...$matchDays->map(fn (MatchDay $matchDay): string => (string) count(array_filter(
                     $rows,
-                    fn (array $row): bool => $row['submitted'] && in_array($matchDay->id, $row['match_day_ids'], true),
+                    fn (array $row): bool => in_array($matchDay->id, $row['match_day_ids'], true),
                 )))->all(),
             ]);
 

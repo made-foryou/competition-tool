@@ -41,23 +41,26 @@ export default function ParticipantAvailability({
         ),
     };
 
-    // De uitleg over de competitiestatus klopt alleen als er ook echt een
-    // ingevulde lijst onder staat. Zonder inzending tonen we die regel dus
-    // niet, maar de melding dat er niets is ingevuld.
-    const showMatchDays =
-        !isOpen &&
-        hasSubmitted &&
-        (availabilityState === 'closed' || availabilityState === 'upcoming');
-
-    // Staan er al vinkjes zonder inzending, dan is de beschikbaarheid heropend
-    // doordat er een speeldag bij kwam. Dan vraagt de uitleg om controle, niet
-    // om een eerste keer invullen.
+    // Een vinkje is een antwoord, ook zonder inzending: dat komt voor als er na
+    // de laatste inzending een speeldag bij kwam. Dit geldt voor de open staat
+    // (uitleg over opnieuw opslaan) en voor de alleen-lezenstaat (de lijst
+    // tonen in plaats van "je hebt niets ingevuld").
     const hasEarlierAnswers = matchDays.some(
         (matchDay) => matchDay.is_available,
     );
 
+    // De uitleg over de competitiestatus klopt alleen als er ook echt een
+    // ingevulde lijst onder staat. Zonder enig antwoord tonen we die regel dus
+    // niet, maar de melding dat er niets is ingevuld.
+    const showMatchDays =
+        !isOpen &&
+        (hasSubmitted || hasEarlierAnswers) &&
+        (availabilityState === 'closed' || availabilityState === 'upcoming');
+
     const readOnlyExplanation =
-        availabilityState === 'not-participating' || hasSubmitted
+        availabilityState === 'not-participating' ||
+        hasSubmitted ||
+        hasEarlierAnswers
             ? explanationByState[availabilityState]
             : t('You did not fill in your availability for this competition.');
 

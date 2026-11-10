@@ -43,7 +43,7 @@ class AvailabilityReminderNotification extends Notification implements ShouldQue
         return (new MailMessage)
             ->subject(__('Reminder: fill in your availability for :competition', ['competition' => $this->competition->name]))
             ->line(__('We still need your availability for :competition to build the match schedule.', ['competition' => $this->competition->name]))
-            ->action(__('Fill in availability'), route('competition.availability.edit', $this->competition))
-            ->line(__('Did you fill in your availability before? A match day has been added since. Check your choice and save it again.'));
+            ->line(__('Did you fill in your availability before? A match day has been added since. Check your availability and save it again.'))
+            ->action(__('Fill in availability'), route('competition.availability.edit', $this->competition));
     }
 }
