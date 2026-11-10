@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react';
-import { Eraser, Pin, Swords } from 'lucide-react';
+import { Pin, Swords } from 'lucide-react';
 import MatchResultController from '@/actions/App/Http/Controllers/MatchResultController';
 import MatchResultDialog from '@/components/competitions/match-result-dialog';
 import ConfirmDialog from '@/components/confirm-dialog';
@@ -28,6 +28,14 @@ import { cn } from '@/lib/utils';
  * reden als de sticky kolom in `availability-matrix.tsx`.
  */
 const STICKY_HEADER_CLASSES = 'sticky top-0 z-10 bg-background';
+
+/**
+ * Vaste breedte voor de actiekolom, op kop én cellen. Een gespeelde
+ * wedstrijd krijgt naast "Uitslag wijzigen" ook "Wissen"; zonder vaste
+ * breedte groeit de kolom zodra de eerste uitslag binnenkomt en verspringen
+ * alle andere kolommen. De breedte past beide knoppen naast elkaar.
+ */
+const ACTIONS_COLUMN_CLASSES = 'w-60 whitespace-nowrap';
 
 export type MatchProps = {
     id: number;
@@ -146,10 +154,10 @@ export default function MatchList({
                     <p className="text-muted-foreground text-sm">
                         {competitionStatus === 'finished'
                             ? t(
-                                  'This competition is finished. Set it back to active to enter or change results.',
+                                  'This competition is finished. To enter or change results, temporarily set its status back to Active under General.',
                               )
                             : t(
-                                  'Results can be entered once the competition is active.',
+                                  'Results can only be entered for an active competition. Change the status under General.',
                               )}
                     </p>
                 )}
@@ -175,13 +183,13 @@ export default function MatchList({
                                 scope="col"
                                 className={cn('p-3', STICKY_HEADER_CLASSES)}
                             >
-                                {t('Scheduled')}
+                                {t('Result')}
                             </TableHead>
                             <TableHead
                                 scope="col"
                                 className={cn('p-3', STICKY_HEADER_CLASSES)}
                             >
-                                {t('Result')}
+                                {t('Scheduled')}
                             </TableHead>
                             <TableHead
                                 scope="col"
@@ -192,7 +200,11 @@ export default function MatchList({
                             {allowsResultChanges && (
                                 <TableHead
                                     scope="col"
-                                    className={cn('p-3', STICKY_HEADER_CLASSES)}
+                                    className={cn(
+                                        'p-3',
+                                        STICKY_HEADER_CLASSES,
+                                        ACTIONS_COLUMN_CLASSES,
+                                    )}
                                 >
                                     <span className="sr-only">
                                         {t('Actions')}
@@ -225,6 +237,9 @@ export default function MatchList({
                                             {t('No longer participating')}
                                         </Badge>
                                     )}
+                                </TableCell>
+                                <TableCell className="p-3 align-top">
+                                    <MatchScore match={match} />
                                 </TableCell>
                                 <TableCell className="p-3 align-top">
                                     {match.match_day_date ? (
@@ -268,9 +283,6 @@ export default function MatchList({
                                     )}
                                 </TableCell>
                                 <TableCell className="p-3 align-top">
-                                    <MatchScore match={match} />
-                                </TableCell>
-                                <TableCell className="p-3 align-top">
                                     <Badge
                                         variant={matchStatusBadgeVariant(
                                             match.status,
@@ -280,7 +292,12 @@ export default function MatchList({
                                     </Badge>
                                 </TableCell>
                                 {allowsResultChanges && (
-                                    <TableCell className="px-3 py-2 align-top">
+                                    <TableCell
+                                        className={cn(
+                                            'px-3 py-2 align-top',
+                                            ACTIONS_COLUMN_CLASSES,
+                                        )}
+                                    >
                                         <MatchResultActions
                                             competitionId={competitionId}
                                             match={match}
@@ -353,10 +370,13 @@ type MatchResultActionsProps = {
 /**
  * Invoeren of corrigeren, en bij een gespeelde wedstrijd ook wissen.
  *
- * Elke rij heeft dezelfde knoptekst, dus de spelers staan er verborgen achter:
- * zo houdt een schermlezer de knoppen uit elkaar, terwijl de zichtbare tekst
- * het begin van de toegankelijke naam blijft (WCAG 2.5.3, spraakbediening).
- * De wisknop heeft geen zichtbare tekst en krijgt daarom een volledig label.
+ * Elke rij heeft dezelfde knopteksten, dus de spelers staan er verborgen
+ * achter: zo houdt een schermlezer de knoppen uit elkaar, terwijl de
+ * zichtbare tekst het begin van de toegankelijke naam blijft (WCAG 2.5.3,
+ * spraakbediening).
+ *
+ * "Heeft een uitslag" volgt de status, net als `isPlayed()` op de server: één
+ * bron voor wat de lijst toont en wat de server toestaat.
  */
 function MatchResultActions({
     competitionId,
@@ -364,7 +384,10 @@ function MatchResultActions({
     matchFormat,
 }: MatchResultActionsProps) {
     const { t } = useTranslations();
-    const hasResult = match.first_player_score !== null;
+    const hasResult = match.status === 'played';
+    const removesMatch =
+        !match.first_player_is_participant ||
+        !match.second_player_is_participant;
 
     return (
         <div className="flex items-center gap-1">
@@ -373,6 +396,7 @@ function MatchResultActions({
                 match={match}
                 gamesToWin={matchFormat.games_to_win}
                 bestOf={matchFormat.best_of}
+                isFormatLocked={matchFormat.is_locked}
                 trigger={
                     <Button variant="outline" size="sm">
                         {hasResult ? t('Edit result') : t('Enter result')}
@@ -385,29 +409,77 @@ function MatchResultActions({
             {hasResult && (
                 <ConfirmDialog
                     trigger={
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-8"
-                            aria-label={t('Clear result: :first – :second', {
-                                first: match.first_player,
-                                second: match.second_player,
-                            })}
-                        >
-                            <Eraser />
+                        <Button variant="ghostDestructive" size="sm">
+                            {t('Clear')}
+                            <span className="sr-only">
+                                :{' '}
+                                {t('result :first – :second', {
+                                    first: match.first_player,
+                                    second: match.second_player,
+                                })}
+                            </span>
                         </Button>
                     }
                     title={t('Clear result?')}
-                    description={t(
-                        'The match goes back to "To play". If one of the players no longer participates, the match is removed from the list.',
-                    )}
+                    description={clearResultDescription(match, t)}
                     action={MatchResultController.destroy.form([
                         competitionId,
                         match.id,
                     ])}
-                    confirmLabel={t('Clear result')}
+                    confirmLabel={
+                        removesMatch
+                            ? t('Clear result and remove match')
+                            : t('Clear result')
+                    }
                 />
             )}
         </div>
+    );
+}
+
+/**
+ * Wat wissen precies doet, per situatie. Neemt een van de spelers niet meer
+ * deel, dan houdt na het wissen niets de wedstrijd nog in de lijst: de sync
+ * verwijdert hem, en dat is niet terug te draaien. Dat moet de beheerder
+ * vóór het bevestigen weten.
+ */
+function clearResultDescription(
+    match: MatchProps,
+    t: ReturnType<typeof useTranslations>['t'],
+): string {
+    const replacements = {
+        score: `${match.first_player_score ?? '–'}–${match.second_player_score ?? '–'}`,
+        first: match.first_player,
+        second: match.second_player,
+    };
+
+    if (
+        !match.first_player_is_participant &&
+        !match.second_player_is_participant
+    ) {
+        return t(
+            'This clears the result :score of :first – :second. Neither player participates any longer, so the match is then removed from the list. This cannot be undone.',
+            replacements,
+        );
+    }
+
+    if (
+        !match.first_player_is_participant ||
+        !match.second_player_is_participant
+    ) {
+        return t(
+            'This clears the result :score of :first – :second. :player no longer participates, so the match is then removed from the list. This cannot be undone.',
+            {
+                ...replacements,
+                player: match.first_player_is_participant
+                    ? match.second_player
+                    : match.first_player,
+            },
+        );
+    }
+
+    return t(
+        'This clears the result :score of :first – :second. The match goes back to "To play".',
+        replacements,
     );
 }

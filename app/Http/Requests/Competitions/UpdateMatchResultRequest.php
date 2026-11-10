@@ -40,9 +40,10 @@ class UpdateMatchResultRequest extends FormRequest
     }
 
     /**
-     * Het format afdwingen: precies één speler heeft het aantal games om te
-     * winnen. Dat sluit zowel een gelijkspel (beide op dat aantal) uit als
-     * een wedstrijd zonder winnaar (geen van beiden).
+     * Het format afdwingen via `CompetitionSettings::isValidResult()`: precies
+     * één speler heeft het aantal games om te winnen. `RecordMatchResult`
+     * controleert dezelfde regel nog eens onder de rijlock; deze controle
+     * geeft de beheerder de directe veldfout.
      *
      * De fout staat op de aparte key `score` en niet op een van de spelers:
      * hij gaat over het paar, en geen van beide scores is op zichzelf fout.
@@ -59,16 +60,9 @@ class UpdateMatchResultRequest extends FormRequest
                 }
 
                 $settings = $this->competition()->settings;
-                $gamesToWin = $settings->gamesToWin();
 
-                $first = (int) $this->input('first_player_score');
-                $second = (int) $this->input('second_player_score');
-
-                if (($first === $gamesToWin) === ($second === $gamesToWin)) {
-                    $validator->errors()->add('score', __('In a best-of-:best_of match the winner has exactly :games games.', [
-                        'best_of' => $settings->bestOf,
-                        'games' => $gamesToWin,
-                    ]));
+                if (! $settings->isValidResult($this->integer('first_player_score'), $this->integer('second_player_score'))) {
+                    $validator->errors()->add('score', $settings->invalidResultMessage());
                 }
             },
         ];
@@ -82,10 +76,14 @@ class UpdateMatchResultRequest extends FormRequest
         $outOfRange = __('Enter a score between 0 and :max.', ['max' => $this->competition()->settings->gamesToWin()]);
 
         return [
-            '*.required' => __('Enter a score.'),
-            '*.integer' => __('Enter a whole number.'),
-            '*.min' => $outOfRange,
-            '*.max' => $outOfRange,
+            'first_player_score.required' => __('Enter a score.'),
+            'first_player_score.integer' => __('Enter a whole number.'),
+            'first_player_score.min' => $outOfRange,
+            'first_player_score.max' => $outOfRange,
+            'second_player_score.required' => __('Enter a score.'),
+            'second_player_score.integer' => __('Enter a whole number.'),
+            'second_player_score.min' => $outOfRange,
+            'second_player_score.max' => $outOfRange,
         ];
     }
 

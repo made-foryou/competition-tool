@@ -84,14 +84,6 @@ export default function CompetitionSettingsForm({
         >
             {({ processing, errors }) => (
                 <>
-                    <div className="rounded-xl border p-4">
-                        <p className="text-muted-foreground text-sm">
-                            {t(
-                                'Changes only affect matches that have not been scheduled yet.',
-                            )}
-                        </p>
-                    </div>
-
                     {/* Het format staat vóór Timing: het is de meest
                     fundamentele eigenschap van een wedstrijd, en de
                     wedstrijdduur hieronder hangt ervan af. */}
@@ -100,76 +92,100 @@ export default function CompetitionSettingsForm({
                             {t('Match format')}
                         </h3>
                         <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="grid gap-2">
-                                <Label htmlFor="best_of">{t('Format')}</Label>
-                                {/* Vergrendeld zonder `name` op de Select: een
-                                uitgeschakeld native `<select>` wordt niet
-                                verstuurd, terwijl de server `best_of` altijd
-                                vereist. De verborgen input stuurt daarom de
-                                huidige waarde mee. */}
-                                {matchFormatLocked && (
+                            {matchFormatLocked ? (
+                                <div className="grid gap-2">
+                                    {/* Vergrendeld is er niets te kiezen,
+                                    dus geen uitgeschakelde Select maar de
+                                    waarde als tekst. Die komt uit de prop:
+                                    dat is wat de server heeft, en precies
+                                    wat de verborgen input meestuurt (de
+                                    server vereist `best_of` altijd). */}
                                     <input
                                         type="hidden"
                                         name="best_of"
                                         value={settings.best_of}
                                     />
-                                )}
-                                <Select
-                                    name={
-                                        matchFormatLocked
-                                            ? undefined
-                                            : 'best_of'
-                                    }
-                                    value={bestOf}
-                                    onValueChange={setBestOf}
-                                    disabled={matchFormatLocked}
-                                >
-                                    <SelectTrigger
-                                        id="best_of"
-                                        className="w-full"
-                                        aria-invalid={!!errors.best_of}
-                                        aria-describedby={[
-                                            errors.best_of
-                                                ? 'best_of-error'
-                                                : null,
-                                            'best_of-hint',
-                                        ]
-                                            .filter(Boolean)
-                                            .join(' ')}
-                                    >
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {limits.best_of.options.map(
-                                            (option) => (
-                                                <SelectItem
-                                                    key={option}
-                                                    value={String(option)}
-                                                >
-                                                    {t('Best of :count', {
-                                                        count: option,
-                                                    })}
-                                                </SelectItem>
-                                            ),
+                                    <dl className="grid gap-2">
+                                        <Label asChild>
+                                            <dt>{t('Format')}</dt>
+                                        </Label>
+                                        <dd className="text-sm">
+                                            {t('Best of :count', {
+                                                count: settings.best_of,
+                                            })}
+                                        </dd>
+                                    </dl>
+                                    <InputError
+                                        id="best_of-error"
+                                        message={errors.best_of}
+                                    />
+                                    <p className="text-muted-foreground text-sm">
+                                        {t(
+                                            'The match format is locked once a result has been entered. To change it, first clear all results on the Matches tab.',
                                         )}
-                                    </SelectContent>
-                                </Select>
-                                <InputError
-                                    id="best_of-error"
-                                    message={errors.best_of}
-                                />
-                                <p
-                                    id="best_of-hint"
-                                    className="text-muted-foreground text-sm"
-                                >
-                                    {matchFormatLocked
-                                        ? t(
-                                              'The match format is locked because results have been recorded. Clear all results to change it.',
-                                          )
-                                        : winnerHint}
-                                </p>
-                            </div>
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="grid gap-2">
+                                    <Label htmlFor="best_of">
+                                        {t('Format')}
+                                    </Label>
+                                    <Select
+                                        name="best_of"
+                                        value={bestOf}
+                                        onValueChange={setBestOf}
+                                    >
+                                        <SelectTrigger
+                                            id="best_of"
+                                            className="w-full"
+                                            aria-invalid={!!errors.best_of}
+                                            aria-describedby={[
+                                                errors.best_of
+                                                    ? 'best_of-error'
+                                                    : null,
+                                                'best_of-hint',
+                                            ]
+                                                .filter(Boolean)
+                                                .join(' ')}
+                                        >
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {limits.best_of.options.map(
+                                                (option) => (
+                                                    <SelectItem
+                                                        key={option}
+                                                        value={String(option)}
+                                                    >
+                                                        {t('Best of :count', {
+                                                            count: option,
+                                                        })}
+                                                    </SelectItem>
+                                                ),
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError
+                                        id="best_of-error"
+                                        message={errors.best_of}
+                                    />
+                                    <p
+                                        id="best_of-hint"
+                                        className="text-muted-foreground text-sm"
+                                    >
+                                        {winnerHint}
+                                    </p>
+                                </div>
+                            )}
                         </div>
+                    </div>
+
+                    <div className="rounded-xl border p-4">
+                        <p className="text-muted-foreground text-sm">
+                            {t(
+                                'Changes to timing, player load and pools only affect matches that have not been scheduled yet.',
+                            )}
+                        </p>
                     </div>
 
                     <div className="flex flex-col gap-3">

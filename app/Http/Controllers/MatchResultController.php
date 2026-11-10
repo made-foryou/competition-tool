@@ -15,17 +15,27 @@ class MatchResultController extends Controller
 {
     /**
      * Legt de uitslag van een wedstrijd vast of corrigeert hem. De statusguard
-     * en het format staan in `UpdateMatchResultRequest`.
+     * en het format staan in `UpdateMatchResultRequest`, en opnieuw onder de
+     * rijlock in `RecordMatchResult`.
+     *
+     * De toast noemt spelers en scores uit de opgeslagen wedstrijd, niet uit
+     * het verzoek: na een canonicalisatie van het paar staan ze daar in de
+     * volgorde van de wedstrijdenlijst.
      */
     public function update(UpdateMatchResultRequest $request, Competition $competition, CompetitionMatch $match, RecordMatchResult $recordMatchResult): RedirectResponse
     {
-        $recordMatchResult->handle(
+        $saved = $recordMatchResult->handle(
             $match,
             $request->integer('first_player_score'),
             $request->integer('second_player_score'),
         );
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Result saved.')]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Result saved: :first – :second :first_score–:second_score.', [
+            'first' => $saved->firstPlayer->display_name,
+            'second' => $saved->secondPlayer->display_name,
+            'first_score' => $saved->first_player_score,
+            'second_score' => $saved->second_player_score,
+        ])]);
 
         return back();
     }

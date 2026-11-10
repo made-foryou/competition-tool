@@ -46,6 +46,9 @@ class UpdateCompetitionSettingsRequest extends FormRequest
      * anders trekt een klassement op games scheef. Dezelfde waarde opnieuw
      * meesturen blijft toegestaan.
      *
+     * Dit is de directe veldfout; `UpdateCompetitionSettings` controleert
+     * hetzelfde nog eens onder de rijlock.
+     *
      * @return array<int, callable(Validator): void>
      */
     public function after(): array
@@ -60,7 +63,7 @@ class UpdateCompetitionSettingsRequest extends FormRequest
                 $competition = $this->route('competition');
 
                 if ($competition->hasResults() && (int) $this->input('best_of') !== $competition->settings->bestOf) {
-                    $validator->errors()->add('best_of', __('The match format cannot be changed once a result has been recorded.'));
+                    $validator->errors()->add('best_of', __('The match format cannot be changed once a result has been entered.'));
                 }
             },
         ];

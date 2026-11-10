@@ -10,6 +10,7 @@ use App\Models\CompetitionMatch;
 use App\Models\User;
 use App\Support\CompetitionSettings;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
@@ -59,7 +60,12 @@ test('an admin can record a result for the players as stored', function () {
     ])
         ->assertRedirect()
         ->assertSessionHasNoErrors()
-        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Result saved.')]);
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Result saved: :first – :second :first_score–:second_score.', [
+            'first' => $match->firstPlayer->display_name,
+            'second' => $match->secondPlayer->display_name,
+            'first_score' => 3,
+            'second_score' => 1,
+        ])]);
 
     $recorded = $match->fresh();
 
@@ -109,7 +115,14 @@ test('the scores stay with their players when the row was not canonical yet', fu
         'second_player_score' => 1,
     ])
         ->assertRedirect()
-        ->assertSessionHasNoErrors();
+        ->assertSessionHasNoErrors()
+        // De toast volgt de opgeslagen, canonieke volgorde van de lijst.
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Result saved: :first – :second :first_score–:second_score.', [
+            'first' => User::find($lowerId)->display_name,
+            'second' => User::find($higherId)->display_name,
+            'first_score' => 1,
+            'second_score' => 3,
+        ])]);
 
     $saved = $match->fresh();
 
@@ -161,10 +174,29 @@ test('an invalid best-of-5 result is rejected', function (array $payload, string
     'missing' => [['first_player_score' => 3], 'second_player_score', 'Enter a score.', []],
     'decimal' => [['first_player_score' => '2.5', 'second_player_score' => 3], 'first_player_score', 'Enter a whole number.', []],
     'above the maximum' => [['first_player_score' => 4, 'second_player_score' => 1], 'first_player_score', 'Enter a score between 0 and :max.', ['max' => 3]],
-    'a draw' => [['first_player_score' => 3, 'second_player_score' => 3], 'score', 'In a best-of-:best_of match the winner has exactly :games games.', ['best_of' => 5, 'games' => 3]],
-    'no winner' => [['first_player_score' => 2, 'second_player_score' => 1], 'score', 'In a best-of-:best_of match the winner has exactly :games games.', ['best_of' => 5, 'games' => 3]],
+    'a draw' => [['first_player_score' => 3, 'second_player_score' => 3], 'score', 'In best of :best_of, exactly one player must have :games games: the winner.', ['best_of' => 5, 'games' => 3]],
+    'no winner' => [['first_player_score' => 2, 'second_player_score' => 1], 'score', 'In best of :best_of, exactly one player must have :games games: the winner.', ['best_of' => 5, 'games' => 3]],
     'an array' => [['first_player_score' => [3], 'second_player_score' => 1], 'first_player_score', 'Enter a whole number.', []],
+    'second player non-numeric' => [['first_player_score' => 3, 'second_player_score' => 'een'], 'second_player_score', 'Enter a whole number.', []],
+    'second player above the maximum' => [['first_player_score' => 3, 'second_player_score' => 4], 'second_player_score', 'Enter a score between 0 and :max.', ['max' => 3]],
 ]);
+
+test('the pair error of a best-of-1 match speaks of a single game', function () {
+    $competition = resultFixture(bestOf: 1);
+    $match = $competition->matches()->first();
+
+    $this->put(route('competitions.matches.result.update', [$competition, $match]), [
+        'first_player_score' => 1,
+        'second_player_score' => 1,
+    ])
+        ->assertRedirect()
+        ->assertSessionHasErrors(['score' => __('In best of :best_of, exactly one player must have :games game: the winner.', [
+            'best_of' => 1,
+            'games' => 1,
+        ])]);
+
+    expect($match->fresh()->status)->toBe(MatchStatus::Pending);
+});
 
 test('a best-of-3 match accepts a winner with two games', function (int $firstPlayerScore, int $secondPlayerScore) {
     $competition = resultFixture(bestOf: 3);
@@ -254,14 +286,98 @@ test('clearing the result of a departed player removes the match', function () {
     $this->assertModelMissing($match);
 });
 
-test('clearing a match without a result gives a 422', function () {
+test('clearing a match without a result changes nothing and confirms', function () {
     $competition = resultFixture();
     $match = $competition->matches()->first();
 
     $this->delete(route('competitions.matches.result.destroy', [$competition, $match]))
-        ->assertStatus(422);
+        ->assertRedirect()
+        ->assertSessionHasNoErrors()
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Result cleared.')]);
 
-    expect($match->fresh()->status)->toBe(MatchStatus::Pending);
+    $unchanged = $match->fresh();
+
+    expect($unchanged->status)->toBe(MatchStatus::Pending)
+        ->and($unchanged->first_player_score)->toBeNull()
+        ->and($unchanged->second_player_score)->toBeNull();
+});
+
+test('a result is not recorded when the competition stopped being active after the request started', function () {
+    $competition = resultFixture();
+    $match = $competition->matches()->first();
+
+    // De Form Request keek vóór de rijlock naar de status; deze test staat
+    // voor de beheerder die de competitie daarna afrondde. De Action kijkt
+    // onder de lock opnieuw en weigert alsnog.
+    Competition::query()->whereKey($competition->id)->update(['status' => CompetitionStatus::Finished->value]);
+
+    expect(fn () => app(RecordMatchResult::class)->handle($match, 3, 1))->toThrow(
+        ValidationException::class,
+        __('Results can only be changed while the competition is active.'),
+    );
+
+    $unchanged = $match->fresh();
+
+    expect($unchanged->status)->toBe(MatchStatus::Pending)
+        ->and($unchanged->first_player_score)->toBeNull()
+        ->and($unchanged->second_player_score)->toBeNull();
+});
+
+test('a result is not recorded when the match format changed after the request started', function () {
+    $competition = resultFixture();
+    $match = $competition->matches()->first();
+
+    // De Form Request keurde 3–1 goed tegen best of 5; deze test staat voor
+    // het format dat daarna naar best of 3 ging. Onder de lock past 3–1 niet
+    // meer, en zou best of 3 met deze uitslag vergrendeld raken.
+    Competition::query()->whereKey($competition->id)->update([
+        'settings' => json_encode(CompetitionSettings::fromArray(['best_of' => 3])->toArray()),
+    ]);
+
+    expect(fn () => app(RecordMatchResult::class)->handle($match, 3, 1))->toThrow(
+        ValidationException::class,
+        __('In best of :best_of, exactly one player must have :games games: the winner.', ['best_of' => 3, 'games' => 2]),
+    );
+
+    $unchanged = $match->fresh();
+
+    expect($unchanged->status)->toBe(MatchStatus::Pending)
+        ->and($unchanged->first_player_score)->toBeNull()
+        ->and($unchanged->second_player_score)->toBeNull();
+});
+
+test('a result is not cleared when the competition stopped being active after the request started', function () {
+    $competition = resultFixture();
+    $match = $competition->matches()->first();
+    markMatchPlayed($match, 3, 1);
+
+    Competition::query()->whereKey($competition->id)->update(['status' => CompetitionStatus::Finished->value]);
+
+    expect(fn () => app(ClearMatchResult::class)->handle($match))->toThrow(
+        ValidationException::class,
+        __('Results can only be changed while the competition is active.'),
+    );
+
+    $unchanged = $match->fresh();
+
+    expect($unchanged->status)->toBe(MatchStatus::Played)
+        ->and($unchanged->first_player_score)->toBe(3)
+        ->and($unchanged->second_player_score)->toBe(1);
+});
+
+test('clearing a match removed after the request started gives a 404', function () {
+    $competition = resultFixture();
+    $match = $competition->matches()->first();
+    markMatchPlayed($match, 3, 1);
+
+    // De route-binding las de wedstrijd vóór de rijlock; intussen is hij
+    // verwijderd. De Action leest hem onder de lock opnieuw en geeft het op.
+    CompetitionMatch::query()->whereKey($match->id)->delete();
+
+    expect(fn () => app(ClearMatchResult::class)->handle($match))
+        ->toThrow(ModelNotFoundException::class);
+
+    $this->assertModelMissing($match);
 });
 
 test('a match removed after the request started gets no result', function () {
@@ -304,11 +420,15 @@ test('clearing a result that was already cleared changes nothing', function () {
 
 test('results cannot be changed on a non-active competition', function (string $state) {
     $competition = resultFixture();
-    $match = $competition->matches()->first();
+    [$match, $pending] = $competition->matches()->get()->all();
     markMatchPlayed($match, 3, 1);
 
     $competition->update(['status' => CompetitionStatus::from($state)]);
 
+    $this->put(route('competitions.matches.result.update', [$competition, $pending]), [
+        'first_player_score' => 3,
+        'second_player_score' => 0,
+    ])->assertForbidden();
     $this->put(route('competitions.matches.result.update', [$competition, $match]), [
         'first_player_score' => 3,
         'second_player_score' => 0,
@@ -319,7 +439,8 @@ test('results cannot be changed on a non-active competition', function (string $
 
     expect($unchanged->status)->toBe(MatchStatus::Played)
         ->and($unchanged->first_player_score)->toBe(3)
-        ->and($unchanged->second_player_score)->toBe(1);
+        ->and($unchanged->second_player_score)->toBe(1)
+        ->and($pending->fresh()->status)->toBe(MatchStatus::Pending);
 })->with(['draft', 'finished']);
 
 test('a match of another competition gives a 404 on the result routes', function () {
@@ -391,6 +512,17 @@ test('the edit page tells whether results can be changed and which format applie
             ]),
         );
 });
+
+test('the edit page tells that results cannot be changed on a non-active competition', function (string $state) {
+    $competition = resultFixture();
+    $competition->update(['status' => CompetitionStatus::from($state)]);
+
+    $this->get(route('competitions.edit', $competition))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('competition.allows_result_changes', false),
+        );
+})->with(['draft', 'finished']);
 
 test('the match format is reported locked once a match is played', function () {
     $competition = resultFixture();

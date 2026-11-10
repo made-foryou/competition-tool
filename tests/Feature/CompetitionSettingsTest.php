@@ -1,11 +1,13 @@
 <?php
 
+use App\Actions\Competitions\UpdateCompetitionSettings;
 use App\Enums\MatchStatus;
 use App\Models\Competition;
 use App\Models\CompetitionMatch;
 use App\Models\User;
 use App\Support\CompetitionSettings;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 
 function actingAsSettingsAdmin(): User
@@ -40,6 +42,25 @@ test('the number of games to win follows from the match format', function (int $
     'best of 3' => [3, 2],
     'best of 5' => [5, 3],
     'best of 7' => [7, 4],
+]);
+
+test('a result is valid when exactly one player has the games to win', function (int $bestOf, int $firstPlayerScore, int $secondPlayerScore, bool $isValid) {
+    $settings = CompetitionSettings::fromArray(['best_of' => $bestOf]);
+
+    expect($settings->isValidResult($firstPlayerScore, $secondPlayerScore))->toBe($isValid);
+})->with([
+    'best of 5, 3-0' => [5, 3, 0, true],
+    'best of 5, 2-3' => [5, 2, 3, true],
+    'best of 5, a draw at 3' => [5, 3, 3, false],
+    'best of 5, no winner' => [5, 2, 1, false],
+    'best of 5, above the maximum' => [5, 4, 1, false],
+    'best of 5, negative' => [5, 3, -1, false],
+    'best of 3, 2-1' => [3, 2, 1, true],
+    'best of 3, three games' => [3, 3, 1, false],
+    'best of 1, 0-1' => [1, 0, 1, true],
+    'best of 1, a draw' => [1, 1, 1, false],
+    'best of 1, no winner' => [1, 0, 0, false],
+    'best of 7, 4-3' => [7, 4, 3, true],
 ]);
 
 test('the withSettings factory state applies the given settings', function () {
@@ -289,13 +310,31 @@ function lockedFormatPayload(array $overrides = []): array
     ];
 }
 
-test('the match format cannot change once a result has been recorded', function () {
+test('the match format cannot change once a result has been entered', function () {
     actingAsSettingsAdmin();
     $competition = Competition::factory()->create();
     CompetitionMatch::factory()->played()->create(['competition_id' => $competition->id]);
 
     $this->put(route('competitions.settings.update', $competition), lockedFormatPayload(['best_of' => 3]))
-        ->assertSessionHasErrors(['best_of' => __('The match format cannot be changed once a result has been recorded.')]);
+        ->assertSessionHasErrors(['best_of' => __('The match format cannot be changed once a result has been entered.')]);
+
+    expect($competition->refresh()->settings->bestOf)->toBe(5);
+});
+
+test('the match format is not changed when a result was entered after the request started', function () {
+    $competition = Competition::factory()->create();
+
+    // De Form Request zag nog geen uitslag; deze test staat voor de eerste
+    // uitslag die daarna werd vastgelegd. De Action kijkt onder de rijlock
+    // opnieuw en weigert alsnog.
+    CompetitionMatch::factory()->played()->create(['competition_id' => $competition->id]);
+
+    $settings = CompetitionSettings::fromArray([...$competition->settings->toArray(), 'best_of' => 3]);
+
+    expect(fn () => app(UpdateCompetitionSettings::class)->handle($competition, $settings))->toThrow(
+        ValidationException::class,
+        __('The match format cannot be changed once a result has been entered.'),
+    );
 
     expect($competition->refresh()->settings->bestOf)->toBe(5);
 });

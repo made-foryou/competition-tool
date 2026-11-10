@@ -7,6 +7,7 @@ use App\Models\Competition;
 use App\Models\CompetitionMatch;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Wist de uitslag van één wedstrijd: de scores gaan leeg en de status terug
@@ -17,6 +18,8 @@ use Illuminate\Support\Facades\DB;
  * meer, dan verdwijnt de wedstrijd dus meteen: zonder uitslag is er niets
  * meer dat hem in de lijst houdt. Zo wacht de lijst niet op de eerstvolgende
  * deelnemersmutatie om weer te kloppen met de deelnemers.
+ *
+ * Wissen is idempotent: staat er geen uitslag (meer), dan verandert er niets.
  */
 class ClearMatchResult
 {
@@ -29,20 +32,28 @@ class ClearMatchResult
      *
      * @return bool of de wedstrijd na het wissen nog bestaat
      *
+     * @throws ValidationException wanneer de competitie intussen niet meer actief is
      * @throws ModelNotFoundException wanneer de wedstrijd intussen door een sync verwijderd is
      */
     public function handle(CompetitionMatch $match): bool
     {
         return DB::transaction(function () use ($match): bool {
             // Zelfde rijlock en zelfde reden om opnieuw te lezen als in
-            // `RecordMatchResult`: `$match` en de gespeeld-check in
+            // `RecordMatchResult`: `$match` en de statuscheck in
             // `DestroyMatchResultRequest` dateren van vóór de lock.
             $locked = Competition::query()->whereKey($match->competition_id)->lockForUpdate()->firstOrFail();
 
             $fresh = CompetitionMatch::query()->whereKey($match->id)->firstOrFail();
 
-            // Iemand anders was ons voor: er staat geen uitslag meer, dus
-            // er valt niets te wissen en de wedstrijd bestaat nog.
+            if (! $locked->status->allowsResultChanges()) {
+                throw ValidationException::withMessages([
+                    'score' => __('Results can only be changed while the competition is active.'),
+                ]);
+            }
+
+            // Er staat geen uitslag (meer), bijvoorbeeld omdat iemand anders
+            // ons voor was: er valt niets te wissen en de wedstrijd bestaat
+            // nog.
             if (! $fresh->isPlayed()) {
                 return true;
             }

@@ -131,6 +131,42 @@ final readonly class CompetitionSettings implements Arrayable, Castable
     }
 
     /**
+     * Of een uitslag bij dit format past. Elke score is het aantal gewonnen
+     * games van die speler, dus tussen 0 en het aantal games om te winnen, en
+     * precies één speler heeft dat aantal: de winnaar. Dat sluit zowel een
+     * gelijkspel (beide op dat aantal) uit als een wedstrijd zonder winnaar.
+     *
+     * Eén definitie voor de Form Request (directe veldfout) en
+     * `RecordMatchResult` (dezelfde controle onder de rijlock).
+     */
+    public function isValidResult(int $firstPlayerScore, int $secondPlayerScore): bool
+    {
+        $gamesToWin = $this->gamesToWin();
+
+        foreach ([$firstPlayerScore, $secondPlayerScore] as $score) {
+            if ($score < 0 || $score > $gamesToWin) {
+                return false;
+            }
+        }
+
+        return ($firstPlayerScore === $gamesToWin) !== ($secondPlayerScore === $gamesToWin);
+    }
+
+    /**
+     * De melding bij een uitslag die niet bij dit format past, met enkelvoud
+     * zodra de winnaar maar één game nodig heeft (best of 1).
+     */
+    public function invalidResultMessage(): string
+    {
+        $gamesToWin = $this->gamesToWin();
+        $replace = ['best_of' => $this->bestOf, 'games' => $gamesToWin];
+
+        return $gamesToWin === 1
+            ? __('In best of :best_of, exactly one player must have :games game: the winner.', $replace)
+            : __('In best of :best_of, exactly one player must have :games games: the winner.', $replace);
+    }
+
+    /**
      * @return array{match_duration_minutes: array{min: int, max: int}, buffer_minutes: array{min: int, max: int}, min_rest_minutes: array{min: int, max: int}, break_duration_minutes: array{min: int, max: int}, pool_size: array{min: int, max: int, default: int}, max_matches_per_player_per_day: array{min: int, max: int}, best_of: array{options: list<int>, default: int}}
      */
     public static function limits(): array

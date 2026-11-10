@@ -28,6 +28,8 @@ export type ResultMatch = {
     id: number;
     first_player: string;
     second_player: string;
+    /** `played` zodra er een uitslag is; bepaalt of dit invoeren of corrigeren is. */
+    status: string;
     first_player_score: number | null;
     second_player_score: number | null;
 };
@@ -39,13 +41,12 @@ type Props = {
     gamesToWin: number;
     bestOf: number;
     /**
-     * Het element dat de dialoog opent. Laat dit weg bij een gecontroleerde
-     * dialoog (`open` + `onOpenChange`).
+     * Waar zodra de competitie minstens één uitslag heeft. Zolang dat niet zo
+     * is, vergrendelt deze uitslag het format, en dat zegt de dialoog erbij.
      */
-    trigger?: ReactNode;
-    /** Alleen bij een gecontroleerde dialoog; anders regelt de dialoog zijn eigen staat. */
-    open?: boolean;
-    onOpenChange?: (open: boolean) => void;
+    isFormatLocked: boolean;
+    /** Het element dat de dialoog opent. */
+    trigger: ReactNode;
 };
 
 /**
@@ -61,21 +62,26 @@ export default function MatchResultDialog({
     match,
     gamesToWin,
     bestOf,
+    isFormatLocked,
     trigger,
-    open,
-    onOpenChange,
 }: Props) {
     const { t } = useTranslations();
-    const [ownOpen, setOwnOpen] = useState(false);
+    const [open, setOpen] = useState(false);
 
-    const isOpen = open ?? ownOpen;
-    const setOpen = onOpenChange ?? setOwnOpen;
+    // De status, niet de score: dezelfde bron als `isPlayed()` op de server.
+    const hasResult = match.status === 'played';
 
-    const hasResult = match.first_player_score !== null;
+    const formatReplacements = {
+        first: match.first_player,
+        second: match.second_player,
+        best_of: bestOf,
+        games: gamesToWin,
+        max_loser: gamesToWin - 1,
+    };
 
     return (
-        <Dialog open={isOpen} onOpenChange={setOpen}>
-            {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>{trigger}</DialogTrigger>
             <DialogContent closeLabel={t('Close')}>
                 <DialogHeader>
                     <DialogTitle>
@@ -84,12 +90,12 @@ export default function MatchResultDialog({
                     <DialogDescription>
                         {gamesToWin === 1
                             ? t(
-                                  'Best of :best_of: the winner has :games game.',
-                                  { best_of: bestOf, games: gamesToWin },
+                                  ':first – :second · Best of :best_of: the winner has :games game, the loser 0.',
+                                  formatReplacements,
                               )
                             : t(
-                                  'Best of :best_of: the winner has :games games.',
-                                  { best_of: bestOf, games: gamesToWin },
+                                  ':first – :second · Best of :best_of: the winner has :games games, the loser 0 to :max_loser.',
+                                  formatReplacements,
                               )}
                         {hasResult && (
                             <> {t('Saving overwrites the current result.')}</>
@@ -104,6 +110,14 @@ export default function MatchResultDialog({
                     competitionId={competitionId}
                     match={match}
                     gamesToWin={gamesToWin}
+                    formatLockNotice={
+                        isFormatLocked
+                            ? null
+                            : t(
+                                  'After this first result the match format (best of :best_of) is locked.',
+                                  { best_of: bestOf },
+                              )
+                    }
                     onSaved={() => setOpen(false)}
                 />
             </DialogContent>
@@ -115,6 +129,8 @@ type FormProps = {
     competitionId: number;
     match: ResultMatch;
     gamesToWin: number;
+    /** De waarschuwing dat deze eerste uitslag het format vastlegt, of `null`. */
+    formatLockNotice: string | null;
     onSaved: () => void;
 };
 
@@ -126,11 +142,15 @@ type FormProps = {
  * zichzelf fout, maar samen kloppen ze niet. Beide velden zijn dan ongeldig
  * en verwijzen naar die ene melding, zodat een schermlezer hem bij elk veld
  * voorleest.
+ *
+ * Bij focus selecteert een veld zijn huidige waarde: bij corrigeren vervangt
+ * een getypt cijfer dan de oude score, in plaats van er "31" van te maken.
  */
 function MatchResultForm({
     competitionId,
     match,
     gamesToWin,
+    formatLockNotice,
     onSaved,
 }: FormProps) {
     const { t } = useTranslations();
@@ -164,6 +184,9 @@ function MatchResultForm({
                                 step={1}
                                 required
                                 autoFocus
+                                onFocus={(event) =>
+                                    event.currentTarget.select()
+                                }
                                 defaultValue={match.first_player_score ?? ''}
                                 className="tabular-nums"
                                 aria-invalid={
@@ -200,6 +223,9 @@ function MatchResultForm({
                                 max={gamesToWin}
                                 step={1}
                                 required
+                                onFocus={(event) =>
+                                    event.currentTarget.select()
+                                }
                                 defaultValue={match.second_player_score ?? ''}
                                 className="tabular-nums"
                                 aria-invalid={
@@ -225,6 +251,12 @@ function MatchResultForm({
                     </div>
 
                     <InputError id={scoreErrorId} message={errors.score} />
+
+                    {formatLockNotice && (
+                        <p className="text-muted-foreground text-sm">
+                            {formatLockNotice}
+                        </p>
+                    )}
 
                     <DialogFooter>
                         <DialogClose asChild>

@@ -42,7 +42,7 @@ test('a match is locked when it is played or pinned', function () {
         ->and($ordinary->isPinned())->toBeFalse();
 });
 
-test('a pair given in reverse order keeps each score with its player', function () {
+test('the factory keeps each score with its player when it sorts a reversed pair', function () {
     [$lower, $higher] = User::factory()->participant()->count(2)->create()->sortBy('id')->values()->all();
 
     $match = CompetitionMatch::factory()->played()->create([
