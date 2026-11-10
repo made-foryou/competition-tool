@@ -220,3 +220,14 @@ test('an admin who submits for the first time returns to the management page', f
 
     $this->get(route('competitions.edit', $competition))->assertOk();
 });
+
+test('an admin who changes submitted availability stays on the form', function () {
+    $competition = Competition::factory()->create();
+    MatchDay::factory()->create(['competition_id' => $competition]);
+    $admin = User::factory()->withTwoFactor()->create();
+    $competition->participants()->attach($admin, ['availability_submitted_at' => now()]);
+
+    $this->actingAs($admin)
+        ->put(route('competition.availability.update', $competition), ['match_days' => []])
+        ->assertRedirect(route('competition.availability.edit', $competition));
+});

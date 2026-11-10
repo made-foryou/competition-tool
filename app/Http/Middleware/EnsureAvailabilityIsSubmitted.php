@@ -79,7 +79,14 @@ class EnsureAvailabilityIsSubmitted
             return $next($request);
         }
 
-        return redirect()->route('competition.availability.edit', $competition);
+        /*
+         * Een 302 op PUT/PATCH/DELETE laat een client zonder X-Inertia-header
+         * (fetch, useHttp) zijn methode en body meenemen; dan wordt het
+         * `PUT availability` en dient hij stil een lege beschikbaarheid in.
+         * Daarom 303 bij niet-veilige methodes, zoals in
+         * EnsureUserParticipatesInCompetition::redirectTo().
+         */
+        return redirect()->route('competition.availability.edit', $competition, $request->isMethodSafe() ? 302 : 303);
     }
 
     /**

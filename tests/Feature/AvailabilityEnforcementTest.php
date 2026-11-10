@@ -120,3 +120,10 @@ test('after submitting one competition the next open one follows', function () {
         ->get(route('competition.dashboard', $this->competition))
         ->assertRedirect(route('competition.availability.edit', $second));
 });
+
+test('a blocked write request is redirected with 303 so the method is not replayed', function () {
+    $this->actingAs($this->user)
+        ->patch(route('competition.settings.profile.update', $this->competition), ['name' => 'Ander'])
+        ->assertStatus(303)
+        ->assertRedirect(route('competition.availability.edit', $this->competition));
+});
