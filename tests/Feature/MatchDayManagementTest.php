@@ -196,7 +196,7 @@ test('adding a match day asks every participant of the competition for their ava
         'field_count' => 2,
     ])->assertInertiaFlash('toast', [
         'type' => 'success',
-        'message' => __('Match day added. :count participants have to submit their availability again.', ['count' => 2]),
+        'message' => __('Match day added. :count participants still have to submit their availability.', ['count' => 2]),
     ]);
 
     expect(DB::table('competition_user')->where('competition_id', $this->competition->id)->whereNotNull('availability_submitted_at')->count())->toBe(0)
@@ -216,13 +216,22 @@ test('adding a match day reopens the availability regardless of the competition 
         'field_count' => 1,
     ])->assertInertiaFlash('toast', [
         'type' => 'success',
-        'message' => __('Match day added. :count participant has to submit their availability again.', ['count' => 1]),
+        'message' => __('Match day added. Participants submit their availability once the competition is active.'),
     ]);
 
     expect(DB::table('competition_user')->where('user_id', $participant->id)->value('availability_submitted_at'))->toBeNull();
 })->with([CompetitionStatus::Draft, CompetitionStatus::Finished]);
 
-test('adding a match day without submitted availability keeps the plain message', function () {
+test('adding a match day without any participants keeps the plain message', function () {
+    $this->post(route('competitions.match-days.store', $this->competition), [
+        'date' => '2026-10-02',
+        'starts_at' => '09:00',
+        'ends_at' => '17:00',
+        'field_count' => 1,
+    ])->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Match day added.')]);
+});
+
+test('adding a match day counts a participant who never submitted', function () {
     $this->competition->participants()->attach(User::factory()->participant()->create());
 
     $this->post(route('competitions.match-days.store', $this->competition), [
@@ -230,5 +239,41 @@ test('adding a match day without submitted availability keeps the plain message'
         'starts_at' => '09:00',
         'ends_at' => '17:00',
         'field_count' => 1,
-    ])->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Match day added.')]);
+    ])->assertInertiaFlash('toast', [
+        'type' => 'success',
+        'message' => __('Match day added. :count participant still has to submit their availability.', ['count' => 1]),
+    ]);
+});
+
+test('a second match day still reports the participants who have to submit', function () {
+    $this->competition->participants()->attach(User::factory()->participant()->create(), ['availability_submitted_at' => now()]);
+    $this->competition->participants()->attach(User::factory()->participant()->create(), ['availability_submitted_at' => now()]);
+
+    $payload = ['starts_at' => '09:00', 'ends_at' => '17:00', 'field_count' => 1];
+
+    $this->post(route('competitions.match-days.store', $this->competition), [...$payload, 'date' => '2026-10-02']);
+
+    $this->post(route('competitions.match-days.store', $this->competition), [...$payload, 'date' => '2026-10-03'])
+        ->assertInertiaFlash('toast', [
+            'type' => 'success',
+            'message' => __('Match day added. :count participants still have to submit their availability.', ['count' => 2]),
+        ]);
+});
+
+test('the admin who adds the match day is not counted in the message', function () {
+    $admin = auth()->user();
+    $other = User::factory()->participant()->create();
+
+    $this->competition->participants()->attach($admin, ['availability_submitted_at' => now()]);
+    $this->competition->participants()->attach($other, ['availability_submitted_at' => now()]);
+
+    $this->post(route('competitions.match-days.store', $this->competition), [
+        'date' => '2026-10-02',
+        'starts_at' => '09:00',
+        'ends_at' => '17:00',
+        'field_count' => 1,
+    ])->assertInertiaFlash('toast', [
+        'type' => 'success',
+        'message' => __('Match day added. :count participant still has to submit their availability.', ['count' => 1]),
+    ]);
 });
