@@ -57,6 +57,10 @@ export default function ParticipantAvailability({
         (hasSubmitted || hasEarlierAnswers) &&
         (availabilityState === 'closed' || availabilityState === 'upcoming');
 
+    const newMatchDayCount = matchDays.filter(
+        (matchDay) => matchDay.is_new,
+    ).length;
+
     const readOnlyExplanation =
         availabilityState === 'not-participating' ||
         hasSubmitted ||
@@ -78,15 +82,20 @@ export default function ParticipantAvailability({
                         <p className="text-muted-foreground text-sm">
                             {hasSubmitted
                                 ? t('You can change this at any time.')
-                                : hasEarlierAnswers
+                                : newMatchDayCount === 1
                                   ? t(
-                                        'A match day was added to :competition. Check your availability and save it again to continue.',
+                                        'A match day was added to :competition. Check whether you can attend the new match day and save your availability again to continue.',
                                         { competition: competition.name },
                                     )
-                                  : t(
-                                        'You take part in :competition. Fill in your availability to continue.',
-                                        { competition: competition.name },
-                                    )}
+                                  : newMatchDayCount > 1
+                                    ? t(
+                                          'Match days were added to :competition. Check whether you can attend the new match days and save your availability again to continue.',
+                                          { competition: competition.name },
+                                      )
+                                    : t(
+                                          'You take part in :competition. Fill in your availability to continue.',
+                                          { competition: competition.name },
+                                      )}
                         </p>
                     ) : (
                         <p

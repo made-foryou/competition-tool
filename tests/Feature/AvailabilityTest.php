@@ -231,3 +231,54 @@ test('an admin who changes submitted availability stays on the form', function (
         ->put(route('competition.availability.update', $competition), ['match_days' => []])
         ->assertRedirect(route('competition.availability.edit', $competition));
 });
+
+test('a match day added after the last submission is marked as new', function () {
+    $this->put(route('competition.availability.update', $this->competition), [
+        'match_days' => [$this->firstDay->id],
+    ]);
+
+    $this->travel(1)->minute();
+
+    MatchDay::factory()->create(['competition_id' => $this->competition, 'date' => '2026-10-04']);
+    $this->competition->reopenAvailability();
+
+    $this->get(route('competition.availability.edit', $this->competition))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('matchDays', 3)
+            ->where('matchDays.0.is_new', false)
+            ->where('matchDays.1.is_new', false)
+            ->where('matchDays.2.is_new', true),
+        );
+});
+
+test('no match day is new before anything was ticked', function () {
+    $this->get(route('competition.availability.edit', $this->competition))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('matchDays.0.is_new', false)
+            ->where('matchDays.1.is_new', false),
+        );
+});
+
+test('saving again clears the new marking', function () {
+    $this->put(route('competition.availability.update', $this->competition), [
+        'match_days' => [$this->firstDay->id],
+    ]);
+
+    $this->travel(1)->minute();
+
+    $newDay = MatchDay::factory()->create(['competition_id' => $this->competition, 'date' => '2026-10-04']);
+    $this->competition->reopenAvailability();
+
+    $this->travel(1)->minute();
+
+    $this->put(route('competition.availability.update', $this->competition), [
+        'match_days' => [$this->firstDay->id, $newDay->id],
+    ]);
+
+    $this->get(route('competition.availability.edit', $this->competition))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('matchDays.0.is_new', false)
+            ->where('matchDays.1.is_new', false)
+            ->where('matchDays.2.is_new', false),
+        );
+});
