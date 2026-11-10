@@ -37,7 +37,8 @@ class CompetitionAvailabilityExportController extends Controller
      * een nieuwe speeldag (`Competition::reopenAvailability()`) opnieuw
      * gevraagd wordt, houdt zijn eerdere vinkjes. Een leeg vakje is pas "niet
      * beschikbaar" na een inzending; daarvoor is het "nog niet ingevuld". Zo
-     * leest de beheerder een ontbrekend vinkje niet als afgevallen. Totaal, matrix en planner tellen hetzelfde.
+     * leest de beheerder een ontbrekend vinkje niet als afgevallen. Totaal,
+     * matrix en planner tellen hetzelfde.
      */
     public function __invoke(Competition $competition): StreamedResponse
     {
