@@ -19,6 +19,16 @@ use Symfony\Component\HttpFoundation\Response;
 class EnsureAvailabilityIsSubmitted
 {
     /**
+     * Sessiesleutel met `['competition_id' => int, 'url' => string]`: de url
+     * van het Inertia-paginabezoek dat deze middleware onderschepte, gekoppeld
+     * aan de competitie waarvoor naar het formulier is geredirect. Zo keert
+     * `AvailabilityController::update()` na de eerste inzending terug naar
+     * waar de gebruiker heen wilde. Bewust niet `url.intended`: die is van de
+     * loginflow van Fortify.
+     */
+    public const string INTENDED_URL_SESSION_KEY = 'availability.intended_url';
+
+    /**
      * Routes die bereikbaar moeten blijven om het formulier in te vullen, om
      * je voor een andere competitie aan te melden, of om uit te loggen.
      *
@@ -86,19 +96,36 @@ class EnsureAvailabilityIsSubmitted
          * Daarom 303 bij niet-veilige methodes, zoals in
          * EnsureUserParticipatesInCompetition::redirectTo().
          */
-        return redirect()->route('competition.availability.edit', $competition, $request->isMethodSafe() ? 302 : 303);
+        $response = redirect()->route('competition.availability.edit', $competition, $request->isMethodSafe() ? 302 : 303);
+
+        /*
+         * Onthoud de onderschepte pagina voor na de eerste inzending. Alleen
+         * een Inertia-paginabezoek via GET: een JSON-, download- of andere
+         * niet-Inertia-url zou na de inzending als Inertia-response mislukken,
+         * een niet-GET-verzoek kunnen we niet terugspelen en een prefetch is
+         * geen bezoek en mag de bestemming niet overschrijven. De koppeling aan
+         * de competitie voorkomt dat een oude url in een andere flow opduikt.
+         */
+        if ($request->isMethod('GET') && $request->inertia() && ! $request->prefetch()) {
+            $request->session()->put(self::INTENDED_URL_SESSION_KEY, [
+                'competition_id' => $competition->id,
+                'url' => $request->fullUrl(),
+            ]);
+        }
+
+        return $response;
     }
 
     /**
-     * De eerstvolgende actieve competitie waarvoor de deelnemer nog niets heeft
-     * ingediend. Competities zonder speeldagen tellen niet mee: daar valt niets
-     * in te vullen.
+     * De eerstvolgende actieve competitie waarvoor de deelnemer (opnieuw)
+     * moet indienen: nooit ingediend, of ingediend vóór de nieuwste speeldag
+     * (`Competition::constrainToAwaitingAvailability()`). Competities zonder
+     * speeldagen tellen niet mee: daar valt niets in te vullen.
      */
     protected function competitionAwaitingAvailability(User $user): ?Competition
     {
-        return $user->competitions()
+        return Competition::constrainToAwaitingAvailability($user->competitions())
             ->where('competitions.status', CompetitionStatus::Active)
-            ->wherePivotNull('availability_submitted_at')
             ->whereHas('matchDays')
             ->orderByDesc('starts_at')
             ->first();

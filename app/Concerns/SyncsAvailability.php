@@ -13,7 +13,9 @@ use Illuminate\Support\Facades\DB;
  * match_day_availabilities betekent aanwezig; afwezigheid wordt niet apart
  * opgeslagen. Omdat een lege selectie dus nul rijen oplevert, markeert
  * availability_submitted_at op de koppeltabel dat de deelnemer het formulier
- * daadwerkelijk heeft ingediend.
+ * daadwerkelijk heeft ingediend. Die kolom is altijd het moment van de laatste
+ * inzending en wordt nooit geleegd. Actueel is een inzending die niet ouder is
+ * dan de nieuwste speeldag (`Competition::isCurrentSubmission()`).
  */
 trait SyncsAvailability
 {
@@ -51,7 +53,11 @@ trait SyncsAvailability
     /**
      * De speeldagen van deze competitie met de aanwezigheid van de deelnemer.
      *
-     * @return list<array{id: int, date: string, starts_at: string, ends_at: string, is_available: bool}>
+     * `is_new` volgt uit zijn inzendmoment: een speeldag die ná zijn laatste
+     * inzending is aangemaakt, is nieuw voor hem (`MatchDay::isNewSince()`),
+     * ook als die inzending leeg was. Zonder inzending is niets nieuw.
+     *
+     * @return list<array{id: int, date: string, starts_at: string, ends_at: string, is_available: bool, is_new: bool}>
      */
     protected function availabilityProps(User $user, Competition $competition): array
     {
@@ -59,6 +65,8 @@ trait SyncsAvailability
             ->where('user_id', $user->id)
             ->pluck('match_day_id')
             ->all();
+
+        $submittedAt = $user->availabilitySubmittedAtFor($competition);
 
         return array_values($competition->matchDays()
             ->get()
@@ -68,6 +76,7 @@ trait SyncsAvailability
                 'starts_at' => $matchDay->starts_at,
                 'ends_at' => $matchDay->ends_at,
                 'is_available' => in_array($matchDay->id, $available, true),
+                'is_new' => $matchDay->isNewSince($submittedAt),
             ])
             ->all());
     }

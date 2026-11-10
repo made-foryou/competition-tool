@@ -299,6 +299,52 @@ test('the edit page shows the availability of each participant', function () {
         );
 });
 
+test('the edit page lists the match days each participant has not filled in yet', function () {
+    actingAsAdmin();
+
+    $competition = Competition::factory()->create();
+    $firstDay = MatchDay::factory()->create(['competition_id' => $competition, 'date' => '2026-10-02']);
+    $secondDay = MatchDay::factory()->create(['competition_id' => $competition, 'date' => '2026-10-03']);
+
+    $resubmitted = User::factory()->participant()->create(['name' => 'Anna']);
+    $competition->participants()->attach($resubmitted, ['availability_submitted_at' => now()]);
+    MatchDayAvailability::factory()->create(['match_day_id' => $firstDay, 'user_id' => $resubmitted]);
+
+    $outdated = User::factory()->participant()->create(['name' => 'Bob']);
+    $competition->participants()->attach($outdated, ['availability_submitted_at' => now()]);
+    MatchDayAvailability::factory()->create(['match_day_id' => $firstDay, 'user_id' => $outdated]);
+
+    $never = User::factory()->participant()->create(['name' => 'Cleo']);
+    $competition->participants()->attach($never);
+
+    $empty = User::factory()->participant()->create(['name' => 'Dirk']);
+    $competition->participants()->attach($empty, ['availability_submitted_at' => now()]);
+
+    $this->travel(1)->minutes();
+    $newDay = MatchDay::factory()->create(['competition_id' => $competition, 'date' => '2026-10-04']);
+
+    // Alleen Anna dient na de nieuwe speeldag opnieuw in.
+    $competition->participants()->updateExistingPivot($resubmitted->id, ['availability_submitted_at' => now()]);
+
+    $this->get(route('competitions.edit', $competition))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('availability.0.name', 'Anna')
+            ->where('availability.0.submitted', true)
+            ->where('availability.0.unanswered_match_day_ids', [])
+            ->where('availability.1.name', 'Bob')
+            ->where('availability.1.submitted', false)
+            ->where('availability.1.unanswered_match_day_ids', [$newDay->id])
+            ->where('availability.2.name', 'Cleo')
+            ->where('availability.2.submitted', false)
+            ->where('availability.2.unanswered_match_day_ids', [$firstDay->id, $secondDay->id, $newDay->id])
+            ->where('availability.3.name', 'Dirk')
+            ->where('availability.3.submitted', false)
+            ->where('availability.3.unanswered_match_day_ids', [$newDay->id])
+            ->where('availabilityReminder.pending_count', 3),
+        );
+});
+
 test('the edit page shows the competition type and its synced matches', function () {
     actingAsAdmin();
 

@@ -231,3 +231,75 @@ test('an admin who changes submitted availability stays on the form', function (
         ->put(route('competition.availability.update', $competition), ['match_days' => []])
         ->assertRedirect(route('competition.availability.edit', $competition));
 });
+
+test('a match day added after the last submission is marked as new', function () {
+    $this->put(route('competition.availability.update', $this->competition), [
+        'match_days' => [$this->firstDay->id],
+    ]);
+
+    $this->travel(1)->minute();
+
+    MatchDay::factory()->create(['competition_id' => $this->competition, 'date' => '2026-10-04']);
+
+    $this->get(route('competition.availability.edit', $this->competition))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('matchDays', 3)
+            ->where('matchDays.0.is_new', false)
+            ->where('matchDays.1.is_new', false)
+            ->where('matchDays.2.is_new', true),
+        );
+});
+
+test('a participant who submitted an empty form sees the added match day as new', function () {
+    $this->put(route('competition.availability.update', $this->competition), ['match_days' => []]);
+
+    $this->travel(1)->minutes();
+
+    MatchDay::factory()->create(['competition_id' => $this->competition, 'date' => '2026-10-04']);
+
+    $this->get(route('competition.availability.edit', $this->competition))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('matchDays.0.is_new', false)
+            ->where('matchDays.1.is_new', false)
+            ->where('matchDays.2.is_new', true)
+            ->where('hasSubmitted', false)
+            ->where('hasSubmittedBefore', true),
+        );
+});
+
+test('a participant who never submitted sees no match day as new', function () {
+    $user = User::factory()->participant()->create();
+    $this->competition->participants()->attach($user);
+
+    $this->actingAs($user)
+        ->get(route('competition.availability.edit', $this->competition))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('matchDays.0.is_new', false)
+            ->where('matchDays.1.is_new', false)
+            ->where('hasSubmitted', false)
+            ->where('hasSubmittedBefore', false),
+        );
+});
+
+test('saving again clears the new marking', function () {
+    $this->put(route('competition.availability.update', $this->competition), [
+        'match_days' => [$this->firstDay->id],
+    ]);
+
+    $this->travel(1)->minute();
+
+    $newDay = MatchDay::factory()->create(['competition_id' => $this->competition, 'date' => '2026-10-04']);
+
+    $this->travel(1)->minute();
+
+    $this->put(route('competition.availability.update', $this->competition), [
+        'match_days' => [$this->firstDay->id, $newDay->id],
+    ]);
+
+    $this->get(route('competition.availability.edit', $this->competition))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('matchDays.0.is_new', false)
+            ->where('matchDays.1.is_new', false)
+            ->where('matchDays.2.is_new', false),
+        );
+});

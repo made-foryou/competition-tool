@@ -14,7 +14,10 @@ type AvailabilityState = 'open' | 'upcoming' | 'closed' | 'not-participating';
 type Props = {
     competition: { name: string; slug: string };
     matchDays: MatchDayOption[];
+    /** De laatste inzending is actueel: er kwam daarna geen speeldag bij. */
     hasSubmitted: boolean;
+    /** Er is ooit ingediend, ook als dat leeg was of niet meer actueel is. */
+    hasSubmittedBefore: boolean;
     availabilityState: AvailabilityState;
 };
 
@@ -22,6 +25,7 @@ export default function ParticipantAvailability({
     competition,
     matchDays,
     hasSubmitted,
+    hasSubmittedBefore,
     availabilityState,
 }: Props) {
     const { t } = useTranslations();
@@ -42,15 +46,24 @@ export default function ParticipantAvailability({
     };
 
     // De uitleg over de competitiestatus klopt alleen als er ook echt een
-    // ingevulde lijst onder staat. Zonder inzending tonen we die regel dus
-    // niet, maar de melding dat er niets is ingevuld.
+    // ingevulde lijst onder staat. Wie ooit heeft ingediend, heeft die lijst:
+    // ook een lege inzending of een inzending van vóór een nieuwe speeldag is
+    // een antwoord, en nieuwe speeldagen staan daarin als "nog niet ingevuld".
+    // Zonder ooit in te dienen tonen we de melding dat er niets is ingevuld.
     const showMatchDays =
         !isOpen &&
-        hasSubmitted &&
+        hasSubmittedBefore &&
         (availabilityState === 'closed' || availabilityState === 'upcoming');
 
+    // Speeldagen die na de laatste inzending zijn bijgekomen. Alleen relevant
+    // als de inzending niet meer actueel is: dan legt de open staat uit dat er
+    // opnieuw opgeslagen moet worden.
+    const newMatchDayCount = matchDays.filter(
+        (matchDay) => matchDay.is_new,
+    ).length;
+
     const readOnlyExplanation =
-        availabilityState === 'not-participating' || hasSubmitted
+        availabilityState === 'not-participating' || hasSubmittedBefore
             ? explanationByState[availabilityState]
             : t('You did not fill in your availability for this competition.');
 
@@ -68,10 +81,20 @@ export default function ParticipantAvailability({
                         <p className="text-muted-foreground text-sm">
                             {hasSubmitted
                                 ? t('You can change this at any time.')
-                                : t(
-                                      'You take part in :competition. Fill in your availability to continue.',
-                                      { competition: competition.name },
-                                  )}
+                                : newMatchDayCount === 1
+                                  ? t(
+                                        'A match day was added to :competition. Check whether you can attend the new match day and save your availability again to continue.',
+                                        { competition: competition.name },
+                                    )
+                                  : newMatchDayCount > 1
+                                    ? t(
+                                          'Match days were added to :competition. Check whether you can attend the new match days and save your availability again to continue.',
+                                          { competition: competition.name },
+                                      )
+                                    : t(
+                                          'You take part in :competition. Fill in your availability to continue.',
+                                          { competition: competition.name },
+                                      )}
                         </p>
                     ) : (
                         <p

@@ -121,6 +121,11 @@ export default function MatchDayManager({
                 submitLabel={t('Add match day')}
                 className="flex max-w-xl flex-col gap-4 rounded-xl border p-4"
             />
+            <p className="text-muted-foreground max-w-xl text-sm">
+                {t(
+                    'After you add a match day, all participants have to submit their availability again. Earlier answers are kept.',
+                )}
+            </p>
         </section>
     );
 }

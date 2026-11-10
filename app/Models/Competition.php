@@ -9,12 +9,15 @@ use App\Support\CompetitionSettings;
 use Carbon\CarbonInterface;
 use Database\Factories\CompetitionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Date;
 
 /**
  * @property int $id
@@ -130,6 +133,79 @@ class Competition extends Model
     public function hasParticipant(User $user): bool
     {
         return $this->participants()->whereKey($user->getKey())->exists();
+    }
+
+    /**
+     * Het moment waarop de nieuwste speeldag van deze competitie is
+     * aangemaakt, of `null` zonder speeldagen. Een inzending die ouder is,
+     * telt niet meer als actueel (`isCurrentSubmission()`).
+     */
+    public function latestMatchDayCreatedAt(): ?CarbonInterface
+    {
+        $latest = MatchDay::query()
+            ->where('competition_id', $this->id)
+            ->max('created_at');
+
+        return $latest === null ? null : Date::parse($latest);
+    }
+
+    /**
+     * Of een inzending van de beschikbaarheid nog actueel is: er is ingediend
+     * en er is daarna geen speeldag meer bijgekomen. `availability_submitted_at`
+     * wordt nooit geleegd; een nieuwe speeldag maakt een oudere inzending
+     * vanzelf niet-actueel, en het verwijderen van die speeldag herstelt dat.
+     *
+     * `>=` en niet `>`: een inzending in dezelfde seconde als het aanmaken van
+     * de nieuwste speeldag blijft geldig. Tijdstempels hebben secondeprecisie,
+     * dus binnen die seconde valt de volgorde niet te bepalen.
+     *
+     * Dezelfde regel, in SQL: `constrainToAwaitingAvailability()`.
+     */
+    public static function isCurrentSubmission(?CarbonInterface $submittedAt, ?CarbonInterface $latestMatchDayCreatedAt): bool
+    {
+        return $submittedAt !== null
+            && ($latestMatchDayCreatedAt === null || $submittedAt->greaterThanOrEqualTo($latestMatchDayCreatedAt));
+    }
+
+    /**
+     * Beperkt een relatie over de koppeltabel `competition_user` tot de
+     * deelnames waarvoor (opnieuw) beschikbaarheid ingediend moet worden: er
+     * is nooit ingediend, of de inzending is ouder dan de nieuwste speeldag
+     * van die competitie. Werkt voor `$user->competitions()` en
+     * `$competition->participants()`, omdat de subquery via
+     * `competition_user.competition_id` correleert.
+     *
+     * Strikt kleiner dan (`<`): een inzending in dezelfde seconde als de
+     * nieuwste speeldag blijft geldig. Zonder speeldagen levert de subquery
+     * `NULL` op en is `x < NULL` in SQL nooit waar, dus dan moet alleen wie
+     * nooit indiende nog iets doen.
+     *
+     * Dezelfde regel, in PHP: `isCurrentSubmission()`.
+     *
+     * @template TRelation of BelongsToMany<*, *, *, *>
+     *
+     * @param  TRelation  $query
+     * @return TRelation
+     */
+    public static function constrainToAwaitingAvailability(BelongsToMany $query): BelongsToMany
+    {
+        return $query->where(fn (Builder $pending) => $pending
+            ->whereNull('competition_user.availability_submitted_at')
+            ->orWhere('competition_user.availability_submitted_at', '<', fn (QueryBuilder $latestMatchDay) => $latestMatchDay
+                ->selectRaw('max(match_days.created_at)')
+                ->from('match_days')
+                ->whereColumn('match_days.competition_id', 'competition_user.competition_id')));
+    }
+
+    /**
+     * Het inzendmoment zoals het van de koppeltabel komt, als datum.
+     * `competition_user` heeft geen pivot-model met casts, dus de ruwe waarde
+     * is een string of `null`. Alle code die het moment in PHP nodig heeft,
+     * parst het hiermee.
+     */
+    public static function availabilitySubmittedAtFromPivot(?string $value): ?CarbonInterface
+    {
+        return $value === null ? null : Date::parse($value);
     }
 
     /**

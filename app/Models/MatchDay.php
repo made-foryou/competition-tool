@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Concerns\FormatsClockTime;
 use App\Enums\MatchStatus;
+use Carbon\CarbonInterface;
 use Database\Factories\MatchDayFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -92,6 +93,21 @@ class MatchDay extends Model
     public function matches(): HasMany
     {
         return $this->hasMany(CompetitionMatch::class)->orderBy('starts_at')->orderBy('match_day_field_id')->orderBy('id');
+    }
+
+    /**
+     * Of deze speeldag is aangemaakt ná de laatste inzending van de
+     * deelnemer. `$submittedAt` is zijn `availability_submitted_at` in deze
+     * competitie, dat nooit geleegd wordt; ook na een lege inzending is een
+     * latere speeldag dus nieuw. Zonder inzending (`null`) is niets nieuw:
+     * dan is elke speeldag nog niet ingevuld.
+     *
+     * Strikt groter dan: een speeldag uit dezelfde seconde als de inzending
+     * is niet nieuw, net als bij `Competition::isCurrentSubmission()`.
+     */
+    public function isNewSince(?CarbonInterface $submittedAt): bool
+    {
+        return $submittedAt !== null && $this->created_at?->greaterThan($submittedAt) === true;
     }
 
     /**

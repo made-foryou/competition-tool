@@ -1,5 +1,6 @@
 import { usePage } from '@inertiajs/react';
-import { Check, Minus } from 'lucide-react';
+import { Check, CircleDashed, Minus } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { useTranslations } from '@/hooks/use-translations';
 import { formatDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -10,6 +11,8 @@ export type MatchDayOption = {
     starts_at: string;
     ends_at: string;
     is_available?: boolean;
+    /** Speeldag die na de laatste inzending van de deelnemer is bijgekomen. */
+    is_new?: boolean;
 };
 
 type Props = {
@@ -89,13 +92,17 @@ export default function MatchDayChecklist({
                             <div className="flex items-center gap-3 p-3">
                                 {isAvailable ? (
                                     <Check className="size-4 shrink-0" />
+                                ) : matchDay.is_new ? (
+                                    <CircleDashed className="text-muted-foreground size-4 shrink-0" />
                                 ) : (
                                     <Minus className="text-muted-foreground size-4 shrink-0" />
                                 )}
                                 <span className="sr-only">
                                     {isAvailable
                                         ? t('Available')
-                                        : t('Not available')}
+                                        : matchDay.is_new
+                                          ? t('Not filled in yet')
+                                          : t('Not available')}
                                 </span>
                                 {details}
                             </div>
@@ -109,6 +116,14 @@ export default function MatchDayChecklist({
                                     className="size-4 shrink-0"
                                 />
                                 {details}
+                                {matchDay.is_new && (
+                                    <Badge
+                                        variant="secondary"
+                                        className="ml-auto"
+                                    >
+                                        {t('New')}
+                                    </Badge>
+                                )}
                             </label>
                         )}
                     </li>

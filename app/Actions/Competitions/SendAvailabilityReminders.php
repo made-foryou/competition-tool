@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Notification;
 
 /**
  * Verstuurt een beschikbaarheidsherinnering naar alle deelnemers van een
- * competitie die hun beschikbaarheid nog niet hebben ingediend, en legt vast
+ * competitie die hun beschikbaarheid (opnieuw) moeten indienen, en legt vast
  * wanneer die ronde verstuurd is.
  *
  * Het venster van 24 uur wordt hier geclaimd met één voorwaardelijke UPDATE

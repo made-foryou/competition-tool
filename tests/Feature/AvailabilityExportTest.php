@@ -185,26 +185,31 @@ test('a name with a semicolon or a quote stays intact in its own column', functi
     expect($rows[1])->toBe(['De Vries; "Piet"', 'Niet beschikbaar']);
 });
 
-test('a participant with leftover availability but no submission is not counted', function () {
+test('a participant who is asked again keeps their earlier answers in the export', function () {
     $competition = Competition::factory()->create();
     $firstDay = MatchDay::factory()->create(['competition_id' => $competition, 'date' => '2026-10-02']);
     MatchDay::factory()->create(['competition_id' => $competition, 'date' => '2026-10-03']);
 
-    // Bereikbaar via verwijderen en opnieuw toevoegen van een deelnemer: de
-    // beschikbaarheidsrijen blijven staan, het indienmoment verdwijnt.
+    // De deelnemer heeft ingediend: één dag aangevinkt, één bewust leeg.
     $participant = User::factory()->participant()->create(['name' => 'Anna']);
-    $competition->participants()->attach($participant);
+    $competition->participants()->attach($participant, ['availability_submitted_at' => now()]);
     MatchDayAvailability::factory()->create([
         'match_day_id' => $firstDay,
         'user_id' => $participant,
     ]);
 
+    // Een nieuwe speeldag erbij vraagt hem opnieuw: de vinkjes blijven staan,
+    // het bewuste nee blijft "niet beschikbaar" en alleen de nieuwe dag is
+    // "nog niet ingevuld".
+    $this->travel(1)->minutes();
+    MatchDay::factory()->create(['competition_id' => $competition, 'date' => '2026-10-04']);
+
     $rows = availabilityExportRows(
         $this->get(route('competitions.availability.export', $competition))->streamedContent(),
     );
 
-    expect($rows[1])->toBe(['Anna', 'Nog niet ingevuld', 'Nog niet ingevuld'])
-        ->and(end($rows))->toBe(['Aantal beschikbaar', '0', '0']);
+    expect($rows[1])->toBe(['Anna', 'Beschikbaar', 'Niet beschikbaar', 'Nog niet ingevuld'])
+        ->and(end($rows))->toBe(['Aantal beschikbaar', '1', '0', '0']);
 });
 
 test('a participant who submitted an empty form is not available on any match day', function () {
