@@ -5,8 +5,10 @@ namespace App\Enums;
 /**
  * De status van een wedstrijd. `Pending` wedstrijden mogen door de
  * deelnemers-sync verwijderd en herverdeeld worden; zodra een wedstrijd
- * `Played` is (uitslag geregistreerd, registratie zelf volgt in een later
- * issue) blijft hij onaantastbaar voor die sync.
+ * `Played` is (uitslag geregistreerd) blijft hij onaantastbaar voor die sync.
+ *
+ * De uitslag wordt geregistreerd via `RecordMatchResult`, die de wedstrijd op
+ * `Played` zet; `ClearMatchResult` zet hem weer terug op `Pending`.
  */
 enum MatchStatus: string
 {

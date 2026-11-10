@@ -5,6 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { useTranslations } from '@/hooks/use-translations';
 
@@ -16,6 +23,8 @@ export type CompetitionSettingsProps = {
     use_pools: boolean;
     pool_size: number | null;
     max_matches_per_player_per_day: number;
+    /** Het maximale aantal games per wedstrijd. */
+    best_of: number;
 };
 
 export type CompetitionSettingsLimits = {
@@ -25,17 +34,29 @@ export type CompetitionSettingsLimits = {
     break_duration_minutes: { min: number; max: number };
     pool_size: { min: number; max: number; default: number };
     max_matches_per_player_per_day: { min: number; max: number };
+    best_of: { options: number[]; default: number };
 };
 
 type Props = {
     settings: CompetitionSettingsProps;
     limits: CompetitionSettingsLimits;
+    /**
+     * Waar zodra er een uitslag is: dan ligt het wedstrijdformat vast, omdat
+     * de bestaande uitslagen anders niet meer bij het format passen.
+     */
+    matchFormatLocked: boolean;
     action: string;
 };
+
+/** Het aantal games dat de winnaar nodig heeft: de helft plus één. */
+function gamesToWin(bestOf: number): number {
+    return Math.floor(bestOf / 2) + 1;
+}
 
 export default function CompetitionSettingsForm({
     settings,
     limits,
+    matchFormatLocked,
     action,
 }: Props) {
     const { t } = useTranslations();
@@ -43,6 +64,17 @@ export default function CompetitionSettingsForm({
     const [poolSize, setPoolSize] = useState(
         String(settings.pool_size ?? limits.pool_size.default),
     );
+    const [bestOf, setBestOf] = useState(String(settings.best_of));
+
+    const games = gamesToWin(Number(bestOf));
+    const winnerHint =
+        games === 1
+            ? t('The winner is the first player to win :games game.', {
+                  games,
+              })
+            : t('The winner is the first player to win :games games.', {
+                  games,
+              });
 
     return (
         <Form
@@ -52,10 +84,106 @@ export default function CompetitionSettingsForm({
         >
             {({ processing, errors }) => (
                 <>
+                    {/* Het format staat vóór Timing: het is de meest
+                    fundamentele eigenschap van een wedstrijd, en de
+                    wedstrijdduur hieronder hangt ervan af. */}
+                    <div className="flex flex-col gap-3">
+                        <h3 className="text-sm font-medium">
+                            {t('Match format')}
+                        </h3>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            {matchFormatLocked ? (
+                                <div className="grid gap-2">
+                                    {/* Vergrendeld is er niets te kiezen,
+                                    dus geen uitgeschakelde Select maar de
+                                    waarde als tekst. Die komt uit de prop:
+                                    dat is wat de server heeft, en precies
+                                    wat de verborgen input meestuurt (de
+                                    server vereist `best_of` altijd). */}
+                                    <input
+                                        type="hidden"
+                                        name="best_of"
+                                        value={settings.best_of}
+                                    />
+                                    <dl className="grid gap-2">
+                                        <Label asChild>
+                                            <dt>{t('Format')}</dt>
+                                        </Label>
+                                        <dd className="text-sm">
+                                            {t('Best of :count', {
+                                                count: settings.best_of,
+                                            })}
+                                        </dd>
+                                    </dl>
+                                    <InputError
+                                        id="best_of-error"
+                                        message={errors.best_of}
+                                    />
+                                    <p className="text-muted-foreground text-sm">
+                                        {t(
+                                            'The match format is locked once a result has been entered. To change it, first clear all results on the Matches tab.',
+                                        )}
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="grid gap-2">
+                                    <Label htmlFor="best_of">
+                                        {t('Format')}
+                                    </Label>
+                                    <Select
+                                        name="best_of"
+                                        value={bestOf}
+                                        onValueChange={setBestOf}
+                                    >
+                                        <SelectTrigger
+                                            id="best_of"
+                                            className="w-full"
+                                            aria-invalid={!!errors.best_of}
+                                            aria-describedby={[
+                                                errors.best_of
+                                                    ? 'best_of-error'
+                                                    : null,
+                                                'best_of-hint',
+                                            ]
+                                                .filter(Boolean)
+                                                .join(' ')}
+                                        >
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {limits.best_of.options.map(
+                                                (option) => (
+                                                    <SelectItem
+                                                        key={option}
+                                                        value={String(option)}
+                                                    >
+                                                        {t('Best of :count', {
+                                                            count: option,
+                                                        })}
+                                                    </SelectItem>
+                                                ),
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError
+                                        id="best_of-error"
+                                        message={errors.best_of}
+                                    />
+                                    <p
+                                        id="best_of-hint"
+                                        className="text-muted-foreground text-sm"
+                                    >
+                                        {winnerHint}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
                     <div className="rounded-xl border p-4">
                         <p className="text-muted-foreground text-sm">
                             {t(
-                                'Changes only affect matches that have not been scheduled yet.',
+                                'Changes to timing, player load and pools only affect matches that have not been scheduled yet.',
                             )}
                         </p>
                     </div>

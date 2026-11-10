@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\CompetitionStatus;
 use App\Enums\CompetitionType;
+use App\Enums\MatchStatus;
 use App\Support\CompetitionSettings;
 use Carbon\CarbonInterface;
 use Database\Factories\CompetitionFactory;
@@ -153,6 +154,15 @@ class Competition extends Model
     public function matches(): HasMany
     {
         return $this->hasMany(CompetitionMatch::class)->orderBy('id');
+    }
+
+    /**
+     * Of er al minstens één uitslag geregistreerd is. Bepaalt o.a. dat het
+     * wedstrijdformat vergrendeld is.
+     */
+    public function hasResults(): bool
+    {
+        return $this->matches()->where('status', MatchStatus::Played->value)->exists();
     }
 
     /**

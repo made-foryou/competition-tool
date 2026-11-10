@@ -40,6 +40,14 @@ test('only an active competition allows scheduling', function () {
         ->and(CompetitionStatus::Finished->allowsScheduling())->toBeFalse();
 });
 
+test('only an active competition allows result changes', function (CompetitionStatus $status, bool $allowsResultChanges) {
+    expect($status->allowsResultChanges())->toBe($allowsResultChanges);
+})->with([
+    'draft' => [CompetitionStatus::Draft, false],
+    'active' => [CompetitionStatus::Active, true],
+    'finished' => [CompetitionStatus::Finished, false],
+]);
+
 test('deleting a competition removes the pivot rows but keeps the users', function () {
     $competition = Competition::factory()->create();
     $user = User::factory()->participant()->create();

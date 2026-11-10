@@ -38,13 +38,15 @@ class CompetitionMatchFactory extends Factory
     /**
      * Sorteert de twee user-ids zodat de factory altijd canonieke paren
      * bouwt (laagste id als first player), ook als een test de ids in
-     * omgekeerde volgorde meegeeft.
+     * omgekeerde volgorde meegeeft. De scores wisselen mee, net als in de
+     * `saving`-hook van het model: een score hoort bij zijn speler.
      */
     public function configure(): static
     {
         return $this->afterMaking(function (CompetitionMatch $match): void {
             if ($match->first_player_id > $match->second_player_id) {
                 [$match->first_player_id, $match->second_player_id] = [$match->second_player_id, $match->first_player_id];
+                [$match->first_player_score, $match->second_player_score] = [$match->second_player_score, $match->first_player_score];
             }
         });
     }

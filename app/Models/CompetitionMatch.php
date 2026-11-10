@@ -17,15 +17,16 @@ use InvalidArgumentException;
  * Eén wedstrijd tussen twee deelnemers binnen een competitie. De
  * wedstrijdenlijst wordt gegenereerd en gesynchroniseerd op basis van het
  * competitietype (zie CompetitionType); een gespeelde wedstrijd (status
- * Played) wordt door die sync nooit verwijderd. Het registreren van
- * uitslagen zelf volgt in een later issue — de score-kolommen liggen hier
- * alvast klaar. Speeldag, tafel en tijden worden gevuld door de planner (zie
- * `ScheduleCompetitionMatches`, later issue) via de query builder.
+ * Played) wordt door die sync nooit verwijderd. Uitslagen worden
+ * geregistreerd door `RecordMatchResult` en weer gewist door
+ * `ClearMatchResult`. Speeldag, tafel en tijden worden gevuld door de planner
+ * (zie `ScheduleCompetitionMatches`) via de query builder.
  *
- * Alleen de score-kolommen zijn fillable: dat is de verdediging voor het
- * toekomstige uitslagen-issue, zodat request-invoer nooit per ongeluk de
- * competitie- of spelerskoppeling, de planning of het vastzetten kan
- * overschrijven. De sync en de planner schrijven via insertOrIgnore/de query
+ * Alleen de score-kolommen zijn fillable: dat is de verdediging voor
+ * `RecordMatchResult` en `ClearMatchResult`, zodat request-invoer nooit per
+ * ongeluk de competitie- of spelerskoppeling, de status, de planning of het
+ * vastzetten kan overschrijven. De status zetten die actions zelf, als losse
+ * toewijzing. De sync en de planner schrijven via insertOrIgnore/de query
  * builder en factories omzeilen de guarding, dus die raken deze beperking
  * niet.
  *
@@ -77,10 +78,17 @@ class CompetitionMatch extends Model
      * als first player) vóór het opslaan. De unique-index op
      * (competition_id, first_player_id, second_player_id) kan spiegelparen
      * (A-B naast B-A) namelijk niet uitsluiten; deze hook garandeert de
-     * canoniciteit voor alle toekomstige schrijvers via het model (zoals het
-     * latere uitslagen-issue). Let op: SyncCompetitionMatches schrijft via
-     * insertOrIgnore en raakt deze model-events dus niet — dat is oké, want
-     * de sync bouwt zijn paren zelf al canoniek op.
+     * canoniciteit voor alle schrijvers via het model, zoals
+     * `RecordMatchResult` en `ClearMatchResult`. Let op:
+     * SyncCompetitionMatches schrijft via insertOrIgnore en raakt deze
+     * model-events dus niet — dat is oké, want de sync bouwt zijn paren zelf
+     * al canoniek op.
+     *
+     * Wisselt de hook de spelers om, dan wisselen de scores in hetzelfde blok
+     * mee. Een score hoort bij een speler, niet bij een kolom: zonder die
+     * tweede wissel zou een score die voor speler X is ingevoerd bij zijn
+     * tegenstander belanden zodra een niet-canonieke rij via het model wordt
+     * opgeslagen.
      */
     protected static function booted(): void
     {
@@ -91,6 +99,7 @@ class CompetitionMatch extends Model
 
             if ($match->first_player_id > $match->second_player_id) {
                 [$match->first_player_id, $match->second_player_id] = [$match->second_player_id, $match->first_player_id];
+                [$match->first_player_score, $match->second_player_score] = [$match->second_player_score, $match->first_player_score];
             }
         });
     }

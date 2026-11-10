@@ -22,6 +22,7 @@ function settings(int $duration = 20, int $buffer = 5, int $rest = 10, int $brea
         usePools: false,
         poolSize: null,
         maxMatchesPerPlayerPerDay: $max,
+        bestOf: CompetitionSettings::DEFAULT_BEST_OF,
     );
 }
 
