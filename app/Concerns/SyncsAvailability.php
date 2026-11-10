@@ -85,7 +85,7 @@ trait SyncsAvailability
                 'starts_at' => $matchDay->starts_at,
                 'ends_at' => $matchDay->ends_at,
                 'is_available' => in_array($matchDay->id, $available, true),
-                'is_new' => $lastAnsweredAt !== null && $matchDay->created_at?->greaterThan($lastAnsweredAt) === true,
+                'is_new' => $matchDay->isNewSince($lastAnsweredAt),
             ])
             ->all());
     }

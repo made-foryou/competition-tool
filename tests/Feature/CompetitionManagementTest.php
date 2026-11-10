@@ -299,6 +299,43 @@ test('the edit page shows the availability of each participant', function () {
         );
 });
 
+test('the edit page lists the match days each participant has not filled in yet', function () {
+    actingAsAdmin();
+
+    $competition = Competition::factory()->create();
+    $firstDay = MatchDay::factory()->create(['competition_id' => $competition]);
+    $secondDay = MatchDay::factory()->create(['competition_id' => $competition]);
+
+    $submitted = User::factory()->participant()->create(['name' => 'Anna']);
+    $competition->participants()->attach($submitted, ['availability_submitted_at' => now()]);
+    MatchDayAvailability::factory()->create(['match_day_id' => $firstDay, 'user_id' => $submitted]);
+
+    $reopened = User::factory()->participant()->create(['name' => 'Bob']);
+    $competition->participants()->attach($reopened, ['availability_submitted_at' => now()]);
+    MatchDayAvailability::factory()->create(['match_day_id' => $firstDay, 'user_id' => $reopened]);
+
+    $never = User::factory()->participant()->create(['name' => 'Cleo']);
+    $competition->participants()->attach($never);
+
+    $this->travel(1)->minutes();
+    $newDay = MatchDay::factory()->create(['competition_id' => $competition]);
+
+    // De reset heropent iedereen; Anna dient daarna opnieuw in.
+    $competition->reopenAvailability();
+    $competition->participants()->updateExistingPivot($submitted->id, ['availability_submitted_at' => now()]);
+
+    $this->get(route('competitions.edit', $competition))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('availability.0.name', 'Anna')
+            ->where('availability.0.unanswered_match_day_ids', [])
+            ->where('availability.1.name', 'Bob')
+            ->where('availability.1.unanswered_match_day_ids', [$newDay->id])
+            ->where('availability.2.name', 'Cleo')
+            ->where('availability.2.unanswered_match_day_ids', [$firstDay->id, $secondDay->id, $newDay->id]),
+        );
+});
+
 test('the edit page shows the competition type and its synced matches', function () {
     actingAsAdmin();
 

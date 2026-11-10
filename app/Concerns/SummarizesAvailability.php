@@ -3,6 +3,7 @@
 namespace App\Concerns;
 
 use App\Models\Competition;
+use App\Models\MatchDay;
 use App\Models\MatchDayAvailability;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
@@ -19,11 +20,20 @@ trait SummarizesAvailability
      * Per deelnemer op welke speeldagen hij beschikbaar is, plus of hij het
      * formulier uberhaupt al heeft ingediend.
      *
-     * @return list<array{id: int, name: string, submitted: bool, match_day_ids: list<int>}>
+     * `unanswered_match_day_ids` is de ene regel voor "nog niet ingevuld", die
+     * matrix, CSV en de alleen-lezenlijst delen: een speeldag is dat als de
+     * deelnemer hem niet heeft aangevinkt, niet heeft ingediend en óf geen
+     * enkel antwoord in deze competitie heeft óf de speeldag heeft gekregen na
+     * zijn laatste antwoord (`MatchDay::isNewSince()`). Elke andere niet
+     * aangevinkte speeldag is "niet beschikbaar". Het laatste antwoord volgt
+     * uit de al opgehaalde rijen, dus dit kost geen extra query per deelnemer.
+     *
+     * @return list<array{id: int, name: string, submitted: bool, match_day_ids: list<int>, unanswered_match_day_ids: list<int>}>
      */
     protected function availabilityRows(Competition $competition): array
     {
-        $matchDayIds = $competition->matchDays()->pluck('id');
+        $matchDays = $competition->matchDays()->get(['id', 'created_at']);
+        $matchDayIds = $matchDays->pluck('id');
 
         $availableByUser = MatchDayAvailability::query()
             ->whereIn('match_day_id', $matchDayIds)
@@ -39,14 +49,24 @@ trait SummarizesAvailability
         return array_values($competition->participants()
             ->orderByRaw('COALESCE(NULLIF(users.nickname, ?), users.name)', [''])
             ->get()
-            ->map(fn (User $user): array => [
-                'id' => $user->id,
-                'name' => $user->display_name,
-                'submitted' => in_array($user->id, $submittedUserIds, true),
-                'match_day_ids' => array_values($availableByUser->get($user->id, collect())
-                    ->pluck('match_day_id')
-                    ->all()),
-            ])
+            ->map(function (User $user) use ($availableByUser, $submittedUserIds, $matchDays): array {
+                $answers = $availableByUser->get($user->id, collect());
+                $submitted = in_array($user->id, $submittedUserIds, true);
+                $matchDayIdsChecked = $answers->pluck('match_day_id')->all();
+                $lastAnsweredAt = $answers->max('created_at');
+
+                return [
+                    'id' => $user->id,
+                    'name' => $user->display_name,
+                    'submitted' => $submitted,
+                    'match_day_ids' => array_values($matchDayIdsChecked),
+                    'unanswered_match_day_ids' => $submitted ? [] : array_values($matchDays
+                        ->filter(fn (MatchDay $matchDay): bool => ! in_array($matchDay->id, $matchDayIdsChecked, true)
+                            && ($answers->isEmpty() || $matchDay->isNewSince($lastAnsweredAt)))
+                        ->pluck('id')
+                        ->all()),
+                ];
+            })
             ->all());
     }
 

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Concerns\FormatsClockTime;
 use App\Enums\MatchStatus;
+use Carbon\CarbonInterface;
 use Database\Factories\MatchDayFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -92,6 +93,18 @@ class MatchDay extends Model
     public function matches(): HasMany
     {
         return $this->hasMany(CompetitionMatch::class)->orderBy('starts_at')->orderBy('match_day_field_id')->orderBy('id');
+    }
+
+    /**
+     * Of deze speeldag is aangemaakt nadat de deelnemer voor het laatst zijn
+     * beschikbaarheid doorgaf. `$lastAnsweredAt` is de nieuwste `created_at`
+     * van zijn `match_day_availabilities` in deze competitie, want
+     * `SyncsAvailability::syncAvailability()` schrijft bij elke inzending alle
+     * rijen opnieuw. Zonder antwoorden (`null`) is niets nieuw.
+     */
+    public function isNewSince(?CarbonInterface $lastAnsweredAt): bool
+    {
+        return $lastAnsweredAt !== null && $this->created_at?->greaterThan($lastAnsweredAt) === true;
     }
 
     /**

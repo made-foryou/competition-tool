@@ -32,13 +32,14 @@ class CompetitionAvailabilityExportController extends Controller
      * accenten of een 'ij' uit een andere bron verminkt in beeld komen. Met
      * beide is het bestand met dubbelklikken direct goed leesbaar.
      *
-     * Eén regel, gelijk aan de matrix op het scherm en aan de planner: een
-     * vinkje is een antwoord, ook zonder inzendmoment. Een deelnemer die door
-     * een nieuwe speeldag (`Competition::reopenAvailability()`) opnieuw
-     * gevraagd wordt, houdt zijn eerdere vinkjes. Een leeg vakje is pas "niet
-     * beschikbaar" na een inzending; daarvoor is het "nog niet ingevuld". Zo
-     * leest de beheerder een ontbrekend vinkje niet als afgevallen. Totaal,
-     * matrix en planner tellen hetzelfde.
+     * Eén regel, gelijk aan de matrix op het scherm en aan de alleen-lezenlijst
+     * van de deelnemer: een vinkje is "Beschikbaar", ook zonder inzendmoment.
+     * Een niet-aangevinkte speeldag is "Nog niet ingevuld" als de deelnemer niet
+     * heeft ingediend en óf nog niets heeft ingevuld óf de speeldag na zijn
+     * laatste antwoord is aangemaakt (`MatchDay::isNewSince()`, via
+     * `unanswered_match_day_ids`). Elke andere lege speeldag is "Niet
+     * beschikbaar": daar heeft de deelnemer eerder bewust nee gezegd. De
+     * totaalrij telt alle vinkjes.
      */
     public function __invoke(Competition $competition): StreamedResponse
     {
@@ -79,7 +80,9 @@ class CompetitionAvailabilityExportController extends Controller
                             return __('Available');
                         }
 
-                        return $row['submitted'] ? __('Not available') : __('Not filled in yet');
+                        return in_array($matchDay->id, $row['unanswered_match_day_ids'], true)
+                            ? __('Not filled in yet')
+                            : __('Not available');
                     })->all(),
                 ]);
             }

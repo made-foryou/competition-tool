@@ -1,5 +1,12 @@
 import { usePage } from '@inertiajs/react';
-import { BellRing, Check, ClipboardCheck, Download, Minus } from 'lucide-react';
+import {
+    BellRing,
+    Check,
+    CircleDashed,
+    ClipboardCheck,
+    Download,
+    Minus,
+} from 'lucide-react';
 import CompetitionAvailabilityExportController from '@/actions/App/Http/Controllers/CompetitionAvailabilityExportController';
 import CompetitionAvailabilityReminderController from '@/actions/App/Http/Controllers/CompetitionAvailabilityReminderController';
 import type { MatchDayProps } from '@/components/competitions/match-day-form';
@@ -50,6 +57,7 @@ export type AvailabilityRow = {
     name: string;
     submitted: boolean;
     match_day_ids: number[];
+    unanswered_match_day_ids: number[];
 };
 
 export type AvailabilityReminderProps = {
@@ -266,6 +274,10 @@ export default function AvailabilityMatrix({
                                 {matchDays.map((matchDay) => {
                                     const isAvailable =
                                         row.match_day_ids.includes(matchDay.id);
+                                    const isUnanswered =
+                                        row.unanswered_match_day_ids.includes(
+                                            matchDay.id,
+                                        );
 
                                     return (
                                         <TableCell
@@ -274,13 +286,17 @@ export default function AvailabilityMatrix({
                                         >
                                             {isAvailable ? (
                                                 <Check className="size-4" />
+                                            ) : isUnanswered ? (
+                                                <CircleDashed className="text-muted-foreground size-4" />
                                             ) : (
                                                 <Minus className="text-muted-foreground size-4" />
                                             )}
                                             <span className="sr-only">
                                                 {isAvailable
                                                     ? t('Available')
-                                                    : t('Not available')}
+                                                    : isUnanswered
+                                                      ? t('Not filled in yet')
+                                                      : t('Not available')}
                                             </span>
                                         </TableCell>
                                     );
