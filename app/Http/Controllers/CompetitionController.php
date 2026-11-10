@@ -127,6 +127,11 @@ class CompetitionController extends Controller
             'pendingInvitations' => $this->invitationRows($competition),
             'settings' => $competition->settings->toArray(),
             'settingsLimits' => CompetitionSettings::limits(),
+            'matchFormat' => [
+                'best_of' => $competition->settings->bestOf,
+                'games_to_win' => $competition->settings->gamesToWin(),
+                'is_locked' => $competition->hasResults(),
+            ],
         ]);
     }
 
@@ -169,7 +174,10 @@ class CompetitionController extends Controller
      * platte weergave van alle wedstrijden; het grid per speeldag zit in de
      * `schedule`-props.
      *
-     * @return list<array{id: int, first_player: string, first_player_is_participant: bool, second_player: string, second_player_is_participant: bool, status: string, match_day_date: string|null, field_name: string|null, starts_at: string|null, ends_at: string|null, is_pinned: bool, scheduling_failure: string|null}>
+     * De scores zijn de gewonnen games per speler, en `null` zolang de
+     * wedstrijd geen uitslag heeft.
+     *
+     * @return list<array{id: int, first_player: string, first_player_is_participant: bool, second_player: string, second_player_is_participant: bool, status: string, first_player_score: int|null, second_player_score: int|null, match_day_date: string|null, field_name: string|null, starts_at: string|null, ends_at: string|null, is_pinned: bool, scheduling_failure: string|null}>
      */
     protected function matchRows(Competition $competition): array
     {
@@ -186,6 +194,8 @@ class CompetitionController extends Controller
                 'second_player' => $match->secondPlayer->display_name,
                 'second_player_is_participant' => in_array($match->second_player_id, $participantIds, true),
                 'status' => $match->status->value,
+                'first_player_score' => $match->first_player_score,
+                'second_player_score' => $match->second_player_score,
                 'match_day_date' => $match->matchDay?->date->toDateString(),
                 'field_name' => $match->matchDayField?->name,
                 'starts_at' => $match->starts_at,
@@ -252,12 +262,14 @@ class CompetitionController extends Controller
             'ends_at' => $competition->ends_at?->toDateString(),
             'status' => $competition->status->value,
             'type' => $competition->type->value,
-            // Of de deelnemerslinks nog ergens toe leiden. Beide regels staan
-            // op de enum, zodat het scherm dezelfde grens hanteert als de
-            // routes zelf: inschrijven kan alleen op een actieve competitie
-            // en een concept-competitie geeft deelnemers een 404.
+            // Of de deelnemerslinks nog ergens toe leiden, en of er uitslagen
+            // ingevoerd mogen worden. Deze regels staan op de enum, zodat het
+            // scherm dezelfde grens hanteert als de routes zelf: inschrijven
+            // en uitslagen vastleggen kan alleen op een actieve competitie en
+            // een concept-competitie geeft deelnemers een 404.
             'allows_sign_up' => $competition->status->allowsSignUp(),
             'is_visible_to_participants' => $competition->status->isVisibleToParticipants(),
+            'allows_result_changes' => $competition->status->allowsResultChanges(),
         ];
     }
 }

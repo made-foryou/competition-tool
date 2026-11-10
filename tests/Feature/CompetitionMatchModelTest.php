@@ -4,6 +4,7 @@ use App\Enums\SchedulingFailure;
 use App\Models\CompetitionMatch;
 use App\Models\MatchDay;
 use App\Models\MatchDayField;
+use App\Models\User;
 
 test('the schedule times stay H:i and are null for an unscheduled match', function () {
     $matchDay = MatchDay::factory()->create();
@@ -39,6 +40,21 @@ test('a match is locked when it is played or pinned', function () {
         ->and($pinned->isPinned())->toBeTrue()
         ->and($ordinary->isLocked())->toBeFalse()
         ->and($ordinary->isPinned())->toBeFalse();
+});
+
+test('a pair given in reverse order keeps each score with its player', function () {
+    [$lower, $higher] = User::factory()->participant()->count(2)->create()->sortBy('id')->values()->all();
+
+    $match = CompetitionMatch::factory()->played()->create([
+        'first_player_id' => $higher->id,
+        'second_player_id' => $lower->id,
+        'first_player_score' => 3,
+        'second_player_score' => 1,
+    ])->fresh();
+
+    expect($match->first_player_id)->toBe($lower->id)
+        ->and($match->first_player_score)->toBe(1)
+        ->and($match->second_player_score)->toBe(3);
 });
 
 test('the scheduling failure is cast to its enum', function () {

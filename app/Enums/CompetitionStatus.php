@@ -67,4 +67,21 @@ enum CompetitionStatus: string
     {
         return $this === self::Active;
     }
+
+    /**
+     * Of de uitslag van een wedstrijd ingevoerd, gecorrigeerd of gewist mag
+     * worden -- alleen op een actieve competitie. Eén regel voor alle drie de
+     * schrijfacties. Op een concept-competitie wordt nog niet gespeeld, en een
+     * afgeronde competitie is bevroren, ook voor het klassement. Wie na het
+     * afronden nog een uitslag wil invoeren, zet de competitie eerst terug op
+     * Actief.
+     *
+     * Bewust een eigen methode naast `allowsScheduling()`: die gaat over het
+     * verschuiven van de planning, deze over het vastleggen van wat er
+     * gespeeld is. Ze vallen nu samen, maar beantwoorden een andere vraag.
+     */
+    public function allowsResultChanges(): bool
+    {
+        return $this === self::Active;
+    }
 }

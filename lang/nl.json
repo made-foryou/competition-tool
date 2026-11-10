@@ -421,6 +421,13 @@
     ":player already plays another match at this time.": ":player speelt op dit tijdstip al een andere wedstrijd.",
     "This field is already taken at this time.": "Deze tafel is op dit tijdstip al bezet.",
     "This match already has a result and cannot be moved.": "Deze wedstrijd heeft al een uitslag en kan niet verplaatst worden.",
+    "In a best-of-:best_of match the winner has exactly :games games.": "In een best-of-:best_of-wedstrijd heeft de winnaar precies :games games.",
+    "Enter a score.": "Vul een score in.",
+    "Enter a whole number.": "Vul een heel getal in.",
+    "Enter a score between 0 and :max.": "Vul een score tussen 0 en :max in.",
+    "Result saved.": "Uitslag opgeslagen.",
+    "Result cleared.": "Uitslag gewist.",
+    "Result cleared. The match was removed because one of its players no longer participates.": "Uitslag gewist. De wedstrijd is verwijderd omdat een van de spelers niet meer deelneemt.",
 
     "Schedule": "Schema",
     "Schedule matches": "Wedstrijden inplannen",

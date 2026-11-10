@@ -15,6 +15,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MatchDayController;
 use App\Http\Controllers\MatchDayFieldController;
 use App\Http\Controllers\MatchPinController;
+use App\Http\Controllers\MatchResultController;
 use App\Http\Controllers\MatchScheduleController;
 use App\Http\Controllers\Participant\AvailabilityController;
 use App\Http\Controllers\Participant\CompetitionDashboardController;
@@ -140,6 +141,12 @@ Route::middleware(['auth', 'verified', EnsureUserIsAdmin::class])->group(functio
                 ->name('matches.pin.store');
             Route::delete('matches/{match}/pin', [MatchPinController::class, 'destroy'])
                 ->name('matches.pin.destroy');
+
+            // Zelfde scoped binding: {match} van een andere competitie geeft een 404.
+            Route::put('matches/{match}/result', [MatchResultController::class, 'update'])
+                ->name('matches.result.update');
+            Route::delete('matches/{match}/result', [MatchResultController::class, 'destroy'])
+                ->name('matches.result.destroy');
 
             Route::post('match-days', [MatchDayController::class, 'store'])
                 ->name('match-days.store');
