@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureAvailabilityIsSubmitted;
 use App\Models\Competition;
 use App\Models\MatchDay;
 use App\Models\User;
@@ -188,4 +189,48 @@ test('an admin who participates is sent to the form after adding a match day the
     $this->actingAs($admin)
         ->put(route('competition.availability.update', $this->competition), [])
         ->assertRedirect(route('competitions.edit', $this->competition));
+});
+
+test('after the first submission a participant returns to the page they wanted', function () {
+    $this->actingAs($this->user)
+        ->get(route('competition.settings.index', $this->competition))
+        ->assertRedirect(route('competition.availability.edit', $this->competition));
+
+    $this->actingAs($this->user)
+        ->put(route('competition.availability.update', $this->competition), [])
+        ->assertRedirect(route('competition.settings.index', $this->competition));
+});
+
+test('an admin returns to the management tab they came from after submitting', function () {
+    $admin = User::factory()->withTwoFactor()->create();
+    $this->competition->participants()->attach($admin);
+
+    $managementUrl = route('competitions.edit', $this->competition).'?tab=match-days';
+
+    $this->actingAs($admin)
+        ->get($managementUrl)
+        ->assertRedirect(route('competition.availability.edit', $this->competition));
+
+    $this->actingAs($admin)
+        ->put(route('competition.availability.update', $this->competition), [])
+        ->assertRedirect($managementUrl);
+});
+
+test('a blocked write request is not remembered as the page to return to', function () {
+    $this->actingAs($this->user)
+        ->patch(route('competition.settings.profile.update', $this->competition), ['name' => 'Ander'])
+        ->assertStatus(303);
+
+    $this->actingAs($this->user)
+        ->put(route('competition.availability.update', $this->competition), [])
+        ->assertRedirect(route('competition.dashboard', $this->competition));
+});
+
+test('changing availability later does not use a remembered page', function () {
+    $this->competition->participants()->updateExistingPivot($this->user->id, ['availability_submitted_at' => now()]);
+
+    $this->actingAs($this->user)
+        ->withSession([EnsureAvailabilityIsSubmitted::INTENDED_URL_SESSION_KEY => route('competition.settings.index', $this->competition)])
+        ->put(route('competition.availability.update', $this->competition), [])
+        ->assertRedirect(route('competition.availability.edit', $this->competition));
 });

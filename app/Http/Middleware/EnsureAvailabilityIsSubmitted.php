@@ -19,6 +19,14 @@ use Symfony\Component\HttpFoundation\Response;
 class EnsureAvailabilityIsSubmitted
 {
     /**
+     * Sessiesleutel met de url die deze middleware onderschepte, zodat
+     * `AvailabilityController::update()` na de eerste inzending terugkeert
+     * naar waar de gebruiker heen wilde. Bewust niet `url.intended`: die is
+     * van de loginflow van Fortify.
+     */
+    public const string INTENDED_URL_SESSION_KEY = 'availability.intended_url';
+
+    /**
      * Routes die bereikbaar moeten blijven om het formulier in te vullen, om
      * je voor een andere competitie aan te melden, of om uit te loggen.
      *
@@ -86,7 +94,18 @@ class EnsureAvailabilityIsSubmitted
          * Daarom 303 bij niet-veilige methodes, zoals in
          * EnsureUserParticipatesInCompetition::redirectTo().
          */
-        return redirect()->route('competition.availability.edit', $competition, $request->isMethodSafe() ? 302 : 303);
+        $response = redirect()->route('competition.availability.edit', $competition, $request->isMethodSafe() ? 302 : 303);
+
+        /*
+         * Onthoud de onderschepte pagina voor na de eerste inzending. Alleen
+         * een echte GET: een niet-GET-verzoek kunnen we niet terugspelen, en
+         * een prefetch is geen bezoek en mag de bestemming niet overschrijven.
+         */
+        if ($request->isMethod('GET') && ! $request->prefetch()) {
+            $request->session()->put(self::INTENDED_URL_SESSION_KEY, $request->fullUrl());
+        }
+
+        return $response;
     }
 
     /**

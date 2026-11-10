@@ -6,6 +6,7 @@ use App\Concerns\SummarizesCompetition;
 use App\Concerns\SyncsAvailability;
 use App\Enums\CompetitionStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Middleware\EnsureAvailabilityIsSubmitted;
 use App\Http\Requests\Participant\UpdateAvailabilityRequest;
 use App\Models\Competition;
 use Illuminate\Http\RedirectResponse;
@@ -53,10 +54,14 @@ class AvailabilityController extends Controller
     }
 
     /**
-     * Na een eerste inzending gaat een deelnemer naar zijn dashboard. Een
-     * beheerder gaat terug naar het beheer van de competitie: de
-     * deelnemerslayout heeft geen weg terug naar het beheer. Een latere
-     * wijziging blijft voor iedereen op het formulier.
+     * Na een eerste inzending gaat iedereen terug naar de pagina die
+     * `EnsureAvailabilityIsSubmitted` onderschepte. Zonder bewaarde pagina
+     * gaat een deelnemer naar zijn dashboard en een beheerder naar het beheer
+     * van de competitie: de deelnemerslayout heeft geen weg terug naar het
+     * beheer. Een latere wijziging blijft voor iedereen op het formulier.
+     *
+     * De bewaarde url komt uit `fullUrl()` van een eigen request van deze
+     * gebruiker, dus er is geen open-redirectrisico.
      */
     public function update(UpdateAvailabilityRequest $request, Competition $competition): RedirectResponse
     {
@@ -67,8 +72,14 @@ class AvailabilityController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Availability saved.')]);
 
+        if ($wasSubmitted) {
+            return to_route('competition.availability.edit', $competition);
+        }
+
+        $intendedUrl = $request->session()->pull(EnsureAvailabilityIsSubmitted::INTENDED_URL_SESSION_KEY);
+
         return match (true) {
-            $wasSubmitted => to_route('competition.availability.edit', $competition),
+            is_string($intendedUrl) => redirect()->to($intendedUrl),
             $user->isAdmin() => to_route('competitions.edit', $competition),
             default => to_route('competition.dashboard', $competition),
         };
