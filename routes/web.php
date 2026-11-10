@@ -21,6 +21,7 @@ use App\Http\Controllers\Participant\AvailabilityController;
 use App\Http\Controllers\Participant\CompetitionDashboardController;
 use App\Http\Controllers\Participant\CompetitionLoginController;
 use App\Http\Controllers\Participant\CompetitionRegistrationController;
+use App\Http\Controllers\Participant\MatchController;
 use App\Http\Controllers\Participant\Settings\PasswordController as ParticipantPasswordController;
 use App\Http\Controllers\Participant\Settings\ProfileController as ParticipantProfileController;
 use App\Http\Controllers\Participant\Settings\SecurityController as ParticipantSecurityController;
@@ -181,6 +182,8 @@ Route::prefix('{competition:slug}')
         Route::middleware(EnsureUserParticipatesInCompetition::class)->group(function () {
             Route::get('/', CompetitionDashboardController::class)
                 ->name('competition.dashboard');
+
+            Route::get('matches', MatchController::class)->name('competition.matches');
 
             Route::get('availability', [AvailabilityController::class, 'edit'])
                 ->name('competition.availability.edit');

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Participant;
 
+use App\Concerns\SummarizesParticipantMatches;
 use App\Concerns\SyncsAvailability;
 use App\Http\Controllers\Controller;
 use App\Models\Competition;
@@ -12,11 +13,14 @@ use Inertia\Response;
 
 class CompetitionDashboardController extends Controller
 {
+    use SummarizesParticipantMatches;
     use SyncsAvailability;
 
     public function __invoke(Request $request, Competition $competition): Response
     {
-        $matchDays = $this->availabilityProps($request->user(), $competition);
+        $user = $request->user();
+        $isParticipant = $competition->hasParticipant($user);
+        $matchDays = $this->availabilityProps($user, $competition);
 
         return Inertia::render('participant/dashboard', [
             'competition' => [
@@ -41,6 +45,10 @@ class CompetitionDashboardController extends Controller
                 fn (array $matchDay): bool => $matchDay['is_available'],
             )),
             'totalMatchDays' => count($matchDays),
+            'isParticipant' => $isParticipant,
+            'matchOverview' => $isParticipant
+                ? Inertia::defer(fn (): array => $this->participantMatchOverview($user, $competition))
+                : null,
         ]);
     }
 }
