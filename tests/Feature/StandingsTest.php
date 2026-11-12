@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Support\CompetitionSettings;
 use App\Support\Standings\StandingRow;
 use App\Support\Standings\Standings;
+use Inertia\Testing\AssertableInertia as Assert;
 
 /**
  * Een actieve competitie zonder speeldagen met het gegeven aantal deelnemers,
@@ -224,4 +225,87 @@ test('a player is shown by nickname when one is set', function () {
 
     expect($standings->rowFor($withNickname->id)?->player->displayName)->toBe('Ace')
         ->and($standings->rowFor($withoutNickname->id)?->player->displayName)->toBe('Piet Pieters');
+});
+
+/**
+ * @return array{0: Competition, 1: list<User>}
+ */
+function standingsPageFixture(): array
+{
+    [$competition, [$anna, $bert, $carla, $dirk]] = standingsFixture(4);
+    standingsRecord($competition, $anna, $bert, 3, 1);
+    standingsRecord($competition, $carla, $bert, 3, 1);
+    standingsRecord($competition, $anna, $dirk, 3, 0);
+    $competition->participants()->detach($dirk);
+
+    return [$competition, [$anna, $bert, $carla, $dirk]];
+}
+
+test('an admin gets the standings as a deferred prop', function () {
+    [$competition, [$anna, $bert, $carla, $dirk]] = standingsPageFixture();
+    $this->actingAs(User::factory()->withTwoFactor()->create());
+
+    $this->get(route('competitions.edit', $competition))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->missing('standings')
+            ->loadDeferredProps(fn (Assert $reload) => $reload
+                ->where('standings.points_system', PointsSystem::WinTwoLossZero->value)
+                ->has('standings.rows', 4)
+                ->where('standings.rows.0.player_id', $anna->id)
+                ->where('standings.rows.0.player', $anna->display_name)
+                ->where('standings.rows.0.position', 1)
+                ->where('standings.rows.0.shares_position', false)
+                ->where('standings.rows.0.game_difference', 5)
+                ->where('standings.rows.0.points', 4)
+                ->where('standings.rows.0.player_is_participant', true)
+                ->where('standings.rows.1.player_id', $carla->id)
+                ->where('standings.rows.1.position', 2)
+                ->where('standings.rows.1.game_difference', 2)
+                ->where('standings.rows.1.points', 2)
+                ->where('standings.rows.2.player_id', $dirk->id)
+                ->where('standings.rows.2.position', 3)
+                ->where('standings.rows.2.player_is_participant', false)
+                ->where('standings.rows.2.game_difference', -3)
+                ->where('standings.rows.2.points', 0)
+                ->where('standings.rows.3.player_id', $bert->id)
+                ->where('standings.rows.3.position', 4)
+                ->where('standings.rows.3.player_is_participant', true)
+                ->where('standings.rows.3.game_difference', -4)
+                ->where('standings.rows.0.is_viewer', false)
+                ->where('standings.rows.2.is_viewer', false),
+            ),
+        );
+});
+
+test('players on the same points and balance share a place in the props', function () {
+    [$competition, [$anna, $bert, $carla]] = standingsFixture(3);
+    standingsRecord($competition, $anna, $carla, 3, 1);
+    standingsRecord($competition, $bert, $carla, 3, 1);
+    $this->actingAs(User::factory()->withTwoFactor()->create());
+
+    $this->get(route('competitions.edit', $competition))
+        ->assertInertia(fn (Assert $page) => $page
+            ->loadDeferredProps(fn (Assert $reload) => $reload
+                ->where('standings.rows.0.position', 1)
+                ->where('standings.rows.0.shares_position', true)
+                ->where('standings.rows.1.position', 1)
+                ->where('standings.rows.1.shares_position', true)
+                ->where('standings.rows.2.position', 3)
+                ->where('standings.rows.2.shares_position', false),
+            ),
+        );
+});
+
+test('the standings props have no rows without a played match', function () {
+    [$competition] = standingsFixture(2);
+    $this->actingAs(User::factory()->withTwoFactor()->create());
+
+    $this->get(route('competitions.edit', $competition))
+        ->assertInertia(fn (Assert $page) => $page
+            ->loadDeferredProps(fn (Assert $reload) => $reload
+                ->where('standings.rows', [])
+                ->where('standings.points_system', PointsSystem::WinTwoLossZero->value),
+            ),
+        );
 });

@@ -31,6 +31,13 @@ import SchedulePanel, {
 } from '@/components/competitions/schedule-panel';
 import ConfirmDialog from '@/components/confirm-dialog';
 import Heading from '@/components/heading';
+import type { StandingsProps } from '@/components/standings-table';
+import {
+    StandingsEmptyState,
+    StandingsLegend,
+    StandingsTable,
+    StandingsTableSkeleton,
+} from '@/components/standings-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -49,6 +56,7 @@ type Props = {
     availabilityReminder: AvailabilityReminderProps;
     matches?: MatchProps[];
     schedule?: ScheduleProps;
+    standings?: StandingsProps;
     pendingInvitations: PendingInvitationProps[];
     settings: CompetitionSettingsProps;
     settingsLimits: CompetitionSettingsLimits;
@@ -62,6 +70,7 @@ const TABS = [
     'availability',
     'matches',
     'schedule',
+    'standings',
     'settings',
 ] as const;
 
@@ -107,6 +116,7 @@ export default function CompetitionsEdit({
     availabilityReminder,
     matches,
     schedule,
+    standings,
     pendingInvitations,
     settings,
     settingsLimits,
@@ -123,6 +133,9 @@ export default function CompetitionsEdit({
 
     /** Idem voor de uitslagdialoog in de wedstrijdenlijst en haar validatiefouten. */
     const loadedMatches = useRetainedProp(matches);
+
+    /** Idem voor de stand: na een redirect uit een andere tab geen skelet-flits. */
+    const loadedStandings = useRetainedProp(standings);
 
     /**
      * Houdt de querystring gelijk aan de actieve tab met een client-side visit,
@@ -206,6 +219,9 @@ export default function CompetitionsEdit({
                             </TabsTrigger>
                             <TabsTrigger value="schedule" className="shrink-0">
                                 {t('Schedule')}
+                            </TabsTrigger>
+                            <TabsTrigger value="standings" className="shrink-0">
+                                {t('Standings')}
                             </TabsTrigger>
                             <TabsTrigger value="settings" className="shrink-0">
                                 {t('Planning settings')}
@@ -327,6 +343,36 @@ export default function CompetitionsEdit({
                             />
                         ) : (
                             <ScheduleSkeleton />
+                        )}
+                    </TabsContent>
+
+                    <TabsContent value="standings">
+                        {loadedStandings ? (
+                            <section className="flex flex-col gap-4">
+                                <div className="flex flex-col gap-1">
+                                    <h3 className="text-sm font-medium">
+                                        {t('Standings')}
+                                    </h3>
+                                    <StandingsLegend
+                                        pointsSystem={
+                                            loadedStandings.points_system
+                                        }
+                                    />
+                                </div>
+                                {loadedStandings.rows.length === 0 ? (
+                                    <StandingsEmptyState
+                                        isFinished={
+                                            competition.status === 'finished'
+                                        }
+                                    />
+                                ) : (
+                                    <StandingsTable
+                                        rows={loadedStandings.rows}
+                                    />
+                                )}
+                            </section>
+                        ) : (
+                            <StandingsTableSkeleton />
                         )}
                     </TabsContent>
 
