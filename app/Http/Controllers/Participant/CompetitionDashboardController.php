@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Participant;
 
+use App\Actions\Competitions\BuildStandings;
 use App\Concerns\SummarizesParticipantMatches;
+use App\Concerns\SummarizesStandings;
 use App\Concerns\SyncsAvailability;
 use App\Http\Controllers\Controller;
 use App\Models\Competition;
@@ -14,9 +16,10 @@ use Inertia\Response;
 class CompetitionDashboardController extends Controller
 {
     use SummarizesParticipantMatches;
+    use SummarizesStandings;
     use SyncsAvailability;
 
-    public function __invoke(Request $request, Competition $competition): Response
+    public function __invoke(Request $request, Competition $competition, BuildStandings $buildStandings): Response
     {
         $user = $request->user();
         $isParticipant = $competition->hasParticipant($user);
@@ -49,6 +52,10 @@ class CompetitionDashboardController extends Controller
             'matchOverview' => $isParticipant
                 ? Inertia::defer(fn (): array => $this->participantMatchOverview($user, $competition))
                 : null,
+            'standingsSummary' => Inertia::defer(
+                fn (): array => $this->standingsSummary($buildStandings->handle($competition), $user),
+                'standings',
+            ),
         ]);
     }
 }

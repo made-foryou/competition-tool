@@ -47,6 +47,81 @@ trait SummarizesStandings
     }
 
     /**
+     * De compacte stand voor het deelnemersdashboard: de top 3 plus de eigen
+     * regel van de kijker als die daarbuiten valt.
+     *
+     * De server bepaalt dit, zodat dashboard en volledige pagina dezelfde
+     * regel volgen en React niets afleidt: `viewer_row` is gezet vanaf plaats
+     * 4 en `has_gap` als er rijen tussen de top 3 en de kijker zitten. Zonder
+     * uitslagen blijft alles leeg en is `total` 0.
+     *
+     * @return array{
+     *     points_system: string,
+     *     leaders: list<array{
+     *     player_id: int,
+     *     position: int,
+     *     shares_position: bool,
+     *     player: string,
+     *     player_is_participant: bool,
+     *     played: int,
+     *     won: int,
+     *     lost: int,
+     *     game_difference: int,
+     *     points: int,
+     *     is_viewer: bool,
+     * }>,
+     *     viewer_row: array{
+     *     player_id: int,
+     *     position: int,
+     *     shares_position: bool,
+     *     player: string,
+     *     player_is_participant: bool,
+     *     played: int,
+     *     won: int,
+     *     lost: int,
+     *     game_difference: int,
+     *     points: int,
+     *     is_viewer: bool,
+     * }|null,
+     *     has_gap: bool,
+     *     total: int,
+     * }
+     */
+    protected function standingsSummary(Standings $standings, User $viewer): array
+    {
+        if (! $standings->hasResults()) {
+            return [
+                'points_system' => $standings->pointsSystem->value,
+                'leaders' => [],
+                'viewer_row' => null,
+                'has_gap' => false,
+                'total' => 0,
+            ];
+        }
+
+        $rows = array_map(
+            fn (StandingRow $row): array => $this->standingRowProps($row, $viewer),
+            $standings->rows,
+        );
+
+        $viewerIndex = null;
+        foreach ($rows as $index => $row) {
+            if ($row['player_id'] === $viewer->id) {
+                $viewerIndex = $index;
+                break;
+            }
+        }
+
+        return [
+            'points_system' => $standings->pointsSystem->value,
+            'leaders' => array_slice($rows, 0, 3),
+            'viewer_row' => $viewerIndex !== null && $viewerIndex >= 3 ? $rows[$viewerIndex] : null,
+            'has_gap' => $viewerIndex !== null && $viewerIndex > 3,
+            'total' => count($rows),
+        ];
+    }
+
+    /**
      * @return array{
      *     player_id: int,
      *     position: int,

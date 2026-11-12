@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useTranslations } from '@/hooks/use-translations';
 import { logout } from '@/routes';
-import { dashboard, matches } from '@/routes/competition';
+import { dashboard, matches, standings } from '@/routes/competition';
 import { index as settingsIndex } from '@/routes/competition/settings';
 
 type ParticipantPageProps = {
@@ -19,9 +19,9 @@ type ParticipantPageProps = {
  * Shared shell for the participant-facing pages under `participant/*`:
  * a slim header with the app logo, the active competition name and a
  * logout button, and a max-width, mobile-first content area. Inside the
- * settings section and on the matches page the logo turns into a back button
- * (settings back to the previous settings page or the dashboard, matches to
- * the dashboard); the settings button stays visible on the matches page. The
+ * settings section and on the matches and standings pages the logo turns into a back button
+ * (settings back to the previous settings page or the dashboard, matches and
+ * standings to the dashboard); the settings button stays visible on both pages. The
  * settings button is hidden while the availability still has to be submitted.
  */
 export default function ParticipantLayout({
@@ -50,22 +50,28 @@ export default function ParticipantLayout({
         ? matches.url({ competition: competition.slug })
         : null;
     const isOnMatches = matchesUrl ? isCurrentUrl(matchesUrl) : false;
+    const standingsUrl = competition
+        ? standings.url({ competition: competition.slug })
+        : null;
+    const isOnStandings = standingsUrl ? isCurrentUrl(standingsUrl) : false;
     const dashboardUrl = competition
         ? dashboard.url({ competition: competition.slug })
         : null;
-    const backUrl = isOnMatches
-        ? dashboardUrl
-        : competition && settingsUrl
-          ? isCurrentUrl(settingsUrl)
-              ? dashboardUrl
-              : settingsUrl
-          : null;
+    const backUrl =
+        isOnMatches || isOnStandings
+            ? dashboardUrl
+            : competition && settingsUrl
+              ? isCurrentUrl(settingsUrl)
+                  ? dashboardUrl
+                  : settingsUrl
+              : null;
 
     return (
         <div className="bg-background text-foreground flex min-h-svh flex-col">
             <header className="bg-background/95 sticky top-0 z-10 border-b backdrop-blur">
                 <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 px-4 py-3">
-                    {(isInSettings || isOnMatches) && backUrl ? (
+                    {(isInSettings || isOnMatches || isOnStandings) &&
+                    backUrl ? (
                         <Button
                             asChild
                             variant="ghost"

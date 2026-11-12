@@ -35,6 +35,14 @@ export type StandingsProps = {
     rows: StandingRow[];
 };
 
+export type StandingsSummary = {
+    points_system: PointsSystemValue;
+    leaders: StandingRow[];
+    viewer_row: StandingRow | null;
+    has_gap: boolean;
+    total: number;
+};
+
 const COLUMN_COUNT = 7;
 
 const NUMBER_CELL_CLASSES = 'px-1 text-right tabular-nums sm:px-2';

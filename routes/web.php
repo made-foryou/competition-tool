@@ -26,6 +26,7 @@ use App\Http\Controllers\Participant\Settings\PasswordController as ParticipantP
 use App\Http\Controllers\Participant\Settings\ProfileController as ParticipantProfileController;
 use App\Http\Controllers\Participant\Settings\SecurityController as ParticipantSecurityController;
 use App\Http\Controllers\Participant\Settings\SettingsController as ParticipantSettingsController;
+use App\Http\Controllers\Participant\StandingsController;
 use App\Http\Middleware\EnsureCompetitionIsVisible;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\EnsureUserParticipatesInCompetition;
@@ -184,6 +185,8 @@ Route::prefix('{competition:slug}')
                 ->name('competition.dashboard');
 
             Route::get('matches', MatchController::class)->name('competition.matches');
+
+            Route::get('standings', StandingsController::class)->name('competition.standings');
 
             Route::get('availability', [AvailabilityController::class, 'edit'])
                 ->name('competition.availability.edit');
