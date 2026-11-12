@@ -217,11 +217,11 @@ test('a head-to-head cycle stays a shared place', function () {
 
 /**
  * Anna, Bert, Carla en Dirk hebben elk 4 punten en saldo +3. Onderling:
- * Anna>Bert, Bert>Carla, Carla>Anna en Bert>Dirk. Bert wordt eerste, Dirk
- * laatste; Anna en Carla blijven gedeeld, ook al won Carla van Anna, omdat er
- * geen tweede ronde over de spelers die nog gelijk staan komt.
+ * Anna>Bert, Bert>Carla, Carla>Anna en Bert>Dirk, dus mini-punten Bert 4,
+ * Anna 2, Carla 2, Dirk 0. Anna en Carla staan dan nog gelijk; de herhaling
+ * over alleen hun onderlinge wedstrijd (Carla won) zet Carla boven Anna.
  */
-test('the head-to-head standing is a single round', function () {
+test('the head-to-head standing is repeated for players who are still level', function () {
     $standings = standingsTestCalculate(
         [
             standingsTestPlayer(1, 'Anna'),
@@ -243,7 +243,88 @@ test('the head-to-head standing is a single round', function () {
         ],
     );
 
-    expect(standingsTestOrder($standings))->toBe(['1:Bert', '2:Anna', '2:Carla', '4:Dirk', '5:Yara', '6:Xander']);
+    expect(array_map(fn (StandingRow $row): array => [$row->position, $row->player->displayName, $row->sharesPosition], $standings->rows))
+        ->toBe([
+            [1, 'Bert', false],
+            [2, 'Carla', false],
+            [3, 'Anna', false],
+            [4, 'Dirk', false],
+            [5, 'Yara', false],
+            [6, 'Xander', false],
+        ]);
+});
+
+/**
+ * Anna, Bram, Dirk, Kees en Wim hebben elk 4 punten en saldo +2; Yara (−4)
+ * en Xander (−6) staan los onderaan.
+ *
+ * 1. Mini-stand over de vijf (Wim>Kees, Kees>Anna, Anna>Dirk, Bram>Dirk,
+ *    Bram>Wim): Bram 4, Anna 2, Kees 2, Wim 2, Dirk 0.
+ * 2. Herhaling over Anna, Kees en Wim (Wim>Kees, Kees>Anna): Kees 2, Wim 2,
+ *    Anna 0.
+ * 3. Herhaling over Kees en Wim (Wim>Kees): Wim 2, Kees 0.
+ *
+ * Uitkomst: Bram, Wim, Kees, Anna, Dirk, allemaal een eigen plaats.
+ */
+test('the head-to-head standing is repeated until no player is separated any more', function () {
+    $standings = standingsTestCalculate(
+        [
+            standingsTestPlayer(1, 'Anna'),
+            standingsTestPlayer(2, 'Bram'),
+            standingsTestPlayer(3, 'Dirk'),
+            standingsTestPlayer(4, 'Kees'),
+            standingsTestPlayer(5, 'Wim'),
+            standingsTestPlayer(6, 'Xander'),
+            standingsTestPlayer(7, 'Yara'),
+        ],
+        [
+            standingsTestMatch(5, 4, 3, 2),
+            standingsTestMatch(4, 1, 3, 2),
+            standingsTestMatch(1, 3, 3, 2),
+            standingsTestMatch(2, 3, 3, 2),
+            standingsTestMatch(2, 5, 3, 2),
+            standingsTestMatch(5, 6, 3, 1),
+            standingsTestMatch(4, 7, 3, 1),
+            standingsTestMatch(1, 6, 3, 1),
+            standingsTestMatch(3, 6, 3, 1),
+            standingsTestMatch(3, 7, 3, 1),
+        ],
+    );
+
+    expect(standingsTestOrder($standings))->toBe(['1:Bram', '2:Wim', '3:Kees', '4:Anna', '5:Dirk', '6:Yara', '7:Xander']);
+});
+
+/**
+ * Wim, Kees en Anna hebben elk 4 punten en saldo +2; Bert heeft ook 4 punten
+ * maar saldo 0 en hoort dus niet bij hun groep. Onderling: Wim>Kees en
+ * Kees>Anna, dus Wim 2, Kees 2, Anna 0, en de herhaling over Wim>Kees zet Wim
+ * boven Kees. Kees' winst op Bert telt niet mee; zou die meetellen, dan had
+ * Kees 4 mini-punten en stond hij boven Wim. Bert staat op zijn saldo onder
+ * de groep.
+ */
+test('a player level on points but not on game difference stays out of the head-to-head standing', function () {
+    $standings = standingsTestCalculate(
+        [
+            standingsTestPlayer(1, 'Anna'),
+            standingsTestPlayer(2, 'Bert'),
+            standingsTestPlayer(3, 'Kees'),
+            standingsTestPlayer(4, 'Wim'),
+            standingsTestPlayer(5, 'Xander'),
+            standingsTestPlayer(6, 'Yara'),
+        ],
+        [
+            standingsTestMatch(4, 3, 3, 2),
+            standingsTestMatch(3, 1, 3, 2),
+            standingsTestMatch(3, 2, 3, 1),
+            standingsTestMatch(4, 5, 3, 2),
+            standingsTestMatch(1, 5, 3, 1),
+            standingsTestMatch(1, 6, 3, 2),
+            standingsTestMatch(2, 5, 3, 2),
+            standingsTestMatch(2, 6, 3, 2),
+        ],
+    );
+
+    expect(standingsTestOrder($standings))->toBe(['1:Wim', '2:Kees', '3:Anna', '4:Bert', '5:Yara', '6:Xander']);
 });
 
 test('fully level players share a place and the next position skips it', function () {

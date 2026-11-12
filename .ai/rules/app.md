@@ -46,8 +46,7 @@ Elke stand (beheertab, deelnemersdashboard, `/{slug}/standings`, later een publi
 Besluiten Menno bij #58:
 
 - alleen `Played` met beide scores telt, per kolom gerekend (de canonieke volgorde is niet gegarandeerd: sync, planner en testhelpers schrijven buiten de `saving`-hook om);
-- de volgorde is punten, dan game-saldo, dan onderling resultaat: een mini-stand over de wedstrijden binnen de groep die na het saldo gelijk staat, in één ronde zonder recursie;
-- wie daarna nog gelijk staat, deelt de plaats (1, 2, 3, 3, 5);
+- de volgorde is punten, dan game-saldo, dan onderling resultaat: een mini-stand over de wedstrijden binnen de groep die na het saldo gelijk staat, herhaald voor de spelers die daarna nog gelijk staan, zoals het ITTF-reglement (besluit Menno #58); scheidt een mini-stand niemand meer, dan volgt een gedeelde plaats (1, 2, 3, 3, 5);
 - een vertrokken deelnemer blijft gemarkeerd staan (`isParticipant` false) en zijn uitslagen tellen voor iedereen mee.
 
 De calculator krijgt bewust nooit een `Competition`: een poule-stand wordt later dezelfde berekening op een deelverzameling.

@@ -22,15 +22,16 @@ use InvalidArgumentException;
  * 4. wie daarna nog gelijk staat, deelt de plaats. Het volgende nummer slaat
  *    de gedeelde plaatsen over (1, 2, 3, 3, 5).
  *
- * Het onderling resultaat is één ronde, zonder recursie: de mini-stand wordt
- * niet opnieuw berekend voor de spelers die daarin nog gelijk staan. Een
- * cyclus (A wint van B, B van C, C van A, met gelijk saldo) laat zich door
- * geen enkele ronde scheiden en blijft een gedeelde plaats. En in een groep
- * van vier met A>B, B>C, C>A en B>D wordt B eerste en D laatste, terwijl A
- * en C de plaats ertussen delen, ook al won C van A: er komt geen tweede
- * ronde over alleen die ene wedstrijd. Zo blijft het één regel die een
- * speler zelf kan narekenen: gelijk na het onderling resultaat is een
- * gedeelde plaats.
+ * Het onderling resultaat wordt herhaald, zoals in het ITTF-reglement
+ * (besluit Menno #58): scheidt de mini-stand de groep maar gedeeltelijk, dan
+ * krijgt elke deelgroep die nog gelijk staat een nieuwe mini-stand, nu alleen
+ * over de wedstrijden binnen die deelgroep, enzovoort. In een groep van vier
+ * met A>B, B>C, C>A en B>D wordt B eerste (4 mini-punten) en D laatste (0);
+ * A en C staan met 2 nog gelijk, en de herhaling over alleen hun onderlinge
+ * wedstrijd zet C boven A: B, C, A, D. De herhaling stopt zodra een
+ * mini-stand niemand meer scheidt. Een cyclus (A wint van B, B van C, C van
+ * A, met gelijk saldo) geeft iedereen dezelfde mini-punten en blijft daarom
+ * een gedeelde plaats, net als twee spelers die elkaar nog niet troffen.
  *
  * Binnen een gedeelde plaats staan de spelers op naam (zonder onderscheid in
  * accenten en hoofdletters) en daarna op id. Dat is alleen weergave: de
@@ -48,7 +49,7 @@ final readonly class StandingsCalculator
     {
         $playersById = $this->indexById($players);
         $tallies = $this->tally($playersById, $matches, $pointsSystem);
-        $headToHeadPoints = $this->headToHeadPoints($tallies, $matches, $pointsSystem);
+        $headToHeadKeys = $this->headToHeadKeysPerLevelGroup($tallies, $matches, $pointsSystem);
 
         $entries = [];
 
@@ -58,12 +59,12 @@ final readonly class StandingsCalculator
             $entries[] = [
                 'player' => $player,
                 'tally' => $tally,
-                'rankKey' => [$tally['points'], $tally['gamesFor'] - $tally['gamesAgainst'], $headToHeadPoints[$playerId]],
+                'rankKey' => [$tally['points'], $tally['gamesFor'] - $tally['gamesAgainst'], ...$headToHeadKeys[$playerId]],
                 'sortName' => Str::lower(Str::ascii($player->displayName)),
             ];
         }
 
-        usort($entries, fn (array $a, array $b): int => ($b['rankKey'] <=> $a['rankKey'])
+        usort($entries, fn (array $a, array $b): int => $this->compareRankKeys($b['rankKey'], $a['rankKey'])
             ?: strcmp($a['sortName'], $b['sortName'])
             ?: $a['player']->id <=> $b['player']->id);
 
@@ -152,50 +153,122 @@ final readonly class StandingsCalculator
     }
 
     /**
-     * De punten uit de mini-stand: per speler de punten uit de wedstrijden
-     * tegen spelers met dezelfde punten en hetzelfde saldo.
-     *
-     * Een wedstrijd waarvan beide spelers dezelfde (punten, saldo) hebben, is
-     * precies een wedstrijd binnen één gelijke groep. Eén doorloop over de
-     * wedstrijden dekt daarmee alle groepen tegelijk. Een speler die alleen
-     * in zijn groep staat, of die binnen zijn groep niemand trof, houdt 0;
-     * dat verandert niets, want de mini-punten worden alleen binnen een groep
-     * vergeleken.
+     * De sleutel uit het onderling resultaat per speler: de spelers worden
+     * gegroepeerd op (punten, saldo) en elke groep krijgt haar eigen,
+     * herhaalde mini-stand. Een speler die alleen in zijn groep staat, krijgt
+     * een lege sleutel.
      *
      * @param  array<int, array{played: int, won: int, lost: int, gamesFor: int, gamesAgainst: int, points: int}>  $tallies
      * @param  list<PlayedMatch>  $matches
-     * @return array<int, int>
+     * @return array<int, list<int>>
      */
-    private function headToHeadPoints(array $tallies, array $matches, PointsSystem $pointsSystem): array
+    private function headToHeadKeysPerLevelGroup(array $tallies, array $matches, PointsSystem $pointsSystem): array
     {
-        $groupKeys = array_map(
-            fn (array $tally): string => $tally['points'].':'.($tally['gamesFor'] - $tally['gamesAgainst']),
-            $tallies,
-        );
+        $levelGroups = [];
 
-        $points = array_map(fn (): int => 0, $tallies);
-
-        foreach ($matches as $match) {
-            if ($groupKeys[$match->firstPlayerId] !== $groupKeys[$match->secondPlayerId]) {
-                continue;
-            }
-
-            $points[$match->firstPlayerId] += $pointsSystem->pointsFor($match->firstPlayerScore, $match->secondPlayerScore);
-            $points[$match->secondPlayerId] += $pointsSystem->pointsFor($match->secondPlayerScore, $match->firstPlayerScore);
+        foreach ($tallies as $playerId => $tally) {
+            $levelGroups[$tally['points'].':'.($tally['gamesFor'] - $tally['gamesAgainst'])][] = $playerId;
         }
 
-        return $points;
+        $keys = [];
+
+        foreach ($levelGroups as $groupIds) {
+            $keys += $this->headToHeadKeys($groupIds, $matches, $pointsSystem);
+        }
+
+        return $keys;
     }
 
     /**
-     * Nummert de gesorteerde spelers. Een gelijke (punten, saldo, onderling)
-     * deelt de positie; de volgende positie is de index plus één, zodat de
-     * gedeelde plaatsen worden overgeslagen.
+     * De opeenvolgende mini-punten per speler binnen één gelijke groep.
+     *
+     * De eerste waarde zijn de punten uit de wedstrijden waarvan beide spelers
+     * in de groep zitten. Spelers met dezelfde mini-punten vormen een
+     * deelgroep. Is die deelgroep kleiner dan de groep, dan volgt voor haar
+     * een nieuwe mini-stand over alleen de wedstrijden binnen die deelgroep;
+     * die punten komen achter de eerste waarde. Scheidt de mini-stand niemand
+     * (de deelgroep is de hele groep), dan stopt de herhaling en delen de
+     * spelers de plaats.
+     *
+     * Spelers met dezelfde waarden tot dan toe zitten steeds in dezelfde
+     * deelgroep en krijgen dus even lange sleutels.
+     *
+     * @param  list<int>  $groupIds
+     * @param  list<PlayedMatch>  $matches
+     * @return array<int, list<int>>
+     */
+    private function headToHeadKeys(array $groupIds, array $matches, PointsSystem $pointsSystem): array
+    {
+        if (count($groupIds) < 2) {
+            return array_fill_keys($groupIds, []);
+        }
+
+        $miniPoints = array_fill_keys($groupIds, 0);
+        $matchesWithinGroup = [];
+
+        foreach ($matches as $match) {
+            if (! array_key_exists($match->firstPlayerId, $miniPoints) || ! array_key_exists($match->secondPlayerId, $miniPoints)) {
+                continue;
+            }
+
+            $matchesWithinGroup[] = $match;
+            $miniPoints[$match->firstPlayerId] += $pointsSystem->pointsFor($match->firstPlayerScore, $match->secondPlayerScore);
+            $miniPoints[$match->secondPlayerId] += $pointsSystem->pointsFor($match->secondPlayerScore, $match->firstPlayerScore);
+        }
+
+        $subgroups = [];
+
+        foreach ($miniPoints as $playerId => $points) {
+            $subgroups[$points][] = $playerId;
+        }
+
+        $keys = [];
+
+        foreach ($subgroups as $points => $subgroupIds) {
+            $deeperKeys = count($subgroupIds) < count($groupIds)
+                ? $this->headToHeadKeys($subgroupIds, $matchesWithinGroup, $pointsSystem)
+                : array_fill_keys($subgroupIds, []);
+
+            foreach ($subgroupIds as $playerId) {
+                $keys[$playerId] = [$points, ...$deeperKeys[$playerId]];
+            }
+        }
+
+        return $keys;
+    }
+
+    /**
+     * Vergelijkt twee rangsleutels element voor element tot het eerste
+     * verschil. PHP's `<=>` op arrays vergelijkt eerst het aantal elementen,
+     * en de sleutels zijn door de herhaling van het onderling resultaat niet
+     * even lang. Zijn alle gedeelde elementen gelijk, dan beslist de lengte;
+     * dat komt niet voor, maar houdt de volgorde deterministisch.
+     *
+     * @param  list<int>  $first
+     * @param  list<int>  $second
+     */
+    private function compareRankKeys(array $first, array $second): int
+    {
+        $sharedLength = min(count($first), count($second));
+
+        for ($index = 0; $index < $sharedLength; $index++) {
+            if ($first[$index] !== $second[$index]) {
+                return $first[$index] <=> $second[$index];
+            }
+        }
+
+        return count($first) <=> count($second);
+    }
+
+    /**
+     * Nummert de gesorteerde spelers. Een gelijke rangsleutel (punten, saldo,
+     * onderling resultaat) deelt de positie; de volgende positie is de index
+     * plus één, zodat de gedeelde plaatsen worden overgeslagen.
      *
      * @param  list<array{
      *     player: StandingsPlayer,
      *     tally: array{played: int, won: int, lost: int, gamesFor: int, gamesAgainst: int, points: int},
-     *     rankKey: array{int, int, int},
+     *     rankKey: list<int>,
      *     sortName: string,
      * }>  $entries
      * @return list<StandingRow>
