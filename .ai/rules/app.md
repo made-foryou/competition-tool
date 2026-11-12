@@ -13,13 +13,15 @@ Gevolg: een uitnodiging die tijdens de conceptfase is verstuurd, werkt pas zodra
 
 Valt hier NIET onder: een beheerder die zelf een deelnemer koppelt (`CompetitionParticipantController`). Die bouwt de deelnemerslijst op, ook tijdens de conceptfase, en heeft daarom geen statusguard.
 
-## Uitslagen wijzigen alleen op een actieve competitie; het format vergrendelt na de eerste uitslag
+## Uitslagen wijzigen alleen op een actieve competitie; format en puntentelling vergrendelen na de eerste uitslag
 
 `CompetitionStatus::allowsResultChanges()` (alleen `Active`) is de enige regel voor het invoeren, corrigeren én wissen van een uitslag. Afgerond is bevroren: wie na afronden nog iets wil invoeren, zet de competitie eerst terug op Actief. Bouw er geen uitzondering voor `Finished` omheen; dat is bewust afgewogen bij #56.
 
 Het wedstrijdformat (`CompetitionSettings::bestOf`, 1/3/5/7) wordt strikt afgedwongen via `CompetitionSettings::isValidResult()`: precies één speler heeft `gamesToWin()`. Het format ligt vast zodra `Competition::hasResults()` waar is, zodat alle uitslagen in een competitie hetzelfde format hebben (nodig voor het klassement).
 
-Val: de Form Requests lezen de competitie vóór de rijlock. `RecordMatchResult`, `ClearMatchResult` en `UpdateCompetitionSettings` controleren status, format en vergrendeling daarom opnieuw ná `lockForUpdate()` op de competitierij. Een nieuwe schrijfroute op uitslagen of instellingen moet dat ook doen.
+De puntentelling (`CompetitionSettings::pointsSystem`, enum `PointsSystem`: winst 2/verlies 0 als standaard, winst 2/verlies 1 (ITTF), 1 punt per gewonnen game) is een instelling per competitie, niet een eigenschap van het competitietype (besluit Menno bij #58). Ze vergrendelt op hetzelfde moment en op dezelfde manier als het format, zodat de stand niet halverwege of na afloop verschuift.
+
+Val: de Form Requests lezen de competitie vóór de rijlock. `RecordMatchResult`, `ClearMatchResult` en `UpdateCompetitionSettings` controleren status, format, puntentelling en vergrendeling daarom opnieuw ná `lockForUpdate()` op de competitierij. Een nieuwe schrijfroute op uitslagen of instellingen moet dat ook doen.
 
 ## Beschikbaarheid hangt aan deelname, niet aan rol
 
@@ -36,3 +38,16 @@ Gebruik altijd `Competition::constrainToAwaitingAvailability()` (SQL, op een rel
 `is_new` en "nog niet ingevuld" volgen uit `MatchDay::isNewSince()` op het inzendmoment: een speeldag is nieuw als hij ná de laatste inzending is aangemaakt, ook na een lege inzending. "Nog niet ingevuld" is een niet-aangevinkte speeldag die nieuw is, of elke niet-aangevinkte speeldag van iemand die nooit indiende. Elk ander leeg vakje is "niet beschikbaar". Matrix, CSV en de alleen-lezenlijst volgen die regel; het totaal telt alle vinkjes.
 
 Valt hier (nog) NIET onder: een speeldag verzetten naar een andere datum (#81). Ook niet: een verouderd formulier dat na een nieuwe speeldag wordt opgeslagen (#82).
+
+## Klassement: één berekening, live, nooit opslaan
+
+Elke stand (beheertab, deelnemersdashboard, `/{slug}/standings`, later een publieke pagina) komt uit `BuildStandings` → `StandingsCalculator` (puur, `app/Support/Standings`) → props via `SummarizesStandings`. Bouw geen eigen telling in een controller of in React, en sla geen stand op: die zou een tweede waarheid zijn die bij elke uitslagcorrectie mee moet.
+
+Besluiten Menno bij #58:
+
+- alleen `Played` met beide scores telt, per kolom gerekend (de spelers staan canoniek opgeslagen);
+- de volgorde is punten, dan game-saldo, dan onderling resultaat: een mini-stand over de wedstrijden binnen de groep die na het saldo gelijk staat, in één ronde zonder recursie;
+- wie daarna nog gelijk staat, deelt de plaats (1, 2, 3, 3, 5);
+- een vertrokken deelnemer blijft gemarkeerd staan (`isParticipant` false) en zijn uitslagen tellen voor iedereen mee.
+
+De calculator krijgt bewust nooit een `Competition`: een poule-stand wordt later dezelfde berekening op een deelverzameling.
