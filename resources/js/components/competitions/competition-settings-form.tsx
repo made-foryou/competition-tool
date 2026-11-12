@@ -14,6 +14,11 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { useTranslations } from '@/hooks/use-translations';
+import {
+    pointsSystemDescription,
+    pointsSystemLabel,
+} from '@/lib/points-system';
+import type { PointsSystemValue } from '@/lib/points-system';
 
 export type CompetitionSettingsProps = {
     match_duration_minutes: number;
@@ -25,6 +30,8 @@ export type CompetitionSettingsProps = {
     max_matches_per_player_per_day: number;
     /** Het maximale aantal games per wedstrijd. */
     best_of: number;
+    /** De puntentelling voor het klassement. */
+    points_system: PointsSystemValue;
 };
 
 export type CompetitionSettingsLimits = {
@@ -35,14 +42,19 @@ export type CompetitionSettingsLimits = {
     pool_size: { min: number; max: number; default: number };
     max_matches_per_player_per_day: { min: number; max: number };
     best_of: { options: number[]; default: number };
+    points_system: {
+        options: PointsSystemValue[];
+        default: PointsSystemValue;
+    };
 };
 
 type Props = {
     settings: CompetitionSettingsProps;
     limits: CompetitionSettingsLimits;
     /**
-     * Waar zodra er een uitslag is: dan ligt het wedstrijdformat vast, omdat
-     * de bestaande uitslagen anders niet meer bij het format passen.
+     * Waar zodra er een uitslag is: dan liggen het wedstrijdformat en de
+     * puntentelling vast, omdat de bestaande uitslagen anders niet meer bij
+     * het format passen en de stand zou verschuiven.
      */
     matchFormatLocked: boolean;
     action: string;
@@ -65,6 +77,9 @@ export default function CompetitionSettingsForm({
         String(settings.pool_size ?? limits.pool_size.default),
     );
     const [bestOf, setBestOf] = useState(String(settings.best_of));
+    const [pointsSystem, setPointsSystem] = useState<string>(
+        settings.points_system,
+    );
 
     const games = gamesToWin(Number(bestOf));
     const winnerHint =
@@ -119,11 +134,6 @@ export default function CompetitionSettingsForm({
                                         id="best_of-error"
                                         message={errors.best_of}
                                     />
-                                    <p className="text-muted-foreground text-sm">
-                                        {t(
-                                            'The match format is locked once a result has been entered. To change it, first clear all results on the Matches tab.',
-                                        )}
-                                    </p>
                                 </div>
                             ) : (
                                 <div className="grid gap-2">
@@ -176,6 +186,94 @@ export default function CompetitionSettingsForm({
                                         {winnerHint}
                                     </p>
                                 </div>
+                            )}
+                            {matchFormatLocked ? (
+                                <div className="grid gap-2">
+                                    <input
+                                        type="hidden"
+                                        name="points_system"
+                                        value={settings.points_system}
+                                    />
+                                    <dl className="grid gap-2">
+                                        <Label asChild>
+                                            <dt>{t('Points system')}</dt>
+                                        </Label>
+                                        <dd className="text-sm">
+                                            {pointsSystemLabel(
+                                                settings.points_system,
+                                                t,
+                                            )}
+                                        </dd>
+                                    </dl>
+                                    <InputError
+                                        id="points_system-error"
+                                        message={errors.points_system}
+                                    />
+                                </div>
+                            ) : (
+                                <div className="grid gap-2">
+                                    <Label htmlFor="points_system">
+                                        {t('Points system')}
+                                    </Label>
+                                    <Select
+                                        name="points_system"
+                                        value={pointsSystem}
+                                        onValueChange={setPointsSystem}
+                                    >
+                                        <SelectTrigger
+                                            id="points_system"
+                                            className="w-full"
+                                            aria-invalid={
+                                                !!errors.points_system
+                                            }
+                                            aria-describedby={[
+                                                errors.points_system
+                                                    ? 'points_system-error'
+                                                    : null,
+                                                'points_system-hint',
+                                            ]
+                                                .filter(Boolean)
+                                                .join(' ')}
+                                        >
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {limits.points_system.options.map(
+                                                (option) => (
+                                                    <SelectItem
+                                                        key={option}
+                                                        value={option}
+                                                    >
+                                                        {pointsSystemLabel(
+                                                            option,
+                                                            t,
+                                                        )}
+                                                    </SelectItem>
+                                                ),
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError
+                                        id="points_system-error"
+                                        message={errors.points_system}
+                                    />
+                                    <p
+                                        id="points_system-hint"
+                                        className="text-muted-foreground text-sm"
+                                    >
+                                        {pointsSystemDescription(
+                                            pointsSystem,
+                                            t,
+                                        )}
+                                    </p>
+                                </div>
+                            )}
+                            {matchFormatLocked && (
+                                <p className="text-muted-foreground text-sm sm:col-span-2">
+                                    {t(
+                                        'The match format and points system are locked once a result has been entered. To change them, first clear all results on the Matches tab.',
+                                    )}
+                                </p>
                             )}
                         </div>
                     </div>

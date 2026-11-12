@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\PointsSystem;
 use App\Support\CompetitionSettings;
 use App\Support\Scheduling\AvailabilityLookup;
 use App\Support\Scheduling\MatchDaySchedule;
@@ -23,6 +24,7 @@ function settings(int $duration = 20, int $buffer = 5, int $rest = 10, int $brea
         poolSize: null,
         maxMatchesPerPlayerPerDay: $max,
         bestOf: CompetitionSettings::DEFAULT_BEST_OF,
+        pointsSystem: PointsSystem::WinTwoLossZero,
     );
 }
 

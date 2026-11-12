@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\PointsSystem;
 use Illuminate\Contracts\Database\Eloquent\Castable;
 use Illuminate\Contracts\Support\Arrayable;
 
@@ -9,7 +10,8 @@ use Illuminate\Contracts\Support\Arrayable;
  * Planningsinstellingen van een competitie: hoe lang een wedstrijd en de
  * pauze ertussen duren, hoeveel rust een speler minimaal krijgt, of er met
  * poules gewerkt wordt en hoeveel wedstrijden een speler per dag mag spelen.
- * Ook het wedstrijdformat (best-of-N games) hoort bij deze instellingen.
+ * Ook het wedstrijdformat (best-of-N games) en de puntentelling voor het
+ * klassement horen bij deze instellingen.
  *
  * @implements Arrayable<string, mixed>
  */
@@ -60,6 +62,8 @@ final readonly class CompetitionSettings implements Arrayable, Castable
 
     public const int DEFAULT_BEST_OF = 5;
 
+    public const PointsSystem DEFAULT_POINTS_SYSTEM = PointsSystem::WinTwoLossZero;
+
     public function __construct(
         public int $matchDurationMinutes,
         public int $bufferMinutes,
@@ -69,6 +73,7 @@ final readonly class CompetitionSettings implements Arrayable, Castable
         public ?int $poolSize,
         public int $maxMatchesPerPlayerPerDay,
         public int $bestOf,
+        public PointsSystem $pointsSystem,
     ) {}
 
     public static function defaults(): self
@@ -82,6 +87,7 @@ final readonly class CompetitionSettings implements Arrayable, Castable
             poolSize: null,
             maxMatchesPerPlayerPerDay: self::DEFAULT_MAX_MATCHES_PER_PLAYER_PER_DAY,
             bestOf: self::DEFAULT_BEST_OF,
+            pointsSystem: self::DEFAULT_POINTS_SYSTEM,
         );
     }
 
@@ -93,6 +99,8 @@ final readonly class CompetitionSettings implements Arrayable, Castable
      */
     public static function fromArray(array $data): self
     {
+        $pointsSystem = $data['points_system'] ?? null;
+
         return new self(
             matchDurationMinutes: (int) ($data['match_duration_minutes'] ?? self::DEFAULT_MATCH_DURATION_MINUTES),
             bufferMinutes: (int) ($data['buffer_minutes'] ?? self::DEFAULT_BUFFER_MINUTES),
@@ -102,11 +110,14 @@ final readonly class CompetitionSettings implements Arrayable, Castable
             poolSize: isset($data['pool_size']) ? (int) $data['pool_size'] : null,
             maxMatchesPerPlayerPerDay: (int) ($data['max_matches_per_player_per_day'] ?? self::DEFAULT_MAX_MATCHES_PER_PLAYER_PER_DAY),
             bestOf: (int) ($data['best_of'] ?? self::DEFAULT_BEST_OF),
+            pointsSystem: $pointsSystem instanceof PointsSystem
+                ? $pointsSystem
+                : ((is_string($pointsSystem) ? PointsSystem::tryFrom($pointsSystem) : null) ?? self::DEFAULT_POINTS_SYSTEM),
         );
     }
 
     /**
-     * @return array{match_duration_minutes: int, buffer_minutes: int, min_rest_minutes: int, break_duration_minutes: int, use_pools: bool, pool_size: int|null, max_matches_per_player_per_day: int, best_of: int}
+     * @return array{match_duration_minutes: int, buffer_minutes: int, min_rest_minutes: int, break_duration_minutes: int, use_pools: bool, pool_size: int|null, max_matches_per_player_per_day: int, best_of: int, points_system: string}
      */
     public function toArray(): array
     {
@@ -119,6 +130,7 @@ final readonly class CompetitionSettings implements Arrayable, Castable
             'pool_size' => $this->poolSize,
             'max_matches_per_player_per_day' => $this->maxMatchesPerPlayerPerDay,
             'best_of' => $this->bestOf,
+            'points_system' => $this->pointsSystem->value,
         ];
     }
 
@@ -167,7 +179,7 @@ final readonly class CompetitionSettings implements Arrayable, Castable
     }
 
     /**
-     * @return array{match_duration_minutes: array{min: int, max: int}, buffer_minutes: array{min: int, max: int}, min_rest_minutes: array{min: int, max: int}, break_duration_minutes: array{min: int, max: int}, pool_size: array{min: int, max: int, default: int}, max_matches_per_player_per_day: array{min: int, max: int}, best_of: array{options: list<int>, default: int}}
+     * @return array{match_duration_minutes: array{min: int, max: int}, buffer_minutes: array{min: int, max: int}, min_rest_minutes: array{min: int, max: int}, break_duration_minutes: array{min: int, max: int}, pool_size: array{min: int, max: int, default: int}, max_matches_per_player_per_day: array{min: int, max: int}, best_of: array{options: list<int>, default: int}, points_system: array{options: list<string>, default: string}}
      */
     public static function limits(): array
     {
@@ -179,6 +191,10 @@ final readonly class CompetitionSettings implements Arrayable, Castable
             'pool_size' => ['min' => self::MIN_POOL_SIZE, 'max' => self::MAX_POOL_SIZE, 'default' => self::DEFAULT_POOL_SIZE],
             'max_matches_per_player_per_day' => ['min' => self::MIN_MAX_MATCHES_PER_PLAYER_PER_DAY, 'max' => self::MAX_MAX_MATCHES_PER_PLAYER_PER_DAY],
             'best_of' => ['options' => self::BEST_OF_OPTIONS, 'default' => self::DEFAULT_BEST_OF],
+            'points_system' => [
+                'options' => array_map(fn (PointsSystem $pointsSystem): string => $pointsSystem->value, PointsSystem::cases()),
+                'default' => self::DEFAULT_POINTS_SYSTEM->value,
+            ],
         ];
     }
 

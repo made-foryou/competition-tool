@@ -59,6 +59,7 @@ export type MatchProps = {
 
 /**
  * Het wedstrijdformat van de competitie, zoals de editpagina het meekrijgt.
+ * `is_locked` geldt ook voor de puntentelling.
  * Niet uitgesteld, want ook het instellingenformulier heeft `is_locked` nodig.
  */
 export type MatchFormatProps = {
@@ -66,7 +67,7 @@ export type MatchFormatProps = {
     best_of: number;
     /** Het aantal games dat de winnaar nodig heeft; ook de hoogste geldige score. */
     games_to_win: number;
-    /** Waar zodra er minstens één uitslag is: het format ligt dan vast. */
+    /** Waar zodra er minstens één uitslag is: het format en de puntentelling liggen dan vast. */
     is_locked: boolean;
 };
 

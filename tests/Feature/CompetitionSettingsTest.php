@@ -2,6 +2,7 @@
 
 use App\Actions\Competitions\UpdateCompetitionSettings;
 use App\Enums\MatchStatus;
+use App\Enums\PointsSystem;
 use App\Models\Competition;
 use App\Models\CompetitionMatch;
 use App\Models\User;
@@ -30,6 +31,7 @@ test('a new competition has default planning settings', function () {
         ->and($competition->settings->poolSize)->toBeNull()
         ->and($competition->settings->maxMatchesPerPlayerPerDay)->toBe(0)
         ->and($competition->settings->bestOf)->toBe(5)
+        ->and($competition->settings->pointsSystem)->toBe(PointsSystem::WinTwoLossZero)
         ->and($competition->settings->gamesToWin())->toBe(3);
 });
 
@@ -73,6 +75,7 @@ test('the withSettings factory state applies the given settings', function () {
         poolSize: 6,
         maxMatchesPerPlayerPerDay: 4,
         bestOf: 7,
+        pointsSystem: PointsSystem::GamesWon,
     );
 
     $competition = Competition::factory()->withSettings($settings)->create();
@@ -85,7 +88,8 @@ test('the withSettings factory state applies the given settings', function () {
         ->usePools->toBeTrue()
         ->poolSize->toBe(6)
         ->maxMatchesPerPlayerPerDay->toBe(4)
-        ->bestOf->toBe(7);
+        ->bestOf->toBe(7)
+        ->pointsSystem->toBe(PointsSystem::GamesWon);
 });
 
 test('the edit page exposes the settings and their limits', function () {
@@ -100,7 +104,10 @@ test('the edit page exposes the settings and their limits', function () {
             ->where('settings.match_duration_minutes', 20)
             ->where('settings.use_pools', false)
             ->where('settings.best_of', 5)
+            ->where('settings.points_system', 'win-2-loss-0')
             ->where('settingsLimits.best_of.options', [1, 3, 5, 7])
+            ->where('settingsLimits.points_system.options', ['win-2-loss-0', 'win-2-loss-1', 'games-won'])
+            ->where('settingsLimits.points_system.default', 'win-2-loss-0')
             ->has('settingsLimits.pool_size.min')
             ->etc(),
         );
@@ -119,6 +126,7 @@ test('admins can update the planning settings', function () {
         'pool_size' => 5,
         'max_matches_per_player_per_day' => 3,
         'best_of' => 5,
+        'points_system' => 'win-2-loss-0',
     ])->assertRedirect(route('competitions.edit', $competition))
         ->assertInertiaFlash('toast', ['type' => 'success', 'message' => __('Planning settings saved.')]);
 
@@ -131,7 +139,8 @@ test('admins can update the planning settings', function () {
         ->and($settings->usePools)->toBeTrue()
         ->and($settings->poolSize)->toBe(5)
         ->and($settings->maxMatchesPerPlayerPerDay)->toBe(3)
-        ->and($settings->bestOf)->toBe(5);
+        ->and($settings->bestOf)->toBe(5)
+        ->and($settings->pointsSystem)->toBe(PointsSystem::WinTwoLossZero);
 
     $stored = json_decode(DB::table('competitions')->where('id', $competition->id)->value('settings'), true);
 
@@ -145,6 +154,7 @@ test('admins can update the planning settings', function () {
             'pool_size',
             'max_matches_per_player_per_day',
             'best_of',
+            'points_system',
         ]);
 });
 
@@ -161,6 +171,7 @@ test('the pool size is discarded when pools are disabled', function () {
         'pool_size' => 5,
         'max_matches_per_player_per_day' => 0,
         'best_of' => 5,
+        'points_system' => 'win-2-loss-0',
     ])->assertRedirect(route('competitions.edit', $competition));
 
     expect($competition->refresh()->settings->poolSize)->toBeNull();
@@ -178,6 +189,7 @@ test('a pool size is required when pools are enabled', function () {
         'use_pools' => '1',
         'max_matches_per_player_per_day' => 0,
         'best_of' => 5,
+        'points_system' => 'win-2-loss-0',
     ])->assertSessionHasErrors('pool_size');
 });
 
@@ -194,6 +206,7 @@ test('planning settings validation limits are enforced', function (string $field
         'pool_size' => 5,
         'max_matches_per_player_per_day' => 0,
         'best_of' => 5,
+        'points_system' => 'win-2-loss-0',
         $field => $value,
     ];
 
@@ -217,6 +230,7 @@ test('planning settings validation limits are enforced', function (string $field
     'best of 4' => ['best_of', 4],
     'best of 9' => ['best_of', 9],
     'non-numeric best of' => ['best_of', 'abc'],
+    'unknown points system' => ['points_system', 'win-3'],
 ]);
 
 test('a missing required field is rejected', function () {
@@ -230,6 +244,7 @@ test('a missing required field is rejected', function () {
         'use_pools' => '0',
         'max_matches_per_player_per_day' => 0,
         'best_of' => 5,
+        'points_system' => 'win-2-loss-0',
     ])->assertSessionHasErrors('match_duration_minutes');
 });
 
@@ -244,6 +259,7 @@ test('a missing use_pools field is rejected', function () {
         'break_duration_minutes' => 15,
         'max_matches_per_player_per_day' => 0,
         'best_of' => 5,
+        'points_system' => 'win-2-loss-0',
     ])->assertSessionHasErrors('use_pools');
 });
 
@@ -260,6 +276,7 @@ test('use_pools accepts the "on" checkbox value', function () {
         'pool_size' => 4,
         'max_matches_per_player_per_day' => 0,
         'best_of' => 5,
+        'points_system' => 'win-2-loss-0',
     ])->assertRedirect(route('competitions.edit', $competition));
 
     expect($competition->refresh()->settings->usePools)->toBeTrue();
@@ -279,7 +296,8 @@ test('unknown settings keys are ignored and missing keys fall back to their defa
 
     expect($settings->matchDurationMinutes)->toBe(30)
         ->and($settings->bufferMinutes)->toBe(CompetitionSettings::DEFAULT_BUFFER_MINUTES)
-        ->and($settings->bestOf)->toBe(CompetitionSettings::DEFAULT_BEST_OF);
+        ->and($settings->bestOf)->toBe(CompetitionSettings::DEFAULT_BEST_OF)
+        ->and($settings->pointsSystem)->toBe(CompetitionSettings::DEFAULT_POINTS_SYSTEM);
 });
 
 test('a missing best_of is rejected', function () {
@@ -296,6 +314,103 @@ test('a missing best_of is rejected', function () {
     ])->assertSessionHasErrors('best_of');
 });
 
+test('a missing points_system is rejected', function () {
+    actingAsSettingsAdmin();
+    $competition = Competition::factory()->create();
+
+    $payload = lockedFormatPayload();
+    unset($payload['points_system']);
+
+    $this->put(route('competitions.settings.update', $competition), $payload)
+        ->assertSessionHasErrors('points_system');
+});
+
+test('admins can save a different points system', function () {
+    actingAsSettingsAdmin();
+    $competition = Competition::factory()->create();
+
+    $this->put(route('competitions.settings.update', $competition), lockedFormatPayload(['points_system' => 'games-won']))
+        ->assertSessionDoesntHaveErrors()
+        ->assertRedirect(route('competitions.edit', $competition));
+
+    $stored = json_decode(DB::table('competitions')->where('id', $competition->id)->value('settings'), true);
+
+    expect($stored['points_system'])->toBe('games-won')
+        ->and($competition->refresh()->settings->pointsSystem)->toBe(PointsSystem::GamesWon);
+});
+
+test('an unknown points system is rejected with a message', function () {
+    actingAsSettingsAdmin();
+    $competition = Competition::factory()->create();
+
+    $this->put(route('competitions.settings.update', $competition), lockedFormatPayload(['points_system' => 'win-3']))
+        ->assertSessionHasErrors(['points_system' => __('Choose a valid points system.')]);
+
+    expect($competition->refresh()->settings->pointsSystem)->toBe(PointsSystem::WinTwoLossZero);
+});
+
+test('a missing or unknown stored points system falls back to the default', function (array $stored) {
+    $competition = Competition::factory()->create();
+
+    DB::table('competitions')->where('id', $competition->id)->update(['settings' => json_encode($stored)]);
+
+    expect($competition->refresh()->settings->pointsSystem)->toBe(PointsSystem::WinTwoLossZero);
+})->with([
+    'missing key' => [['best_of' => 3]],
+    'unknown value' => [['points_system' => 'win-3']],
+    'wrong type' => [['points_system' => 5]],
+]);
+
+test('the points system cannot change once a result has been entered', function () {
+    actingAsSettingsAdmin();
+    $competition = Competition::factory()->create();
+    CompetitionMatch::factory()->played()->create(['competition_id' => $competition->id]);
+
+    $this->put(route('competitions.settings.update', $competition), lockedFormatPayload(['points_system' => 'games-won']))
+        ->assertSessionHasErrors(['points_system' => __('The points system cannot be changed once a result has been entered.')])
+        ->assertSessionDoesntHaveErrors('best_of');
+
+    expect($competition->refresh()->settings->pointsSystem)->toBe(PointsSystem::WinTwoLossZero);
+});
+
+test('the same points system can be sent again after a result', function () {
+    actingAsSettingsAdmin();
+    $competition = Competition::factory()->create();
+    CompetitionMatch::factory()->played()->create(['competition_id' => $competition->id]);
+
+    $this->put(route('competitions.settings.update', $competition), lockedFormatPayload())
+        ->assertSessionDoesntHaveErrors();
+});
+
+test('a changed format and points system are both reported after a result', function () {
+    actingAsSettingsAdmin();
+    $competition = Competition::factory()->create();
+    CompetitionMatch::factory()->played()->create(['competition_id' => $competition->id]);
+
+    $this->put(route('competitions.settings.update', $competition), lockedFormatPayload(['best_of' => 3, 'points_system' => 'games-won']))
+        ->assertSessionHasErrors(['best_of', 'points_system']);
+
+    expect($competition->refresh()->settings)
+        ->bestOf->toBe(5)
+        ->pointsSystem->toBe(PointsSystem::WinTwoLossZero);
+});
+
+test('the points system is not changed when a result was entered after the request started', function () {
+    $competition = Competition::factory()->create();
+    CompetitionMatch::factory()->played()->create(['competition_id' => $competition->id]);
+
+    $settings = CompetitionSettings::fromArray([...$competition->settings->toArray(), 'best_of' => 3, 'points_system' => 'games-won']);
+
+    try {
+        app(UpdateCompetitionSettings::class)->handle($competition, $settings);
+        $this->fail('Expected a ValidationException.');
+    } catch (ValidationException $exception) {
+        expect($exception->errors())->toHaveKeys(['best_of', 'points_system']);
+    }
+
+    expect($competition->refresh()->settings->pointsSystem)->toBe(PointsSystem::WinTwoLossZero);
+});
+
 function lockedFormatPayload(array $overrides = []): array
 {
     return [
@@ -306,6 +421,7 @@ function lockedFormatPayload(array $overrides = []): array
         'use_pools' => '0',
         'max_matches_per_player_per_day' => 0,
         'best_of' => 5,
+        'points_system' => 'win-2-loss-0',
         ...$overrides,
     ];
 }
@@ -378,6 +494,7 @@ test('participants cannot update planning settings', function () {
             'use_pools' => '0',
             'max_matches_per_player_per_day' => 0,
             'best_of' => 5,
+            'points_system' => 'win-2-loss-0',
         ])->assertForbidden();
 });
 

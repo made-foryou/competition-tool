@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Competitions;
 
+use App\Enums\PointsSystem;
 use App\Models\Competition;
 use App\Support\CompetitionSettings;
 use Illuminate\Foundation\Http\FormRequest;
@@ -37,14 +38,15 @@ class UpdateCompetitionSettingsRequest extends FormRequest
             'pool_size' => ['exclude_if:use_pools,false', 'required', 'integer', 'min:'.$limits['pool_size']['min'], 'max:'.$limits['pool_size']['max']],
             'max_matches_per_player_per_day' => ['required', 'integer', 'min:'.$limits['max_matches_per_player_per_day']['min'], 'max:'.$limits['max_matches_per_player_per_day']['max']],
             'best_of' => ['required', 'integer', Rule::in(CompetitionSettings::BEST_OF_OPTIONS)],
+            'points_system' => ['required', Rule::enum(PointsSystem::class)],
         ];
     }
 
     /**
-     * Zodra er een uitslag is geregistreerd, ligt het wedstrijdformat vast:
-     * alle uitslagen in een competitie hebben gegarandeerd hetzelfde format,
-     * anders trekt een klassement op games scheef. Dezelfde waarde opnieuw
-     * meesturen blijft toegestaan.
+     * Zodra er een uitslag is geregistreerd, liggen het wedstrijdformat en de
+     * puntentelling vast: alle uitslagen in een competitie hebben gegarandeerd
+     * hetzelfde format en dezelfde telling, anders verschuift het klassement.
+     * Dezelfde waarde opnieuw meesturen blijft toegestaan.
      *
      * Dit is de directe veldfout; `UpdateCompetitionSettings` controleert
      * hetzelfde nog eens onder de rijlock.
@@ -55,15 +57,24 @@ class UpdateCompetitionSettingsRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
-                if ($validator->errors()->has('best_of')) {
-                    return;
-                }
-
                 /** @var Competition $competition */
                 $competition = $this->route('competition');
 
-                if ($competition->hasResults() && (int) $this->input('best_of') !== $competition->settings->bestOf) {
+                $formatChanged = ! $validator->errors()->has('best_of')
+                    && (int) $this->input('best_of') !== $competition->settings->bestOf;
+                $pointsSystemChanged = ! $validator->errors()->has('points_system')
+                    && (string) $this->input('points_system') !== $competition->settings->pointsSystem->value;
+
+                if (! ($formatChanged || $pointsSystemChanged) || ! $competition->hasResults()) {
+                    return;
+                }
+
+                if ($formatChanged) {
                     $validator->errors()->add('best_of', __('The match format cannot be changed once a result has been entered.'));
+                }
+
+                if ($pointsSystemChanged) {
+                    $validator->errors()->add('points_system', __('The points system cannot be changed once a result has been entered.'));
                 }
             },
         ];
@@ -90,6 +101,7 @@ class UpdateCompetitionSettingsRequest extends FormRequest
             'max_matches_per_player_per_day.min' => __('Enter a value between :min and :max.', $limits['max_matches_per_player_per_day']),
             'max_matches_per_player_per_day.max' => __('Enter a value between :min and :max.', $limits['max_matches_per_player_per_day']),
             'best_of.in' => __('Choose a valid match format.'),
+            'points_system.enum' => __('Choose a valid points system.'),
         ];
     }
 
@@ -106,6 +118,7 @@ class UpdateCompetitionSettingsRequest extends FormRequest
             poolSize: isset($validated['pool_size']) ? (int) $validated['pool_size'] : null,
             maxMatchesPerPlayerPerDay: (int) $validated['max_matches_per_player_per_day'],
             bestOf: (int) $validated['best_of'],
+            pointsSystem: PointsSystem::from($validated['points_system']),
         );
     }
 }
