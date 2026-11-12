@@ -349,16 +349,9 @@ export default function CompetitionsEdit({
                     <TabsContent value="standings">
                         {loadedStandings ? (
                             <section className="flex flex-col gap-4">
-                                <div className="flex flex-col gap-1">
-                                    <h3 className="text-sm font-medium">
-                                        {t('Standings')}
-                                    </h3>
-                                    <StandingsLegend
-                                        pointsSystem={
-                                            loadedStandings.points_system
-                                        }
-                                    />
-                                </div>
+                                <h3 className="text-sm font-medium">
+                                    {t('Standings')}
+                                </h3>
                                 {loadedStandings.rows.length === 0 ? (
                                     <StandingsEmptyState
                                         isFinished={
@@ -366,9 +359,16 @@ export default function CompetitionsEdit({
                                         }
                                     />
                                 ) : (
-                                    <StandingsTable
-                                        rows={loadedStandings.rows}
-                                    />
+                                    <>
+                                        <StandingsTable
+                                            rows={loadedStandings.rows}
+                                        />
+                                        <StandingsLegend
+                                            pointsSystem={
+                                                loadedStandings.points_system
+                                            }
+                                        />
+                                    </>
                                 )}
                             </section>
                         ) : (

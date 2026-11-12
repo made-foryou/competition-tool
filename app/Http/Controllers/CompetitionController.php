@@ -118,7 +118,7 @@ class CompetitionController extends Controller
             'availabilityReminder' => $this->availabilityReminderProps($competition),
             'matches' => Inertia::defer(fn (): array => $this->matchRows($competition)),
             'schedule' => Inertia::defer(fn (): array => $this->scheduleProps($competition)),
-            'standings' => Inertia::defer(fn (): array => $this->standingsProps($buildStandings->handle($competition))),
+            'standings' => Inertia::defer(fn (): array => $this->standingsProps($buildStandings->handle($competition)), 'standings'),
             'matchDays' => $competition->matchDays()
                 ->withCount('fields')
                 ->get()

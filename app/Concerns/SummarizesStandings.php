@@ -13,8 +13,8 @@ use App\Support\Standings\Standings;
  * Geen rekenwerk: posities, gedeelde plaatsen en volgorde komen uit
  * `Standings`. Zolang er geen uitslag is, zijn de rijen leeg: de UI toont dan
  * een lege staat in plaats van rijen met nullen (besluit #58). Een speler
- * staat er alleen met zijn `display_name`, nooit met zijn echte naam of
- * e-mailadres.
+ * staat er alleen met zijn `display_name` (de nickname, of de naam als er geen
+ * nickname is): nooit de naam achter een nickname en nooit een e-mailadres.
  */
 trait SummarizesStandings
 {
@@ -58,31 +58,31 @@ trait SummarizesStandings
      * @return array{
      *     points_system: string,
      *     leaders: list<array{
-     *     player_id: int,
-     *     position: int,
-     *     shares_position: bool,
-     *     player: string,
-     *     player_is_participant: bool,
-     *     played: int,
-     *     won: int,
-     *     lost: int,
-     *     game_difference: int,
-     *     points: int,
-     *     is_viewer: bool,
-     * }>,
+     *         player_id: int,
+     *         position: int,
+     *         shares_position: bool,
+     *         player: string,
+     *         player_is_participant: bool,
+     *         played: int,
+     *         won: int,
+     *         lost: int,
+     *         game_difference: int,
+     *         points: int,
+     *         is_viewer: bool,
+     *     }>,
      *     viewer_row: array{
-     *     player_id: int,
-     *     position: int,
-     *     shares_position: bool,
-     *     player: string,
-     *     player_is_participant: bool,
-     *     played: int,
-     *     won: int,
-     *     lost: int,
-     *     game_difference: int,
-     *     points: int,
-     *     is_viewer: bool,
-     * }|null,
+     *         player_id: int,
+     *         position: int,
+     *         shares_position: bool,
+     *         player: string,
+     *         player_is_participant: bool,
+     *         played: int,
+     *         won: int,
+     *         lost: int,
+     *         game_difference: int,
+     *         points: int,
+     *         is_viewer: bool,
+     *     }|null,
      *     has_gap: bool,
      *     total: int,
      * }

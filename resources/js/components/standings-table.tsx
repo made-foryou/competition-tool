@@ -90,7 +90,11 @@ function StandingTableRow({ row }: { row: StandingRow }) {
     const hasBadges = row.is_viewer || !row.player_is_participant;
 
     return (
-        <TableRow className={cn(row.is_viewer && 'bg-muted/50 font-medium')}>
+        <TableRow
+            className={cn(
+                row.is_viewer && 'bg-secondary hover:bg-secondary font-medium',
+            )}
+        >
             <TableCell className={NUMBER_CELL_CLASSES}>
                 {row.position}
                 {row.shares_position && (
@@ -104,7 +108,7 @@ function StandingTableRow({ row }: { row: StandingRow }) {
                         <div className="flex flex-wrap gap-1">
                             {row.is_viewer && (
                                 <Badge
-                                    variant="secondary"
+                                    variant="default"
                                     className="whitespace-normal"
                                 >
                                     {t('You')}
@@ -163,7 +167,7 @@ export function StandingsTable({
                         <ColumnHead
                             short="#"
                             full={t('Position')}
-                            className={cn(NUMBER_CELL_CLASSES, 'text-left')}
+                            className={NUMBER_CELL_CLASSES}
                         />
                         <ColumnHead short={t('Player')} full={t('Player')} />
                         <ColumnHead
@@ -222,8 +226,9 @@ export function StandingsTable({
 }
 
 /**
- * Eén regel uitleg onder de stand: de puntentelling en de volgorde bij
- * gelijke punten.
+ * Uitleg onder de stand, in korte regels: de puntentelling, de volgorde bij
+ * gelijke punten en (alleen onder `sm`, waar de korte koppen staan) wat de
+ * afkortingen betekenen. Schermlezers krijgen al de volledige koppen.
  */
 export function StandingsLegend({
     pointsSystem,
@@ -233,12 +238,23 @@ export function StandingsLegend({
     const { t } = useTranslations();
 
     return (
-        <p className="text-muted-foreground text-sm">
-            {t(
-                'Points system: :system. With equal points the game difference decides first, then the head-to-head result; otherwise players share the place.',
-                { system: pointsSystemLabel(pointsSystem, t) },
-            )}
-        </p>
+        <div className="text-muted-foreground flex flex-col gap-1 text-sm">
+            <p>
+                {t('Points system: :system.', {
+                    system: pointsSystemLabel(pointsSystem, t),
+                })}
+            </p>
+            <p>
+                {t(
+                    'With equal points the game difference counts first (games won minus games lost), then the points from the matches between those players. If they are still equal, they share the place.',
+                )}
+            </p>
+            <p aria-hidden="true" className="sm:hidden">
+                {t(
+                    'Pld = played, W = won, L = lost, GD = game difference, Pts = points',
+                )}
+            </p>
+        </div>
     );
 }
 
@@ -292,7 +308,7 @@ export function StandingsTableSkeleton({ rows = 5 }: { rows?: number }) {
                 {Array.from({ length: rows }, (_, index) => (
                     <div
                         key={index}
-                        className="flex h-[3.0625rem] items-center justify-between gap-3 px-3"
+                        className="flex h-[2.3125rem] items-center justify-between gap-3 px-3"
                     >
                         <Skeleton className="h-4 w-5" />
                         <Skeleton className="h-4 flex-1" />

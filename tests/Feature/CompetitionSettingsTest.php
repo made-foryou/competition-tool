@@ -395,6 +395,15 @@ test('a changed format and points system are both reported after a result', func
         ->pointsSystem->toBe(PointsSystem::WinTwoLossZero);
 });
 
+test('an invalid best of does not hide the locked points system error', function () {
+    actingAsSettingsAdmin();
+    $competition = Competition::factory()->create();
+    CompetitionMatch::factory()->played()->create(['competition_id' => $competition->id]);
+
+    $this->put(route('competitions.settings.update', $competition), lockedFormatPayload(['best_of' => 4, 'points_system' => 'games-won']))
+        ->assertSessionHasErrors(['best_of', 'points_system' => __('The points system cannot be changed once a result has been entered.')]);
+});
+
 test('the points system is not changed when a result was entered after the request started', function () {
     $competition = Competition::factory()->create();
     CompetitionMatch::factory()->played()->create(['competition_id' => $competition->id]);

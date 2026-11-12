@@ -124,19 +124,20 @@ test('the standings page lists every row with the own row marked', function () {
                 ->where('standings.rows.4.is_viewer', true)));
 });
 
-test('opponents are shown by nickname and their real name is never sent', function (string $component, string $routeName, string $prop) {
+test('opponents are shown by nickname and their real name is never sent', function (string $component, string $routeName, string $prop, string $nicknamePath) {
     [$competition, $players] = participantStandingsFixture(4);
     $players[0]->update(['name' => 'Sanne de Vries', 'nickname' => 'Speedy']);
 
     $content = $this->actingAs($players[3])
         ->get(route($routeName, $competition), participantStandingsPartial($component, $prop))
         ->assertOk()
+        ->assertJsonPath($nicknamePath, 'Speedy')
         ->getContent();
 
     expect($content)->toContain('Speedy')->not->toContain('Sanne de Vries');
 })->with([
-    'dashboard' => ['participant/dashboard', 'competition.dashboard', 'standingsSummary'],
-    'page' => ['participant/standings', 'competition.standings', 'standings'],
+    'dashboard' => ['participant/dashboard', 'competition.dashboard', 'standingsSummary', 'props.standingsSummary.leaders.0.player'],
+    'page' => ['participant/standings', 'competition.standings', 'standings', 'props.standings.rows.0.player'],
 ]);
 
 test('an admin who is not linked sees the standings without an own row', function () {

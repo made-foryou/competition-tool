@@ -13,7 +13,7 @@ Een ingeplande wedstrijd met een voorbije speeldag en zonder uitslag is `awaitin
 
 ## Deelnemer ziet de volledige stand; eigen regel en samenvatting komen van de server
 
-Besluit Menno bij #58: deelnemers zien de hele stand, met uitsluitend `display_name`, nooit een echte naam of e-mailadres van een ander. Het dashboard toont de top 3 plus de eigen regel als die daarbuiten valt, met een link naar `/{slug}/standings`.
+Besluit Menno bij #58: deelnemers zien de hele stand, met uitsluitend `display_name`, nooit de naam achter een nickname en nooit een e-mailadres. Het dashboard toont de top 3 plus de eigen regel als die daarbuiten valt, met een link naar `/{slug}/standings`.
 
 `is_viewer` (bepaald op user-id), `viewer_row`, `has_gap` en `total` komen uit `SummarizesStandings::standingsSummary()`. Leid ze niet af in React.
 
