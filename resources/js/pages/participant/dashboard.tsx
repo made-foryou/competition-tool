@@ -4,6 +4,7 @@ import {
     CalendarDays,
     MapPin,
     Swords,
+    Trophy,
     Users,
 } from 'lucide-react';
 import ParticipantMatchList, {
@@ -13,13 +14,23 @@ import ParticipantMatchList, {
     ParticipantMatchListSkeleton,
 } from '@/components/participant-match-list';
 import type { ParticipantMatchOverview } from '@/components/participant-match-list';
+import {
+    StandingsEmptyState,
+    StandingsLegend,
+    StandingsTable,
+    StandingsTableSkeleton,
+} from '@/components/standings-table';
+import type { StandingsSummary } from '@/components/standings-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/hooks/use-translations';
 import type { CompetitionStatusValue } from '@/lib/competition-status';
 import { competitionStatusLabel } from '@/lib/competition-status';
 import { formatDate } from '@/lib/format-date';
-import { matches as matchesRoute } from '@/routes/competition';
+import {
+    matches as matchesRoute,
+    standings as standingsRoute,
+} from '@/routes/competition';
 import { edit as editAvailability } from '@/routes/competition/availability';
 
 type Props = {
@@ -37,6 +48,7 @@ type Props = {
     totalMatchDays: number;
     isParticipant: boolean;
     matchOverview?: ParticipantMatchOverview | null;
+    standingsSummary?: StandingsSummary;
 };
 
 export default function ParticipantDashboard({
@@ -46,6 +58,7 @@ export default function ParticipantDashboard({
     totalMatchDays,
     isParticipant,
     matchOverview,
+    standingsSummary,
 }: Props) {
     const { t } = useTranslations();
     const { locale } = usePage().props;
@@ -117,6 +130,22 @@ export default function ParticipantDashboard({
                             )}
                         </p>
                     )}
+                </section>
+
+                <section className="flex flex-col gap-3 rounded-xl border p-4">
+                    <h2 className="flex items-center gap-2 font-semibold">
+                        <Trophy className="size-4" />
+                        {t('Standings')}
+                    </h2>
+                    <Deferred
+                        data="standingsSummary"
+                        fallback={<StandingsTableSkeleton rows={3} />}
+                    >
+                        <StandingsOverview
+                            competition={competition}
+                            summary={standingsSummary}
+                        />
+                    </Deferred>
                 </section>
 
                 {totalMatchDays > 0 && (
@@ -239,6 +268,49 @@ function MatchOverview({
             <ParticipantMatchList matches={overview.next_matches} />
             <MatchTally counts={counts} />
             {viewAll}
+        </>
+    );
+}
+
+function StandingsOverview({
+    competition,
+    summary,
+}: {
+    competition: Props['competition'];
+    summary?: StandingsSummary;
+}) {
+    const { t } = useTranslations();
+
+    if (!summary) {
+        return null;
+    }
+
+    if (summary.total === 0) {
+        return (
+            <StandingsEmptyState
+                isFinished={competition.status === 'finished'}
+                size="sm"
+            />
+        );
+    }
+
+    return (
+        <>
+            <StandingsTable
+                rows={summary.leaders}
+                viewerRow={summary.viewer_row}
+                hasGap={summary.has_gap}
+            />
+            <StandingsLegend pointsSystem={summary.points_system} />
+            <div>
+                <Button asChild variant="secondary" size="sm">
+                    <Link href={standingsRoute(competition.slug)} prefetch>
+                        {t('View the full standings (:count)', {
+                            count: summary.total,
+                        })}
+                    </Link>
+                </Button>
+            </div>
         </>
     );
 }

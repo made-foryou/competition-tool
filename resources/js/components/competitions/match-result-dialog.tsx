@@ -114,7 +114,7 @@ export default function MatchResultDialog({
                         isFormatLocked
                             ? null
                             : t(
-                                  'After this first result the match format (best of :best_of) is locked.',
+                                  'After this first result the match format (best of :best_of) and the points system are locked.',
                                   { best_of: bestOf },
                               )
                     }

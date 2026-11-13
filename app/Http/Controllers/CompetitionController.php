@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Competitions\BuildStandings;
 use App\Actions\Competitions\SyncCompetitionMatches;
 use App\Concerns\SummarizesAvailability;
 use App\Concerns\SummarizesMatchDay;
 use App\Concerns\SummarizesSchedule;
+use App\Concerns\SummarizesStandings;
 use App\Enums\CompetitionStatus;
 use App\Http\Requests\Competitions\IndexCompetitionRequest;
 use App\Http\Requests\Competitions\StoreCompetitionRequest;
@@ -23,7 +25,7 @@ use Inertia\Response;
 
 class CompetitionController extends Controller
 {
-    use SummarizesAvailability, SummarizesMatchDay, SummarizesSchedule;
+    use SummarizesAvailability, SummarizesMatchDay, SummarizesSchedule, SummarizesStandings;
 
     public function index(IndexCompetitionRequest $request): Response
     {
@@ -96,7 +98,7 @@ class CompetitionController extends Controller
             ->all());
     }
 
-    public function edit(Competition $competition): Response
+    public function edit(Competition $competition, BuildStandings $buildStandings): Response
     {
         return Inertia::render('competitions/edit', [
             'competition' => $this->competitionProps($competition),
@@ -116,6 +118,7 @@ class CompetitionController extends Controller
             'availabilityReminder' => $this->availabilityReminderProps($competition),
             'matches' => Inertia::defer(fn (): array => $this->matchRows($competition)),
             'schedule' => Inertia::defer(fn (): array => $this->scheduleProps($competition)),
+            'standings' => Inertia::defer(fn (): array => $this->standingsProps($buildStandings->handle($competition)), 'standings'),
             'matchDays' => $competition->matchDays()
                 ->withCount('fields')
                 ->get()

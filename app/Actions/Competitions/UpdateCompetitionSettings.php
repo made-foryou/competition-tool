@@ -9,29 +9,41 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Slaat de planningsinstellingen van een competitie op, inclusief het
- * wedstrijdformat.
+ * wedstrijdformat en de puntentelling.
  *
- * Zodra er een uitslag is, ligt het format vast: alle uitslagen in een
- * competitie hebben gegarandeerd hetzelfde format, anders trekt een
- * klassement op games scheef. `UpdateCompetitionSettingsRequest` controleert
- * dat al voor de directe veldfout, maar tegen een competitie die vóór de
- * rijlock gelezen is. Een gelijktijdige `RecordMatchResult` kan daarna nog de
- * eerste uitslag vastleggen; daarom hier opnieuw onder dezelfde lock.
+ * Zodra er een uitslag is, liggen beide vast: alle uitslagen in een
+ * competitie hebben gegarandeerd hetzelfde format en worden met dezelfde
+ * telling tot een stand opgeteld; een wijziging halverwege zou de stand laten
+ * verschuiven. `UpdateCompetitionSettingsRequest` controleert dat al voor de
+ * directe veldfout, maar tegen een competitie die vóór de rijlock gelezen is.
+ * Een gelijktijdige `RecordMatchResult` kan daarna nog de eerste uitslag
+ * vastleggen; daarom hier opnieuw onder dezelfde lock.
  */
 class UpdateCompetitionSettings
 {
     /**
-     * @throws ValidationException wanneer het format wijzigt terwijl er intussen een uitslag is
+     * @throws ValidationException wanneer het format of de puntentelling wijzigt terwijl er intussen een uitslag is
      */
     public function handle(Competition $competition, CompetitionSettings $settings): void
     {
         DB::transaction(function () use ($competition, $settings): void {
             $locked = Competition::query()->whereKey($competition->id)->lockForUpdate()->firstOrFail();
 
-            if ($settings->bestOf !== $locked->settings->bestOf && $locked->hasResults()) {
-                throw ValidationException::withMessages([
-                    'best_of' => __('The match format cannot be changed once a result has been entered.'),
-                ]);
+            $formatChanged = $settings->bestOf !== $locked->settings->bestOf;
+            $pointsSystemChanged = $settings->pointsSystem !== $locked->settings->pointsSystem;
+
+            if (($formatChanged || $pointsSystemChanged) && $locked->hasResults()) {
+                $errors = [];
+
+                if ($formatChanged) {
+                    $errors['best_of'] = __('The match format cannot be changed once a result has been entered.');
+                }
+
+                if ($pointsSystemChanged) {
+                    $errors['points_system'] = __('The points system cannot be changed once a result has been entered.');
+                }
+
+                throw ValidationException::withMessages($errors);
             }
 
             $locked->update(['settings' => $settings]);
