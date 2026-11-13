@@ -63,12 +63,14 @@ export default function ManageTwoFactor(props: Props) {
                         )}
                     </p>
 
-                    <div className="relative inline">
+                    <div className="relative w-full sm:w-auto">
                         <Form {...disable.form()}>
                             {({ processing }) => (
                                 <Button
                                     variant="destructive"
                                     type="submit"
+                                    size="touch"
+                                    className="w-full sm:w-auto"
                                     disabled={processing}
                                 >
                                     {t('Disable 2FA')}
@@ -91,9 +93,13 @@ export default function ManageTwoFactor(props: Props) {
                         )}
                     </p>
 
-                    <div>
+                    <div className="w-full sm:w-auto">
                         {hasSetupData ? (
-                            <Button onClick={() => setShowSetupModal(true)}>
+                            <Button
+                                size="touch"
+                                className="w-full sm:w-auto"
+                                onClick={() => setShowSetupModal(true)}
+                            >
                                 <ShieldCheck />
                                 {t('Continue setup')}
                             </Button>
@@ -103,7 +109,12 @@ export default function ManageTwoFactor(props: Props) {
                                 onSuccess={() => setShowSetupModal(true)}
                             >
                                 {({ processing }) => (
-                                    <Button type="submit" disabled={processing}>
+                                    <Button
+                                        type="submit"
+                                        size="touch"
+                                        className="w-full sm:w-auto"
+                                        disabled={processing}
+                                    >
                                         {t('Enable 2FA')}
                                     </Button>
                                 )}

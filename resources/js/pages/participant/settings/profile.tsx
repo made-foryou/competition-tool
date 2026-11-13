@@ -107,6 +107,7 @@ export default function ParticipantProfile({ competition }: Props) {
 
                             <Button
                                 disabled={processing}
+                                size="touch"
                                 className="w-full sm:w-auto sm:self-start"
                                 data-test="update-profile-button"
                             >

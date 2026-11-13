@@ -50,7 +50,12 @@ export default function ParticipantStandings({
                 </Deferred>
 
                 <div>
-                    <Button asChild variant="secondary" size="sm">
+                    <Button
+                        asChild
+                        variant="secondary"
+                        size="touch"
+                        className="w-full sm:w-auto"
+                    >
                         <Link href={dashboard(competition.slug)}>
                             {t('Back to your dashboard')}
                         </Link>

@@ -69,14 +69,14 @@ export default function ParticipantLayout({
     return (
         <div className="bg-background text-foreground flex min-h-svh flex-col">
             <header className="bg-background/95 sticky top-0 z-10 border-b backdrop-blur">
-                <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 px-4 py-3">
+                <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 px-4 py-1.5 sm:py-2.5">
                     {(isInSettings || isOnMatches || isOnStandings) &&
                     backUrl ? (
                         <Button
                             asChild
                             variant="ghost"
-                            size="sm"
-                            className="-ml-2"
+                            size="touch"
+                            className="-ml-3"
                         >
                             <Link href={backUrl}>
                                 <ArrowLeft />
@@ -100,7 +100,7 @@ export default function ParticipantLayout({
                                 <Button
                                     asChild
                                     variant="ghost"
-                                    size="sm"
+                                    size="touch"
                                     aria-label={t('Settings')}
                                 >
                                     <Link href={settingsUrl} prefetch>
@@ -116,7 +116,7 @@ export default function ParticipantLayout({
                                 <Button
                                     type="submit"
                                     variant="ghost"
-                                    size="sm"
+                                    size="touch"
                                     aria-label={t('Log out')}
                                 >
                                     <LogOut />

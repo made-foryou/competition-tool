@@ -27,6 +27,8 @@ const buttonVariants = cva(
         sm: "h-8 rounded-md px-3 has-[>svg]:px-2.5",
         lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
         icon: "size-9",
+        // Deelnemersgedeelte: 44×44 raakvlak op mobiel, compact vanaf sm (#85, zie .ai/rules/js.md).
+        touch: "h-11 min-w-11 px-4 has-[>svg]:px-3 sm:h-9 sm:min-w-9",
       },
     },
     defaultVariants: {

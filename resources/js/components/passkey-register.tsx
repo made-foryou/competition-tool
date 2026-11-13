@@ -68,7 +68,12 @@ export default function PasskeyRegistration({ onSuccess }: Props) {
 
     if (!showForm) {
         return (
-            <Button variant="outline" onClick={() => setShowForm(true)}>
+            <Button
+                variant="outline"
+                size="touch"
+                className="w-full sm:w-auto"
+                onClick={() => setShowForm(true)}
+            >
                 {t('Add passkey')}
             </Button>
         );
@@ -98,10 +103,19 @@ export default function PasskeyRegistration({ onSuccess }: Props) {
             {error && <InputError message={error} />}
 
             <div className="flex gap-2">
-                <Button type="submit" disabled={isLoading || !name.trim()}>
+                <Button
+                    type="submit"
+                    size="touch"
+                    disabled={isLoading || !name.trim()}
+                >
                     {isLoading ? t('Registering…') : t('Register passkey')}
                 </Button>
-                <Button type="button" variant="ghost" onClick={handleCancel}>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="touch"
+                    onClick={handleCancel}
+                >
                     {t('Cancel')}
                 </Button>
             </div>

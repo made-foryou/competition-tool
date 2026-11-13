@@ -107,6 +107,7 @@ export default function ParticipantPassword({
 
                             <Button
                                 disabled={processing}
+                                size="touch"
                                 className="w-full sm:w-auto sm:self-start"
                                 data-test="update-password-button"
                             >
