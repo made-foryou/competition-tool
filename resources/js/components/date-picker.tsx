@@ -46,6 +46,8 @@ type Props = {
     minDate?: string | null;
     /** `YYYY-MM-DD`. Dates after this are disabled in the calendar. */
     maxDate?: string | null;
+    /** Called with the new `YYYY-MM-DD` value (or `''` when cleared) whenever the user picks, clears or the form resets the date. */
+    onValueChange?: (value: string) => void;
     className?: string;
     'aria-invalid'?: boolean;
     'aria-describedby'?: string;
@@ -66,6 +68,7 @@ export function DatePicker({
     disabled = false,
     minDate,
     maxDate,
+    onValueChange,
     className,
     'aria-invalid': ariaInvalid,
     'aria-describedby': ariaDescribedby,
@@ -77,6 +80,11 @@ export function DatePicker({
         defaultValue ? parseIsoDate(defaultValue) : undefined,
     );
     const hiddenInputRef = React.useRef<HTMLInputElement>(null);
+    const onValueChangeRef = React.useRef(onValueChange);
+
+    React.useEffect(() => {
+        onValueChangeRef.current = onValueChange;
+    });
 
     const value = selected ? toIsoDate(selected) : '';
     const calendarLocale = CALENDAR_LOCALES[locale] ?? nl;
@@ -107,6 +115,7 @@ export function DatePicker({
 
         const handleReset = () => {
             setSelected(defaultValue ? parseIsoDate(defaultValue) : undefined);
+            onValueChangeRef.current?.(defaultValue ?? '');
         };
 
         form.addEventListener('reset', handleReset);
@@ -158,6 +167,7 @@ export function DatePicker({
                     }
                     onSelect={(date) => {
                         setSelected(date);
+                        onValueChange?.(date ? toIsoDate(date) : '');
                         setOpen(false);
                     }}
                 />
@@ -170,6 +180,7 @@ export function DatePicker({
                             className="w-full"
                             onClick={() => {
                                 setSelected(undefined);
+                                onValueChange?.('');
                                 setOpen(false);
                             }}
                         >

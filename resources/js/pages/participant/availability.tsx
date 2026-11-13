@@ -14,7 +14,7 @@ type AvailabilityState = 'open' | 'upcoming' | 'closed' | 'not-participating';
 type Props = {
     competition: { name: string; slug: string };
     matchDays: MatchDayOption[];
-    /** De laatste inzending is actueel: er kwam daarna geen speeldag bij. */
+    /** De laatste inzending is actueel: er kwam daarna geen nieuwe speeldag of nieuwe datum bij. */
     hasSubmitted: boolean;
     /** Er is ooit ingediend, ook als dat leeg was of niet meer actueel is. */
     hasSubmittedBefore: boolean;
@@ -47,15 +47,15 @@ export default function ParticipantAvailability({
 
     // De uitleg over de competitiestatus klopt alleen als er ook echt een
     // ingevulde lijst onder staat. Wie ooit heeft ingediend, heeft die lijst:
-    // ook een lege inzending of een inzending van vóór een nieuwe speeldag is
-    // een antwoord, en nieuwe speeldagen staan daarin als "nog niet ingevuld".
+    // ook een lege inzending of een inzending van vóór een nieuwe speeldag of
+    // verzette datum is een antwoord, en nieuwe speeldagen staan daarin als "nog niet ingevuld".
     // Zonder ooit in te dienen tonen we de melding dat er niets is ingevuld.
     const showMatchDays =
         !isOpen &&
         hasSubmittedBefore &&
         (availabilityState === 'closed' || availabilityState === 'upcoming');
 
-    // Speeldagen die na de laatste inzending zijn bijgekomen. Alleen relevant
+    // Speeldagen die nieuw zijn: na de laatste inzending toegevoegd of naar een andere datum verzet. Alleen relevant
     // als de inzending niet meer actueel is: dan legt de open staat uit dat er
     // opnieuw opgeslagen moet worden.
     const newMatchDayCount = matchDays.filter(
@@ -83,12 +83,12 @@ export default function ParticipantAvailability({
                                 ? t('You can change this at any time.')
                                 : newMatchDayCount === 1
                                   ? t(
-                                        'A match day was added to :competition. Check whether you can attend the new match day and save your availability again to continue.',
+                                        'There is a new date for :competition. Check whether you can attend and save your availability again to continue.',
                                         { competition: competition.name },
                                     )
                                   : newMatchDayCount > 1
                                     ? t(
-                                          'Match days were added to :competition. Check whether you can attend the new match days and save your availability again to continue.',
+                                          'There are new dates for :competition. Check whether you can attend and save your availability again to continue.',
                                           { competition: competition.name },
                                       )
                                     : t(

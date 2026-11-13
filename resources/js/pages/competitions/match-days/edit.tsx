@@ -1,5 +1,5 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, TriangleAlert } from 'lucide-react';
 import MatchDayController from '@/actions/App/Http/Controllers/MatchDayController';
 import type { MatchDayProps } from '@/components/competitions/match-day-form';
 import MatchDayForm from '@/components/competitions/match-day-form';
@@ -7,6 +7,7 @@ import type { MatchDayFieldProps } from '@/components/competitions/match-day-fie
 import MatchDayFieldManager from '@/components/competitions/match-day-field-manager';
 import ConfirmDialog from '@/components/confirm-dialog';
 import Heading from '@/components/heading';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/hooks/use-translations';
 import { formatDate } from '@/lib/format-date';
@@ -15,6 +16,12 @@ import {
     edit as editMatchDay,
     update as updateMatchDay,
 } from '@/routes/competitions/match-days';
+
+export type MatchDayMoveImpact = {
+    available_count: number;
+    scheduled_match_count: number;
+    pinned_match_count: number;
+};
 
 type Props = {
     competition: {
@@ -25,12 +32,14 @@ type Props = {
     };
     matchDay: MatchDayProps;
     fields: MatchDayFieldProps[];
+    moveImpact: MatchDayMoveImpact;
 };
 
 export default function MatchDaysEdit({
     competition,
     matchDay,
     fields,
+    moveImpact,
 }: Props) {
     const { t } = useTranslations();
     const { locale } = usePage().props;
@@ -67,6 +76,7 @@ export default function MatchDaysEdit({
                     competitionStartsAt={competition.starts_at}
                     competitionEndsAt={competition.ends_at}
                     submitLabel={t('Save changes')}
+                    dateChangeWarning={<MoveWarning impact={moveImpact} />}
                 />
 
                 <MatchDayFieldManager
@@ -95,6 +105,65 @@ export default function MatchDaysEdit({
                 </div>
             </div>
         </>
+    );
+}
+
+function MoveWarning({ impact }: { impact: MatchDayMoveImpact }) {
+    const { t } = useTranslations();
+    const { available_count, scheduled_match_count, pinned_match_count } =
+        impact;
+
+    return (
+        <Alert>
+            <TriangleAlert />
+            <AlertTitle>
+                {t('You are moving this match day to another date')}
+            </AlertTitle>
+            <AlertDescription>
+                <p>
+                    {t(
+                        'All participants are asked for their availability again for the new date.',
+                    )}
+                </p>
+                {available_count === 1 && (
+                    <p>
+                        {t(
+                            ':count participant is marked available for this match day. That answer lapses.',
+                            { count: available_count },
+                        )}
+                    </p>
+                )}
+                {available_count > 1 && (
+                    <p>
+                        {t(
+                            ':count participants are marked available for this match day. Those answers lapse.',
+                            { count: available_count },
+                        )}
+                    </p>
+                )}
+                {scheduled_match_count === 1 && (
+                    <p>
+                        {t(
+                            ':count scheduled match is taken off the schedule.',
+                            {
+                                count: scheduled_match_count,
+                            },
+                        )}
+                    </p>
+                )}
+                {scheduled_match_count > 1 && (
+                    <p>
+                        {t(
+                            ':count scheduled matches are taken off the schedule.',
+                            { count: scheduled_match_count },
+                        )}
+                    </p>
+                )}
+                {pinned_match_count > 0 && (
+                    <p>{t('This includes pinned matches.')}</p>
+                )}
+            </AlertDescription>
+        </Alert>
     );
 }
 

@@ -11,7 +11,7 @@ export type MatchDayOption = {
     starts_at: string;
     ends_at: string;
     is_available?: boolean;
-    /** Speeldag die na de laatste inzending van de deelnemer is bijgekomen. */
+    /** Speeldag die nieuw is: na de laatste inzending van de deelnemer toegevoegd of naar een andere datum verzet. */
     is_new?: boolean;
 };
 
