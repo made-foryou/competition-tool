@@ -130,7 +130,7 @@ function TwoFactorSetupStep({
                                     />
                                     <button
                                         onClick={() => copy(manualSetupKey)}
-                                        className="border-border hover:bg-muted border-l px-3"
+                                        className="border-border hover:bg-muted min-w-11 border-l px-3 sm:min-w-0"
                                     >
                                         <IconComponent className="w-4" />
                                     </button>
