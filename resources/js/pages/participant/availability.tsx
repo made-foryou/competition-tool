@@ -83,12 +83,12 @@ export default function ParticipantAvailability({
                                 ? t('You can change this at any time.')
                                 : newMatchDayCount === 1
                                   ? t(
-                                        'There is a new date for :competition. Check whether you can attend and save your availability again to continue.',
+                                        'There is a new date for :competition, marked "New". Check whether you can attend and save your availability again to continue.',
                                         { competition: competition.name },
                                     )
                                   : newMatchDayCount > 1
                                     ? t(
-                                          'There are new dates for :competition. Check whether you can attend and save your availability again to continue.',
+                                          'There are new dates for :competition, marked "New". Check which ones you can attend and save your availability again to continue.',
                                           { competition: competition.name },
                                       )
                                     : t(

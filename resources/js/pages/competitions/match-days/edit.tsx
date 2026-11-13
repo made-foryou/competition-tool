@@ -21,6 +21,7 @@ export type MatchDayMoveImpact = {
     available_count: number;
     scheduled_match_count: number;
     pinned_match_count: number;
+    played_match_count: number;
 };
 
 type Props = {
@@ -29,6 +30,7 @@ type Props = {
         name: string;
         starts_at: string;
         ends_at: string | null;
+        availability_open: boolean;
     };
     matchDay: MatchDayProps;
     fields: MatchDayFieldProps[];
@@ -76,7 +78,13 @@ export default function MatchDaysEdit({
                     competitionStartsAt={competition.starts_at}
                     competitionEndsAt={competition.ends_at}
                     submitLabel={t('Save changes')}
-                    dateChangeWarning={<MoveWarning impact={moveImpact} />}
+                    dateChangeWarning={
+                        <MoveWarning
+                            impact={moveImpact}
+                            oldDate={formatDate(matchDay.date, locale)}
+                            availabilityOpen={competition.availability_open}
+                        />
+                    }
                 />
 
                 <MatchDayFieldManager
@@ -108,60 +116,105 @@ export default function MatchDaysEdit({
     );
 }
 
-function MoveWarning({ impact }: { impact: MatchDayMoveImpact }) {
+function MoveWarning({
+    impact,
+    oldDate,
+    availabilityOpen,
+}: {
+    impact: MatchDayMoveImpact;
+    oldDate: string;
+    availabilityOpen: boolean;
+}) {
     const { t } = useTranslations();
-    const { available_count, scheduled_match_count, pinned_match_count } =
-        impact;
+    const {
+        available_count,
+        scheduled_match_count,
+        pinned_match_count,
+        played_match_count,
+    } = impact;
 
     return (
-        <Alert>
+        <Alert
+            role="status"
+            className="border-copper/40 bg-copper-soft/40 dark:bg-copper/10 [&>svg]:text-copper-strong dark:[&>svg]:text-copper"
+        >
             <TriangleAlert />
-            <AlertTitle>
-                {t('You are moving this match day to another date')}
+            <AlertTitle className="line-clamp-none">
+                {t(
+                    'Moving this match day clears its availability and schedule',
+                )}
             </AlertTitle>
-            <AlertDescription>
+            <AlertDescription className="text-foreground">
+                {available_count > 0 && (
+                    <p>
+                        {available_count === 1
+                            ? t(
+                                  ':count participant ticked :date. That tick lapses.',
+                                  { count: available_count, date: oldDate },
+                              )
+                            : t(
+                                  ':count participants ticked :date. Those ticks lapse.',
+                                  { count: available_count, date: oldDate },
+                              )}
+                    </p>
+                )}
+                {scheduled_match_count > 0 && (
+                    <p>
+                        {scheduled_match_count === 1
+                            ? t(
+                                  ':count scheduled match is taken off the schedule.',
+                                  { count: scheduled_match_count },
+                              )
+                            : t(
+                                  ':count scheduled matches are taken off the schedule.',
+                                  { count: scheduled_match_count },
+                              )}
+                        {pinned_match_count > 0 && ' '}
+                        {pinned_match_count === 1 &&
+                            t(
+                                ':count of them is pinned and is taken off the schedule as well.',
+                                { count: pinned_match_count },
+                            )}
+                        {pinned_match_count > 1 &&
+                            t(
+                                ':count of them are pinned and are taken off the schedule as well.',
+                                { count: pinned_match_count },
+                            )}
+                    </p>
+                )}
+                {played_match_count > 0 && (
+                    <p>
+                        {played_match_count === 1
+                            ? t(
+                                  ':count played match stays on this match day and moves to the new date.',
+                                  { count: played_match_count },
+                              )
+                            : t(
+                                  ':count played matches stay on this match day and move to the new date.',
+                                  { count: played_match_count },
+                              )}
+                    </p>
+                )}
+                <p>
+                    {availabilityOpen
+                        ? t(
+                              'All participants have to submit their availability for the new date again. They see this on their next visit; you can send a reminder on the Availability tab.',
+                          )
+                        : t(
+                              'Participants submit their availability for the new date once the competition is active.',
+                          )}
+                    {availabilityOpen && scheduled_match_count > 0 && ' '}
+                    {availabilityOpen &&
+                        scheduled_match_count > 0 &&
+                        t(
+                            'Schedule these matches again once the availability is in.',
+                        )}
+                </p>
                 <p>
                     {t(
-                        'All participants are asked for their availability again for the new date.',
+                        'This cannot be undone: changing the date back does not restore the ticks or the schedule.',
                     )}
                 </p>
-                {available_count === 1 && (
-                    <p>
-                        {t(
-                            ':count participant is marked available for this match day. That answer lapses.',
-                            { count: available_count },
-                        )}
-                    </p>
-                )}
-                {available_count > 1 && (
-                    <p>
-                        {t(
-                            ':count participants are marked available for this match day. Those answers lapse.',
-                            { count: available_count },
-                        )}
-                    </p>
-                )}
-                {scheduled_match_count === 1 && (
-                    <p>
-                        {t(
-                            ':count scheduled match is taken off the schedule.',
-                            {
-                                count: scheduled_match_count,
-                            },
-                        )}
-                    </p>
-                )}
-                {scheduled_match_count > 1 && (
-                    <p>
-                        {t(
-                            ':count scheduled matches are taken off the schedule.',
-                            { count: scheduled_match_count },
-                        )}
-                    </p>
-                )}
-                {pinned_match_count > 0 && (
-                    <p>{t('This includes pinned matches.')}</p>
-                )}
             </AlertDescription>
         </Alert>
     );

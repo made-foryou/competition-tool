@@ -47,6 +47,11 @@ export default function MatchDayForm({
 }: Props) {
     const { t } = useTranslations();
     const [selectedDate, setSelectedDate] = useState(matchDay?.date ?? '');
+    const showDateChangeWarning =
+        !!matchDay &&
+        !!dateChangeWarning &&
+        selectedDate !== '' &&
+        selectedDate !== matchDay.date;
 
     return (
         <Form
@@ -151,13 +156,22 @@ export default function MatchDayForm({
                         </div>
                     </div>
 
-                    {matchDay &&
-                        dateChangeWarning &&
-                        selectedDate !== matchDay.date &&
-                        dateChangeWarning}
+                    {showDateChangeWarning && (
+                        <div id="match-day-date-change-warning">
+                            {dateChangeWarning}
+                        </div>
+                    )}
 
                     <div>
-                        <Button type="submit" disabled={processing}>
+                        <Button
+                            type="submit"
+                            disabled={processing}
+                            aria-describedby={
+                                showDateChangeWarning
+                                    ? 'match-day-date-change-warning'
+                                    : undefined
+                            }
+                        >
                             {processing && <Spinner />}
                             {submitLabel}
                         </Button>
