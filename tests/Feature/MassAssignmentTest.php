@@ -56,4 +56,5 @@ test('a privilege or process attribute is not mass-assignable', function (string
     'a match is pinned by the move action only' => [CompetitionMatch::class, 'pinned_at', '2026-01-01 00:00:00'],
     'a scheduling failure is recorded by the planner only' => [CompetitionMatch::class, 'scheduling_failure', 'no_capacity'],
     'a match status is set by the result actions only' => [CompetitionMatch::class, 'status', 'played'],
+    'an availability request is stamped by the model only' => [MatchDay::class, 'availability_requested_at', '2026-01-01 00:00:00'],
 ]);

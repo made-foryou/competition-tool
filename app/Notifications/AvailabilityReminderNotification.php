@@ -12,7 +12,7 @@ use Illuminate\Notifications\Notification;
  * Herinnering aan een deelnemer die zijn beschikbaarheid (opnieuw) moet
  * indienen. Wordt alleen verstuurd door de beheerder naar deelnemers zonder
  * actuele inzending (`Competition::constrainToAwaitingAvailability()`). Dat
- * zijn ook deelnemers die eerder indienden, maar vóór de nieuwste speeldag.
+ * zijn ook deelnemers die eerder indienden, maar vóór het nieuwste beschikbaarheidsverzoek.
  */
 class AvailabilityReminderNotification extends Notification implements ShouldQueue
 {

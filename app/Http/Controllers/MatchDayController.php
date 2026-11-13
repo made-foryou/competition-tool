@@ -20,10 +20,10 @@ class MatchDayController extends Controller
     use SummarizesMatchDay;
 
     /**
-     * Een nieuwe speeldag maakt iedereen met een oudere inzending weer
+     * Een nieuwe (of naar een andere datum verzette) speeldag maakt iedereen met een oudere inzending weer
      * pending, zonder iets op te slaan:
      * `Competition::constrainToAwaitingAvailability()` vergelijkt het
-     * inzendmoment met de nieuwste speeldag. Anders leest de planner "geen
+     * inzendmoment met het nieuwste beschikbaarheidsverzoek (`availability_requested_at`). Anders leest de planner "geen
      * rij" als "niet beschikbaar" op de nieuwe dag. Verwijderen van die
      * speeldag herstelt de stand vanzelf.
      *

@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $date
  * @property string $starts_at
  * @property string $ends_at
+ * @property Carbon $availability_requested_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property int|null $fields_count
@@ -53,22 +54,46 @@ class MatchDay extends Model
      * geen Eloquent-events op de tafels, dus deze hook dekt die zelf mee af
      * (de losse hook op `MatchDayField` is er voor het los verwijderen van
      * één tafel).
+     *
+     * De `saving`-hook stempelt `availability_requested_at`: een invariant van
+     * het model, zoals `created_at`. Alleen deze hook zet de kolom, bij het
+     * aanmaken en wanneer de datum wijzigt; een verzette datum is voor
+     * deelnemers een nieuwe datum (#81). `isDirty('date')` is betrouwbaar met
+     * de `date`-cast, omdat `originalIsEquivalent()` datums genormaliseerd
+     * vergelijkt.
      */
     protected static function booted(): void
     {
-        static::deleting(function (MatchDay $matchDay): void {
-            CompetitionMatch::query()
-                ->where('match_day_id', $matchDay->id)
-                ->where('status', MatchStatus::Pending->value)
-                ->update([
-                    'match_day_id' => null,
-                    'match_day_field_id' => null,
-                    'starts_at' => null,
-                    'ends_at' => null,
-                    'pinned_at' => null,
-                    'scheduling_failure' => null,
-                ]);
+        static::saving(function (MatchDay $matchDay): void {
+            if (! $matchDay->exists || $matchDay->isDirty('date')) {
+                $matchDay->availability_requested_at = $matchDay->freshTimestamp();
+            }
         });
+
+        static::deleting(function (MatchDay $matchDay): void {
+            $matchDay->releasePendingMatches();
+        });
+    }
+
+    /**
+     * Haalt alle openstaande wedstrijden op deze speeldag uit de planning, ook
+     * de vastgezette: speeldag, tafel, tijden, vastzetten en reden worden leeg.
+     * Gespeelde wedstrijden houden hun plek als historie. Geeft het aantal
+     * vrijgegeven wedstrijden terug.
+     */
+    public function releasePendingMatches(): int
+    {
+        return CompetitionMatch::query()
+            ->where('match_day_id', $this->id)
+            ->where('status', MatchStatus::Pending->value)
+            ->update([
+                'match_day_id' => null,
+                'match_day_field_id' => null,
+                'starts_at' => null,
+                'ends_at' => null,
+                'pinned_at' => null,
+                'scheduling_failure' => null,
+            ]);
     }
 
     /**
@@ -96,10 +121,11 @@ class MatchDay extends Model
     }
 
     /**
-     * Of deze speeldag is aangemaakt ná de laatste inzending van de
-     * deelnemer. `$submittedAt` is zijn `availability_submitted_at` in deze
+     * Of deze speeldag nieuw is voor de deelnemer: deelnemers zijn er ná de
+     * laatste inzending om gevraagd (`availability_requested_at`), omdat hij
+     * daarna is aangemaakt of naar een andere datum verzet. `$submittedAt` is zijn `availability_submitted_at` in deze
      * competitie, dat nooit geleegd wordt; ook na een lege inzending is een
-     * latere speeldag dus nieuw. Zonder inzending (`null`) is niets nieuw:
+     * latere speeldag of verzetting dus nieuw. Zonder inzending (`null`) is niets nieuw:
      * dan is elke speeldag nog niet ingevuld.
      *
      * Strikt groter dan: een speeldag uit dezelfde seconde als de inzending
@@ -107,7 +133,7 @@ class MatchDay extends Model
      */
     public function isNewSince(?CarbonInterface $submittedAt): bool
     {
-        return $submittedAt !== null && $this->created_at?->greaterThan($submittedAt) === true;
+        return $submittedAt !== null && $this->availability_requested_at->greaterThan($submittedAt);
     }
 
     /**
@@ -135,6 +161,7 @@ class MatchDay extends Model
     {
         return [
             'date' => 'date',
+            'availability_requested_at' => 'datetime',
         ];
     }
 }

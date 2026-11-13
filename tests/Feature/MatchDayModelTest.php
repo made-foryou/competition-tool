@@ -106,3 +106,34 @@ test('deleting a field clears the schedule of pending matches on that field', fu
         ->and($fresh->pinned_at)->toBeNull()
         ->and($fresh->scheduling_failure)->toBeNull();
 });
+
+test('a new match day is stamped with the moment availability is requested', function () {
+    $this->freezeSecond();
+
+    $matchDay = MatchDay::factory()->create();
+
+    expect($matchDay->availability_requested_at->equalTo(now()))->toBeTrue();
+});
+
+test('changing only the times or saving the same date keeps the availability request', function () {
+    $matchDay = MatchDay::factory()->create(['date' => '2026-10-02']);
+    $requestedAt = $matchDay->availability_requested_at;
+
+    $this->travel(1)->minutes();
+
+    $matchDay->update(['starts_at' => '10:00']);
+    $matchDay->update(['date' => '2026-10-02']);
+
+    expect($matchDay->fresh()->availability_requested_at->equalTo($requestedAt))->toBeTrue();
+});
+
+test('moving a match day to another date renews the availability request', function () {
+    $matchDay = MatchDay::factory()->create(['date' => '2026-10-02']);
+    $requestedAt = $matchDay->availability_requested_at;
+
+    $this->travel(1)->minutes();
+    $matchDay->update(['date' => '2026-10-09']);
+
+    expect($matchDay->fresh()->availability_requested_at->greaterThan($requestedAt))->toBeTrue()
+        ->and($matchDay->fresh()->isNewSince($requestedAt))->toBeTrue();
+});

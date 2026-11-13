@@ -123,7 +123,7 @@ class User extends Authenticatable implements PasskeyUser
     /**
      * Is de beschikbaarheid van de gebruiker voor deze competitie actueel?
      * Dat is zo als hij heeft ingediend en er daarna geen speeldag meer is
-     * bijgekomen (`Competition::isCurrentSubmission()`). Een lege selectie
+     * bijgekomen of verzet (`Competition::isCurrentSubmission()`). Een lege selectie
      * telt ook als inzending, vandaar de losse kolom op de koppeltabel. Wie
      * geen deelnemer is, heeft niets ingediend.
      */
@@ -131,7 +131,7 @@ class User extends Authenticatable implements PasskeyUser
     {
         return Competition::isCurrentSubmission(
             $this->availabilitySubmittedAtFor($competition),
-            $competition->latestMatchDayCreatedAt(),
+            $competition->latestAvailabilityRequestedAt(),
         );
     }
 

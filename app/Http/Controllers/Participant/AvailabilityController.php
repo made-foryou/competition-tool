@@ -34,7 +34,7 @@ class AvailabilityController extends Controller
      * zouden lezen als "deze persoon was nergens beschikbaar".
      *
      * `hasSubmitted` is of de inzending actueel is (geen speeldag meer
-     * bijgekomen); `hasSubmittedBefore` of er ooit is ingediend. Dat laatste
+     * bijgekomen of verzet); `hasSubmittedBefore` of er ooit is ingediend. Dat laatste
      * bepaalt of lege vakjes bewuste antwoorden zijn, ook na een lege
      * inzending.
      */

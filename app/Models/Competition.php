@@ -136,47 +136,48 @@ class Competition extends Model
     }
 
     /**
-     * Het moment waarop de nieuwste speeldag van deze competitie is
-     * aangemaakt, of `null` zonder speeldagen. Een inzending die ouder is,
-     * telt niet meer als actueel (`isCurrentSubmission()`).
+     * Het nieuwste moment waarop om beschikbaarheid gevraagd is (de nieuwste
+     * aangemaakte of verzette speeldag), of `null` zonder speeldagen. Een
+     * inzending die ouder is, telt niet meer als actueel
+     * (`isCurrentSubmission()`).
      */
-    public function latestMatchDayCreatedAt(): ?CarbonInterface
+    public function latestAvailabilityRequestedAt(): ?CarbonInterface
     {
         $latest = MatchDay::query()
             ->where('competition_id', $this->id)
-            ->max('created_at');
+            ->max('availability_requested_at');
 
         return $latest === null ? null : Date::parse($latest);
     }
 
     /**
      * Of een inzending van de beschikbaarheid nog actueel is: er is ingediend
-     * en er is daarna geen speeldag meer bijgekomen. `availability_submitted_at`
-     * wordt nooit geleegd; een nieuwe speeldag maakt een oudere inzending
+     * en er is daarna geen speeldag meer bijgekomen of verzet. `availability_submitted_at`
+     * wordt nooit geleegd; een nieuwe of verzette speeldag maakt een oudere inzending
      * vanzelf niet-actueel, en het verwijderen van die speeldag herstelt dat.
      *
-     * `>=` en niet `>`: een inzending in dezelfde seconde als het aanmaken van
-     * de nieuwste speeldag blijft geldig. Tijdstempels hebben secondeprecisie,
+     * `>=` en niet `>`: een inzending in dezelfde seconde als het nieuwste verzoek
+     * het nieuwste beschikbaarheidsverzoek blijft geldig. Tijdstempels hebben secondeprecisie,
      * dus binnen die seconde valt de volgorde niet te bepalen.
      *
      * Dezelfde regel, in SQL: `constrainToAwaitingAvailability()`.
      */
-    public static function isCurrentSubmission(?CarbonInterface $submittedAt, ?CarbonInterface $latestMatchDayCreatedAt): bool
+    public static function isCurrentSubmission(?CarbonInterface $submittedAt, ?CarbonInterface $latestAvailabilityRequestedAt): bool
     {
         return $submittedAt !== null
-            && ($latestMatchDayCreatedAt === null || $submittedAt->greaterThanOrEqualTo($latestMatchDayCreatedAt));
+            && ($latestAvailabilityRequestedAt === null || $submittedAt->greaterThanOrEqualTo($latestAvailabilityRequestedAt));
     }
 
     /**
      * Beperkt een relatie over de koppeltabel `competition_user` tot de
      * deelnames waarvoor (opnieuw) beschikbaarheid ingediend moet worden: er
-     * is nooit ingediend, of de inzending is ouder dan de nieuwste speeldag
-     * van die competitie. Werkt voor `$user->competitions()` en
+     * is nooit ingediend, of de inzending is ouder dan het nieuwste
+     * beschikbaarheidsverzoek van die competitie. Werkt voor `$user->competitions()` en
      * `$competition->participants()`, omdat de subquery via
      * `competition_user.competition_id` correleert.
      *
      * Strikt kleiner dan (`<`): een inzending in dezelfde seconde als de
-     * nieuwste speeldag blijft geldig. Zonder speeldagen levert de subquery
+     * nieuwste beschikbaarheidsverzoek blijft geldig. Zonder speeldagen levert de subquery
      * `NULL` op en is `x < NULL` in SQL nooit waar, dus dan moet alleen wie
      * nooit indiende nog iets doen.
      *
@@ -192,7 +193,7 @@ class Competition extends Model
         return $query->where(fn (Builder $pending) => $pending
             ->whereNull('competition_user.availability_submitted_at')
             ->orWhere('competition_user.availability_submitted_at', '<', fn (QueryBuilder $latestMatchDay) => $latestMatchDay
-                ->selectRaw('max(match_days.created_at)')
+                ->selectRaw('max(match_days.availability_requested_at)')
                 ->from('match_days')
                 ->whereColumn('match_days.competition_id', 'competition_user.competition_id')));
     }
