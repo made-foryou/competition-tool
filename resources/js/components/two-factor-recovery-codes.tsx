@@ -71,7 +71,8 @@ export default function TwoFactorRecoveryCodes({
                 <div className="flex flex-col gap-3 select-none sm:flex-row sm:items-center sm:justify-between">
                     <Button
                         onClick={toggleCodesVisibility}
-                        className="w-fit"
+                        size="touch"
+                        className="w-full sm:w-fit"
                         aria-expanded={codesAreVisible}
                         aria-controls="recovery-codes-section"
                     >
@@ -94,6 +95,8 @@ export default function TwoFactorRecoveryCodes({
                                 <Button
                                     variant="secondary"
                                     type="submit"
+                                    size="touch"
+                                    className="w-full sm:w-auto"
                                     disabled={processing}
                                     aria-describedby="regenerate-warning"
                                 >
