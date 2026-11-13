@@ -21,6 +21,11 @@ class StoreMatchDayRequest extends FormRequest
     }
 
     /**
+     * De datum is strikt `Y-m-d`, niet `date`: een datum mét tijd
+     * (`2026-10-02 13:00`) telt voor het model als gewijzigde datum, ook als
+     * MySQL er dezelfde dag van maakt, en zou bij bewerken de beschikbaarheid
+     * van de speeldag wissen (`UpdateMatchDay`).
+     *
      * @return array<string, mixed>
      */
     public function rules(): array
@@ -30,7 +35,7 @@ class StoreMatchDayRequest extends FormRequest
 
         $dateRules = [
             'required',
-            'date',
+            'date_format:Y-m-d',
             'after_or_equal:'.$competition->starts_at->toDateString(),
         ];
 

@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Competitions\SyncCompetitionMatches;
+use App\Actions\Competitions\UpdateMatchDay;
 use App\Enums\CompetitionStatus;
 use App\Enums\CompetitionType;
 use App\Models\Competition;
@@ -342,6 +343,32 @@ test('the edit page lists the match days each participant has not filled in yet'
             ->where('availability.3.submitted', false)
             ->where('availability.3.unanswered_match_day_ids', [$newDay->id])
             ->where('availabilityReminder.pending_count', 3),
+        );
+});
+
+test('the edit page lists a moved match day as not filled in yet', function () {
+    actingAsAdmin();
+
+    $competition = Competition::factory()->create();
+    $keptDay = MatchDay::factory()->create(['competition_id' => $competition, 'date' => '2026-10-02']);
+    $movedDay = MatchDay::factory()->create(['competition_id' => $competition, 'date' => '2026-10-03']);
+
+    $participant = User::factory()->participant()->create();
+    $competition->participants()->attach($participant, ['availability_submitted_at' => now()]);
+    MatchDayAvailability::factory()->create(['match_day_id' => $keptDay, 'user_id' => $participant]);
+    MatchDayAvailability::factory()->create(['match_day_id' => $movedDay, 'user_id' => $participant]);
+
+    $this->travel(1)->minutes();
+
+    app(UpdateMatchDay::class)->handle($movedDay, ['date' => '2026-10-05', 'starts_at' => '09:00', 'ends_at' => '17:00']);
+
+    $this->get(route('competitions.edit', $competition))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('availability.0.submitted', false)
+            ->where('availability.0.match_day_ids', [$keptDay->id])
+            ->where('availability.0.unanswered_match_day_ids', [$movedDay->id])
+            ->where('availabilityReminder.pending_count', 1),
         );
 });
 

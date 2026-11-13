@@ -184,6 +184,38 @@ test('a participant who already submitted is sent back to the form after a match
     expect($this->user->matchDayAvailabilities()->where('match_day_id', $newDay->id)->exists())->toBeTrue();
 });
 
+test('a participant who already submitted is sent back to the form after a match day is moved', function () {
+    $this->actingAs($this->user)
+        ->put(route('competition.availability.update', $this->competition), [
+            'match_days' => [$this->matchDay->id],
+        ]);
+
+    $this->travel(1)->minutes();
+
+    $newDate = $this->matchDay->date->addDay()->toDateString();
+    $this->competition->update(['ends_at' => $newDate]);
+
+    $this->actingAs(User::factory()->withTwoFactor()->create())
+        ->put(route('competitions.match-days.update', [$this->competition, $this->matchDay]), [
+            'date' => $newDate,
+            'starts_at' => '09:00',
+            'ends_at' => '17:00',
+        ])->assertSessionHasNoErrors();
+
+    $this->actingAs($this->user)
+        ->get(route('competition.dashboard', $this->competition))
+        ->assertRedirect(route('competition.availability.edit', $this->competition));
+
+    $this->actingAs($this->user)
+        ->put(route('competition.availability.update', $this->competition), [
+            'match_days' => [$this->matchDay->id],
+        ]);
+
+    $this->actingAs($this->user)
+        ->get(route('competition.dashboard', $this->competition))
+        ->assertOk();
+});
+
 test('removing the newly added match day restores the submitted state', function () {
     $this->actingAs($this->user)
         ->put(route('competition.availability.update', $this->competition), [

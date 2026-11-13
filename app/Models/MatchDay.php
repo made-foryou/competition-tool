@@ -28,6 +28,7 @@ use Illuminate\Support\Carbon;
  * @property-read Competition $competition
  * @property-read Collection<int, MatchDayField> $fields
  * @property-read Collection<int, CompetitionMatch> $matches
+ * @property-read Collection<int, CompetitionMatch> $pendingMatches
  */
 #[Fillable(['date', 'starts_at', 'ends_at'])]
 class MatchDay extends Model
@@ -83,17 +84,14 @@ class MatchDay extends Model
      */
     public function releasePendingMatches(): int
     {
-        return CompetitionMatch::query()
-            ->where('match_day_id', $this->id)
-            ->where('status', MatchStatus::Pending->value)
-            ->update([
-                'match_day_id' => null,
-                'match_day_field_id' => null,
-                'starts_at' => null,
-                'ends_at' => null,
-                'pinned_at' => null,
-                'scheduling_failure' => null,
-            ]);
+        return $this->pendingMatches()->update([
+            'match_day_id' => null,
+            'match_day_field_id' => null,
+            'starts_at' => null,
+            'ends_at' => null,
+            'pinned_at' => null,
+            'scheduling_failure' => null,
+        ]);
     }
 
     /**
@@ -121,12 +119,25 @@ class MatchDay extends Model
     }
 
     /**
+     * De openstaande wedstrijden die op deze speeldag ingepland staan, ook de
+     * vastgezette. Eén plek voor de selectie die `releasePendingMatches()`
+     * vrijgeeft, zodat de bewerkpagina vooraf precies die wedstrijden telt.
+     *
+     * @return HasMany<CompetitionMatch, $this>
+     */
+    public function pendingMatches(): HasMany
+    {
+        return $this->hasMany(CompetitionMatch::class)->where('status', MatchStatus::Pending->value);
+    }
+
+    /**
      * Of deze speeldag nieuw is voor de deelnemer: deelnemers zijn er ná de
      * laatste inzending om gevraagd (`availability_requested_at`), omdat hij
-     * daarna is aangemaakt of naar een andere datum verzet. `$submittedAt` is zijn `availability_submitted_at` in deze
-     * competitie, dat nooit geleegd wordt; ook na een lege inzending is een
-     * latere speeldag of verzetting dus nieuw. Zonder inzending (`null`) is niets nieuw:
-     * dan is elke speeldag nog niet ingevuld.
+     * daarna is aangemaakt of naar een andere datum verzet. `$submittedAt` is
+     * zijn `availability_submitted_at` in deze competitie, dat nooit geleegd
+     * wordt; ook na een lege inzending is een latere speeldag of verzetting
+     * dus nieuw. Zonder inzending (`null`) is niets nieuw: dan is elke
+     * speeldag nog niet ingevuld.
      *
      * Strikt groter dan: een speeldag uit dezelfde seconde als de inzending
      * is niet nieuw, net als bij `Competition::isCurrentSubmission()`.
