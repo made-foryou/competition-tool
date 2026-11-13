@@ -161,7 +161,12 @@ export default function ParticipantDashboard({
                             })}
                         </p>
                         <div>
-                            <Button asChild variant="secondary" size="sm">
+                            <Button
+                                asChild
+                                variant="secondary"
+                                size="touch"
+                                className="w-full sm:w-auto"
+                            >
                                 <Link href={editAvailability(competition.slug)}>
                                     {competition.status === 'active'
                                         ? t('Change availability')
@@ -224,7 +229,12 @@ function MatchOverview({
 
     const viewAll = (
         <div>
-            <Button asChild variant="secondary" size="sm">
+            <Button
+                asChild
+                variant="secondary"
+                size="touch"
+                className="w-full sm:w-auto"
+            >
                 <Link href={matchesRoute(competition.slug)} prefetch>
                     {t('View all matches (:count)', { count: counts.total })}
                 </Link>
@@ -303,7 +313,12 @@ function StandingsOverview({
             />
             <StandingsLegend pointsSystem={summary.points_system} />
             <div>
-                <Button asChild variant="secondary" size="sm">
+                <Button
+                    asChild
+                    variant="secondary"
+                    size="touch"
+                    className="w-full sm:w-auto"
+                >
                     <Link href={standingsRoute(competition.slug)} prefetch>
                         {t('View the full standings (:count)', {
                             count: summary.total,

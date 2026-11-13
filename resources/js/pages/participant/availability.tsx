@@ -126,7 +126,12 @@ export default function ParticipantAvailability({
                                 )}
 
                                 <div>
-                                    <Button type="submit" disabled={processing}>
+                                    <Button
+                                        type="submit"
+                                        size="touch"
+                                        disabled={processing}
+                                        className="w-full sm:w-auto"
+                                    >
                                         {processing && <Spinner />}
                                         {t('Save availability')}
                                     </Button>
@@ -149,7 +154,12 @@ export default function ParticipantAvailability({
                  */}
                 {!isOpen && (
                     <div>
-                        <Button asChild variant="secondary" size="sm">
+                        <Button
+                            asChild
+                            variant="secondary"
+                            size="touch"
+                            className="w-full sm:w-auto"
+                        >
                             <Link href={dashboard(competition.slug)}>
                                 {t('Back to your dashboard')}
                             </Link>
