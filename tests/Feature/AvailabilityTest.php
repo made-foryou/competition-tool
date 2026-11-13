@@ -262,7 +262,7 @@ test('a match day moved after the last submission is marked as new and unanswere
         'date' => '2026-10-05',
         'starts_at' => '09:00',
         'ends_at' => '17:00',
-    ]);
+    ], $this->secondDay->date->toDateString());
 
     $this->get(route('competition.availability.edit', $this->competition))
         ->assertInertia(fn (Assert $page) => $page

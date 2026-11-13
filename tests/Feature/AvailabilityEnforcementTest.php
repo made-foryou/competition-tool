@@ -197,6 +197,7 @@ test('a participant who already submitted is sent back to the form after a match
 
     $this->actingAs(User::factory()->withTwoFactor()->create())
         ->put(route('competitions.match-days.update', [$this->competition, $this->matchDay]), [
+            'original_date' => $this->matchDay->date->toDateString(),
             'date' => $newDate,
             'starts_at' => '09:00',
             'ends_at' => '17:00',

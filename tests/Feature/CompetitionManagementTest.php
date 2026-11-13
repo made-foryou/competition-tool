@@ -360,7 +360,7 @@ test('the edit page lists a moved match day as not filled in yet', function () {
 
     $this->travel(1)->minutes();
 
-    app(UpdateMatchDay::class)->handle($movedDay, ['date' => '2026-10-05', 'starts_at' => '09:00', 'ends_at' => '17:00']);
+    app(UpdateMatchDay::class)->handle($movedDay, ['date' => '2026-10-05', 'starts_at' => '09:00', 'ends_at' => '17:00'], '2026-10-03');
 
     $this->get(route('competitions.edit', $competition))
         ->assertOk()

@@ -26,8 +26,9 @@ trait SummarizesAvailability
      * de speeldag na zijn laatste inzending is aangemaakt of verzet
      * (`MatchDay::isNewSince()`). Elke andere niet-aangevinkte speeldag is
      * "niet beschikbaar": daar heeft hij bij zijn inzending bewust nee
-     * gezegd, ook als die inzending leeg was. De nieuwste speeldag wordt één
-     * keer bepaald, dus dit kost geen extra query per deelnemer.
+     * gezegd, ook als die inzending leeg was. Het nieuwste
+     * beschikbaarheidsverzoek wordt één keer bepaald, dus dit kost geen extra
+     * query per deelnemer.
      *
      * @return list<array{id: int, name: string, submitted: bool, match_day_ids: list<int>, unanswered_match_day_ids: list<int>}>
      */

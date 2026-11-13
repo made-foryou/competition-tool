@@ -3,8 +3,10 @@
 use App\Models\Competition;
 use App\Models\CompetitionMatch;
 use App\Models\MatchDay;
+use App\Models\MatchDayAvailability;
 use App\Models\MatchDayField;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 
 test('a match day belongs to a competition and returns its fields in order', function () {
     $matchDay = MatchDay::factory()->create();
@@ -136,4 +138,49 @@ test('moving a match day to another date renews the availability request', funct
 
     expect($matchDay->fresh()->availability_requested_at->greaterThan($requestedAt))->toBeTrue()
         ->and($matchDay->fresh()->isNewSince($requestedAt))->toBeTrue();
+});
+
+test('moving a match day through the model drops its availability and releases its pending matches', function () {
+    $matchDay = MatchDay::factory()->create(['date' => '2026-10-02']);
+    $otherDay = MatchDay::factory()->create(['competition_id' => $matchDay->competition_id, 'date' => '2026-10-03']);
+    $field = MatchDayField::factory()->create(['match_day_id' => $matchDay]);
+    $pending = CompetitionMatch::factory()->scheduled($matchDay, $field, '09:00')->create();
+
+    MatchDayAvailability::factory()->create(['match_day_id' => $matchDay]);
+    MatchDayAvailability::factory()->create(['match_day_id' => $otherDay]);
+
+    $matchDay->update(['date' => '2026-10-09']);
+
+    expect(MatchDayAvailability::query()->pluck('match_day_id')->all())->toBe([$otherDay->id])
+        ->and($pending->fresh()->match_day_id)->toBeNull()
+        ->and($pending->fresh()->starts_at)->toBeNull();
+});
+
+test('changing only the times through the model keeps the availability and the schedule', function () {
+    $matchDay = MatchDay::factory()->create(['date' => '2026-10-02']);
+    $field = MatchDayField::factory()->create(['match_day_id' => $matchDay]);
+    $pending = CompetitionMatch::factory()->scheduled($matchDay, $field, '09:00')->create();
+    MatchDayAvailability::factory()->create(['match_day_id' => $matchDay]);
+
+    $matchDay->update(['date' => '2026-10-02', 'starts_at' => '08:00', 'ends_at' => '18:00']);
+
+    expect(MatchDayAvailability::query()->where('match_day_id', $matchDay->id)->count())->toBe(1)
+        ->and($pending->fresh()->match_day_id)->toBe($matchDay->id);
+});
+
+test('a date read back without a time, as MySQL returns it, does not count as moved', function () {
+    $matchDay = MatchDay::factory()->create(['date' => '2026-10-02']);
+    MatchDayAvailability::factory()->create(['match_day_id' => $matchDay]);
+    $requestedAt = $matchDay->availability_requested_at;
+
+    // SQLite bewaart `2026-10-02 00:00:00`; MySQL geeft `2026-10-02` terug
+    // en gaat daarmee door de normalisatie van `originalIsEquivalent()`.
+    DB::table('match_days')->where('id', $matchDay->id)->update(['date' => '2026-10-02']);
+
+    $this->travel(1)->minutes();
+
+    $matchDay->fresh()->update(['date' => '2026-10-02', 'starts_at' => '10:00']);
+
+    expect($matchDay->fresh()->availability_requested_at->equalTo($requestedAt))->toBeTrue()
+        ->and(MatchDayAvailability::query()->where('match_day_id', $matchDay->id)->count())->toBe(1);
 });

@@ -57,6 +57,13 @@ export default function MatchDayForm({
         >
             {({ processing, errors }) => (
                 <>
+                    {matchDay && (
+                        <input
+                            type="hidden"
+                            name="original_date"
+                            value={matchDay.date}
+                        />
+                    )}
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
                             <Label htmlFor="date">{t('Date')}</Label>

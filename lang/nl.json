@@ -296,6 +296,7 @@
     ":count scheduled matches are taken off the schedule.": ":count ingeplande wedstrijden gaan uit de planning.",
     "This includes pinned matches.": "Ook vastgezette wedstrijden gaan uit de planning.",
     "Match day updated.": "Speeldag bijgewerkt.",
+    "This match day was changed in the meantime. Reload the page and try again.": "Deze speeldag is intussen gewijzigd. Laad de pagina opnieuw en probeer het nog eens.",
     "Match day added. :count participant still has to submit their availability.": "Speeldag toegevoegd. :count deelnemer moet de beschikbaarheid nog doorgeven.",
     "Match day added. :count participants still have to submit their availability.": "Speeldag toegevoegd. :count deelnemers moeten hun beschikbaarheid nog doorgeven.",
     "Match day added. Participants submit their availability once the competition is active.": "Speeldag toegevoegd. Deelnemers geven hun beschikbaarheid door zodra de competitie actief is.",

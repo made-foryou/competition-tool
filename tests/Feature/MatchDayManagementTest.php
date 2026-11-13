@@ -100,6 +100,7 @@ test('admins can update the date and times of a match day', function () {
     $matchDay = MatchDay::factory()->create(['competition_id' => $this->competition]);
 
     $this->put(route('competitions.match-days.update', [$this->competition, $matchDay]), [
+        'original_date' => $matchDay->date->toDateString(),
         'date' => '2026-10-05',
         'starts_at' => '10:15',
         'ends_at' => '16:45',
@@ -127,6 +128,7 @@ test('changing only the times keeps the availability and the schedule of the mat
     $this->travel(1)->minutes();
 
     $this->put(route('competitions.match-days.update', [$this->competition, $matchDay]), [
+        'original_date' => '2026-10-02',
         'date' => '2026-10-02',
         'starts_at' => '08:30',
         'ends_at' => '18:00',
@@ -156,6 +158,7 @@ test('moving a match day to another date drops its availability and asks everyon
     $this->travel(1)->minutes();
 
     $this->put(route('competitions.match-days.update', [$this->competition, $movedDay]), [
+        'original_date' => '2026-10-02',
         'date' => '2026-10-05',
         'starts_at' => '09:00',
         'ends_at' => '17:00',
@@ -181,6 +184,7 @@ test('moving a match day takes its pending matches off the schedule and keeps th
     $played = CompetitionMatch::factory()->scheduled($matchDay, $field, '09:50')->played()->create(['competition_id' => $this->competition]);
 
     $this->put(route('competitions.match-days.update', [$this->competition, $matchDay]), [
+        'original_date' => '2026-10-02',
         'date' => '2026-10-05',
         'starts_at' => '09:00',
         'ends_at' => '17:00',
@@ -219,6 +223,7 @@ test('moving a match day drops its availability regardless of the competition st
     $this->travel(1)->minutes();
 
     $this->put(route('competitions.match-days.update', [$this->competition, $matchDay]), [
+        'original_date' => '2026-10-02',
         'date' => '2026-10-05',
         'starts_at' => '09:00',
         'ends_at' => '17:00',
@@ -246,10 +251,61 @@ test('the edit page shows what moving the match day would drop', function () {
     $this->get(route('competitions.match-days.edit', [$this->competition, $matchDay]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
+            ->where('competition.availability_open', true)
             ->where('moveImpact.available_count', 2)
             ->where('moveImpact.scheduled_match_count', 2)
-            ->where('moveImpact.pinned_match_count', 1),
+            ->where('moveImpact.pinned_match_count', 1)
+            ->where('moveImpact.played_match_count', 1),
         );
+});
+
+test('the edit page says availability is not asked yet on an inactive competition', function () {
+    $this->competition->update(['status' => CompetitionStatus::Draft]);
+    $matchDay = MatchDay::factory()->create(['competition_id' => $this->competition]);
+
+    $this->get(route('competitions.match-days.edit', [$this->competition, $matchDay]))
+        ->assertInertia(fn (Assert $page) => $page->where('competition.availability_open', false));
+});
+
+test('saving a stale edit page after the match day was moved is refused', function () {
+    $matchDay = MatchDay::factory()->create(['competition_id' => $this->competition, 'date' => '2026-10-02']);
+    $field = MatchDayField::factory()->create(['match_day_id' => $matchDay]);
+
+    // Een andere beheerder heeft de speeldag intussen naar de 9e verzet;
+    // daarna zijn er nieuwe antwoorden en is er opnieuw gepland.
+    DB::table('match_days')->where('id', $matchDay->id)->update(['date' => '2026-10-09']);
+    MatchDayAvailability::factory()->create(['match_day_id' => $matchDay]);
+    $scheduled = CompetitionMatch::factory()->scheduled($matchDay, $field, '09:00')->create(['competition_id' => $this->competition]);
+    $requestedAt = $matchDay->fresh()->availability_requested_at;
+
+    $this->put(route('competitions.match-days.update', [$this->competition, $matchDay]), [
+        'original_date' => '2026-10-02',
+        'date' => '2026-10-02',
+        'starts_at' => '09:00',
+        'ends_at' => '16:00',
+    ])->assertSessionHasErrors([
+        'date' => __('This match day was changed in the meantime. Reload the page and try again.'),
+    ]);
+
+    $fresh = $matchDay->fresh();
+
+    expect($fresh->date->toDateString())->toBe('2026-10-09')
+        ->and($fresh->ends_at)->toBe('17:00')
+        ->and($fresh->availability_requested_at->equalTo($requestedAt))->toBeTrue()
+        ->and(MatchDayAvailability::query()->where('match_day_id', $matchDay->id)->count())->toBe(1)
+        ->and($scheduled->fresh()->match_day_id)->toBe($matchDay->id);
+});
+
+test('the date the edit page was opened with is required', function () {
+    $matchDay = MatchDay::factory()->create(['competition_id' => $this->competition, 'date' => '2026-10-02']);
+
+    $this->put(route('competitions.match-days.update', [$this->competition, $matchDay]), [
+        'date' => '2026-10-05',
+        'starts_at' => '09:00',
+        'ends_at' => '17:00',
+    ])->assertSessionHasErrors('original_date');
+
+    expect($matchDay->fresh()->date->toDateString())->toBe('2026-10-02');
 });
 
 test('a date with a time is rejected so it cannot count as a moved match day', function () {
@@ -257,6 +313,7 @@ test('a date with a time is rejected so it cannot count as a moved match day', f
     MatchDayAvailability::factory()->create(['match_day_id' => $matchDay]);
 
     $this->put(route('competitions.match-days.update', [$this->competition, $matchDay]), [
+        'original_date' => '2026-10-02',
         'date' => '2026-10-02 13:00',
         'starts_at' => '09:00',
         'ends_at' => '17:00',

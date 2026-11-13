@@ -118,10 +118,11 @@ class EnsureAvailabilityIsSubmitted
 
     /**
      * De eerstvolgende actieve competitie waarvoor de deelnemer (opnieuw)
-     * moet indienen: nooit ingediend, of ingediend vóór het nieuwste beschikbaarheidsverzoek
-     * (`availability_requested_at`: speeldag aangemaakt of verzet)
-     * (`Competition::constrainToAwaitingAvailability()`). Competities zonder
-     * speeldagen tellen niet mee: daar valt niets in te vullen.
+     * moet indienen: nooit ingediend, of ingediend vóór het nieuwste
+     * beschikbaarheidsverzoek (`availability_requested_at`: speeldag
+     * aangemaakt of verzet, `Competition::constrainToAwaitingAvailability()`).
+     * Competities zonder speeldagen tellen niet mee: daar valt niets in te
+     * vullen.
      */
     protected function competitionAwaitingAvailability(User $user): ?Competition
     {

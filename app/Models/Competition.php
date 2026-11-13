@@ -152,13 +152,15 @@ class Competition extends Model
 
     /**
      * Of een inzending van de beschikbaarheid nog actueel is: er is ingediend
-     * en er is daarna geen speeldag meer bijgekomen of verzet. `availability_submitted_at`
-     * wordt nooit geleegd; een nieuwe of verzette speeldag maakt een oudere inzending
-     * vanzelf niet-actueel, en het verwijderen van die speeldag herstelt dat.
+     * en er is daarna geen speeldag meer bijgekomen of verzet.
+     * `availability_submitted_at` wordt nooit geleegd; een nieuwe of verzette
+     * speeldag maakt een oudere inzending vanzelf niet-actueel, en het
+     * verwijderen van die speeldag herstelt dat.
      *
-     * `>=` en niet `>`: een inzending in dezelfde seconde als het nieuwste verzoek
-     * het nieuwste beschikbaarheidsverzoek blijft geldig. Tijdstempels hebben secondeprecisie,
-     * dus binnen die seconde valt de volgorde niet te bepalen.
+     * `>=` en niet `>`: een inzending in dezelfde seconde als het nieuwste
+     * beschikbaarheidsverzoek blijft geldig. Tijdstempels hebben
+     * secondeprecisie, dus binnen die seconde valt de volgorde niet te
+     * bepalen.
      *
      * Dezelfde regel, in SQL: `constrainToAwaitingAvailability()`.
      */
@@ -172,14 +174,14 @@ class Competition extends Model
      * Beperkt een relatie over de koppeltabel `competition_user` tot de
      * deelnames waarvoor (opnieuw) beschikbaarheid ingediend moet worden: er
      * is nooit ingediend, of de inzending is ouder dan het nieuwste
-     * beschikbaarheidsverzoek van die competitie. Werkt voor `$user->competitions()` en
-     * `$competition->participants()`, omdat de subquery via
-     * `competition_user.competition_id` correleert.
+     * beschikbaarheidsverzoek van die competitie. Werkt voor
+     * `$user->competitions()` en `$competition->participants()`, omdat de
+     * subquery via `competition_user.competition_id` correleert.
      *
-     * Strikt kleiner dan (`<`): een inzending in dezelfde seconde als de
-     * nieuwste beschikbaarheidsverzoek blijft geldig. Zonder speeldagen levert de subquery
-     * `NULL` op en is `x < NULL` in SQL nooit waar, dus dan moet alleen wie
-     * nooit indiende nog iets doen.
+     * Strikt kleiner dan (`<`): een inzending in dezelfde seconde als het
+     * nieuwste beschikbaarheidsverzoek blijft geldig. Zonder speeldagen levert
+     * de subquery `NULL` op en is `x < NULL` in SQL nooit waar, dus dan moet
+     * alleen wie nooit indiende nog iets doen.
      *
      * Dezelfde regel, in PHP: `isCurrentSubmission()`.
      *
@@ -192,7 +194,7 @@ class Competition extends Model
     {
         return $query->where(fn (Builder $pending) => $pending
             ->whereNull('competition_user.availability_submitted_at')
-            ->orWhere('competition_user.availability_submitted_at', '<', fn (QueryBuilder $latestMatchDay) => $latestMatchDay
+            ->orWhere('competition_user.availability_submitted_at', '<', fn (QueryBuilder $latestRequest) => $latestRequest
                 ->selectRaw('max(match_days.availability_requested_at)')
                 ->from('match_days')
                 ->whereColumn('match_days.competition_id', 'competition_user.competition_id')));

@@ -29,6 +29,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, MatchDayField> $fields
  * @property-read Collection<int, CompetitionMatch> $matches
  * @property-read Collection<int, CompetitionMatch> $pendingMatches
+ * @property-read Collection<int, CompetitionMatch> $playedMatches
  */
 #[Fillable(['date', 'starts_at', 'ends_at'])]
 class MatchDay extends Model
@@ -56,18 +57,38 @@ class MatchDay extends Model
      * (de losse hook op `MatchDayField` is er voor het los verwijderen van
      * één tafel).
      *
+     * Een verzette datum is voor deelnemers een nieuwe datum (#81). Stempel,
+     * wissen en vrijgeven horen daarom altijd samen bij een datumwijziging,
+     * via welk schrijfpad ook (formulier, seeder, tinker, een latere
+     * bulkverschuiving). Zou alleen het stempel volgen, dan blijven de oude
+     * "ja"-rijen staan voor een dag waarover ze niets zeggen.
+     *
      * De `saving`-hook stempelt `availability_requested_at`: een invariant van
      * het model, zoals `created_at`. Alleen deze hook zet de kolom, bij het
-     * aanmaken en wanneer de datum wijzigt; een verzette datum is voor
-     * deelnemers een nieuwe datum (#81). `isDirty('date')` is betrouwbaar met
-     * de `date`-cast, omdat `originalIsEquivalent()` datums genormaliseerd
+     * aanmaken en wanneer de datum wijzigt. `isDirty('date')` is betrouwbaar
+     * met de `date`-cast, omdat `originalIsEquivalent()` datums genormaliseerd
      * vergelijkt.
+     *
+     * De `updated`-hook wist bij een andere datum alle beschikbaarheidsrijen
+     * van de speeldag en haalt al zijn openstaande wedstrijden uit de
+     * planning, ook de vastgezette (`releasePendingMatches()`).
+     * `wasChanged('date')` werkt hier omdat Eloquent `syncChanges()` vóór het
+     * `updated`-event draait. De hook neemt geen lock: wie de datum wijzigt
+     * waar de planner tegelijk kan draaien, gebruikt `UpdateMatchDay`.
      */
     protected static function booted(): void
     {
         static::saving(function (MatchDay $matchDay): void {
             if (! $matchDay->exists || $matchDay->isDirty('date')) {
                 $matchDay->availability_requested_at = $matchDay->freshTimestamp();
+            }
+        });
+
+        static::updated(function (MatchDay $matchDay): void {
+            if ($matchDay->wasChanged('date')) {
+                MatchDayAvailability::query()->where('match_day_id', $matchDay->id)->delete();
+
+                $matchDay->releasePendingMatches();
             }
         });
 
@@ -128,6 +149,17 @@ class MatchDay extends Model
     public function pendingMatches(): HasMany
     {
         return $this->hasMany(CompetitionMatch::class)->where('status', MatchStatus::Pending->value);
+    }
+
+    /**
+     * De gespeelde wedstrijden op deze speeldag. Die schuiven bij verzetten
+     * mee als historie; de bewerkpagina telt ze om dat vooraf te melden.
+     *
+     * @return HasMany<CompetitionMatch, $this>
+     */
+    public function playedMatches(): HasMany
+    {
+        return $this->hasMany(CompetitionMatch::class)->where('status', MatchStatus::Played->value);
     }
 
     /**

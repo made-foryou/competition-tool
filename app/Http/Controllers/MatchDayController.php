@@ -23,8 +23,8 @@ class MatchDayController extends Controller
     use SummarizesMatchDay;
 
     /**
-     * Een nieuwe (of naar een andere datum verzette) speeldag maakt iedereen
-     * met een oudere inzending weer pending, zonder iets op te slaan:
+     * Een nieuwe speeldag maakt iedereen met een oudere inzending weer
+     * pending, zonder iets op te slaan:
      * `Competition::constrainToAwaitingAvailability()` vergelijkt het
      * inzendmoment met het nieuwste beschikbaarheidsverzoek
      * (`availability_requested_at`). Anders leest de planner "geen rij" als
@@ -58,10 +58,14 @@ class MatchDayController extends Controller
     }
 
     /**
-     * `moveImpact` is wat er vervalt als de beheerder de datum verzet
-     * (`UpdateMatchDay`): alle beschikbaarheidsrijen van deze speeldag en de
-     * openstaande wedstrijden die erop ingepland staan, waarvan een deel
-     * vastgezet. Gespeelde wedstrijden schuiven mee en tellen dus niet.
+     * `moveImpact` is wat er gebeurt als de beheerder de datum verzet
+     * (`UpdateMatchDay`): alle beschikbaarheidsrijen van deze speeldag
+     * vervallen en de openstaande wedstrijden die erop ingepland staan gaan
+     * uit de planning, ook de vastgezette. Gespeelde wedstrijden schuiven mee;
+     * `played_match_count` telt ze apart zodat de pagina dat kan melden.
+     *
+     * `competition.availability_open` zegt of deelnemers nu om hun
+     * beschikbaarheid gevraagd worden, of pas bij het activeren.
      */
     public function edit(Competition $competition, MatchDay $matchDay): Response
     {
@@ -71,6 +75,7 @@ class MatchDayController extends Controller
                 'name' => $competition->name,
                 'starts_at' => $competition->starts_at->toDateString(),
                 'ends_at' => $competition->ends_at?->toDateString(),
+                'availability_open' => $competition->status->allowsAvailabilityChanges(),
             ],
             'matchDay' => $this->matchDayProps($matchDay),
             'fields' => $matchDay->fields()
@@ -85,6 +90,7 @@ class MatchDayController extends Controller
                 'available_count' => MatchDayAvailability::query()->where('match_day_id', $matchDay->id)->count(),
                 'scheduled_match_count' => $matchDay->pendingMatches()->count(),
                 'pinned_match_count' => $matchDay->pendingMatches()->whereNotNull('pinned_at')->count(),
+                'played_match_count' => $matchDay->playedMatches()->count(),
             ],
         ]);
     }
@@ -95,13 +101,19 @@ class MatchDayController extends Controller
      *
      * Is de speeldag verzet, dan zijn de antwoorden voor die dag vervallen en
      * wordt iedereen opnieuw om beschikbaarheid gevraagd, net als bij een
-     * nieuwe speeldag. De toast heeft daarom dezelfde opbouw als bij
-     * `store()`, met erachter hoeveel ingeplande wedstrijden uit de planning
-     * zijn gehaald.
+     * nieuwe speeldag: zonder iets op te slaan bij de deelnemers, want het
+     * nieuwe `availability_requested_at` maakt een oudere inzending vanzelf
+     * niet-actueel. De toast heeft daarom dezelfde opbouw als bij `store()`,
+     * met erachter hoeveel ingeplande wedstrijden uit de planning zijn
+     * gehaald.
      */
     public function update(UpdateMatchDayRequest $request, Competition $competition, MatchDay $matchDay, UpdateMatchDay $updateMatchDay): RedirectResponse
     {
-        $releasedMatchCount = $updateMatchDay->handle($matchDay, $request->matchDayAttributes());
+        $releasedMatchCount = $updateMatchDay->handle(
+            $matchDay,
+            $request->matchDayAttributes(),
+            $request->originalDate(),
+        );
 
         $message = $releasedMatchCount === null
             ? __('Match day updated.')
