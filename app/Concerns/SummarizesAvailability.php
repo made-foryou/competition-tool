@@ -23,19 +23,20 @@ trait SummarizesAvailability
      * `unanswered_match_day_ids` is de ene regel voor "nog niet ingevuld", die
      * matrix, CSV en de alleen-lezenlijst delen: een speeldag is dat als de
      * deelnemer hem niet heeft aangevinkt en óf nog nooit heeft ingediend óf
-     * de speeldag na zijn laatste inzending is aangemaakt
+     * de speeldag na zijn laatste inzending is aangemaakt of verzet
      * (`MatchDay::isNewSince()`). Elke andere niet-aangevinkte speeldag is
      * "niet beschikbaar": daar heeft hij bij zijn inzending bewust nee
-     * gezegd, ook als die inzending leeg was. De nieuwste speeldag wordt één
-     * keer bepaald, dus dit kost geen extra query per deelnemer.
+     * gezegd, ook als die inzending leeg was. Het nieuwste
+     * beschikbaarheidsverzoek wordt één keer bepaald, dus dit kost geen extra
+     * query per deelnemer.
      *
      * @return list<array{id: int, name: string, submitted: bool, match_day_ids: list<int>, unanswered_match_day_ids: list<int>}>
      */
     protected function availabilityRows(Competition $competition): array
     {
-        $matchDays = $competition->matchDays()->get(['id', 'created_at']);
+        $matchDays = $competition->matchDays()->get(['id', 'availability_requested_at']);
         $matchDayIds = $matchDays->pluck('id');
-        $latestMatchDayCreatedAt = $competition->latestMatchDayCreatedAt();
+        $latestAvailabilityRequestedAt = $competition->latestAvailabilityRequestedAt();
 
         $availableByUser = MatchDayAvailability::query()
             ->whereIn('match_day_id', $matchDayIds)
@@ -49,14 +50,14 @@ trait SummarizesAvailability
         return array_values($competition->participants()
             ->orderByRaw('COALESCE(NULLIF(users.nickname, ?), users.name)', [''])
             ->get()
-            ->map(function (User $user) use ($availableByUser, $submittedAtByUser, $matchDays, $latestMatchDayCreatedAt): array {
+            ->map(function (User $user) use ($availableByUser, $submittedAtByUser, $matchDays, $latestAvailabilityRequestedAt): array {
                 $submittedAt = Competition::availabilitySubmittedAtFromPivot($submittedAtByUser->get($user->id));
                 $matchDayIdsChecked = $availableByUser->get($user->id, collect())->pluck('match_day_id')->all();
 
                 return [
                     'id' => $user->id,
                     'name' => $user->display_name,
-                    'submitted' => Competition::isCurrentSubmission($submittedAt, $latestMatchDayCreatedAt),
+                    'submitted' => Competition::isCurrentSubmission($submittedAt, $latestAvailabilityRequestedAt),
                     'match_day_ids' => array_values($matchDayIdsChecked),
                     'unanswered_match_day_ids' => array_values($matchDays
                         ->filter(fn (MatchDay $matchDay): bool => ! in_array($matchDay->id, $matchDayIdsChecked, true)
@@ -70,7 +71,8 @@ trait SummarizesAvailability
 
     /**
      * De query op de deelnemers van de competitie die (opnieuw) moeten
-     * indienen: nooit ingediend, of ingediend vóór de nieuwste speeldag
+     * indienen: nooit ingediend, of ingediend vóór het nieuwste beschikbaarheidsverzoek
+     * (`availability_requested_at`: speeldag aangemaakt of verzet)
      * (`Competition::constrainToAwaitingAvailability()`).
      *
      * Apart van `pendingAvailabilityParticipants()` zodat een aanroeper die

@@ -74,7 +74,7 @@ class ScheduleCompetitionMatches
             }
 
             if ($mode === SchedulingMode::Reschedule) {
-                $this->releasePendingMatches($locked);
+                $this->releaseUnpinnedPendingMatches($locked);
             }
 
             $context = $this->buildSchedulingContext->handle($locked);
@@ -112,7 +112,7 @@ class ScheduleCompetitionMatches
      * leeg. `pinned_at` blijft bewust staan: vastzetten is een keuze van de
      * beheerder en overleeft het opnieuw plannen.
      */
-    private function releasePendingMatches(Competition $competition): void
+    private function releaseUnpinnedPendingMatches(Competition $competition): void
     {
         CompetitionMatch::query()
             ->where('competition_id', $competition->id)

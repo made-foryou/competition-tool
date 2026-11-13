@@ -1,4 +1,6 @@
 import { Form } from '@inertiajs/react';
+import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -26,6 +28,8 @@ type Props = {
     competitionStartsAt?: string;
     /** `YYYY-MM-DD`. Bounds the date picker to the competition's period. */
     competitionEndsAt?: string | null;
+    /** Shown below the date and times when the picked date differs from the saved `matchDay.date`. */
+    dateChangeWarning?: ReactNode;
     className?: string;
 };
 
@@ -38,9 +42,16 @@ export default function MatchDayForm({
     resetOnSuccess = false,
     competitionStartsAt,
     competitionEndsAt,
+    dateChangeWarning,
     className = 'flex max-w-xl flex-col gap-6',
 }: Props) {
     const { t } = useTranslations();
+    const [selectedDate, setSelectedDate] = useState(matchDay?.date ?? '');
+    const showDateChangeWarning =
+        !!matchDay &&
+        !!dateChangeWarning &&
+        selectedDate !== '' &&
+        selectedDate !== matchDay.date;
 
     return (
         <Form
@@ -51,6 +62,13 @@ export default function MatchDayForm({
         >
             {({ processing, errors }) => (
                 <>
+                    {matchDay && (
+                        <input
+                            type="hidden"
+                            name="original_date"
+                            value={matchDay.date}
+                        />
+                    )}
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
                             <Label htmlFor="date">{t('Date')}</Label>
@@ -61,6 +79,7 @@ export default function MatchDayForm({
                                 defaultValue={matchDay?.date}
                                 minDate={competitionStartsAt}
                                 maxDate={competitionEndsAt}
+                                onValueChange={setSelectedDate}
                                 aria-invalid={!!errors.date}
                                 aria-describedby={
                                     errors.date ? 'date-error' : undefined
@@ -137,8 +156,22 @@ export default function MatchDayForm({
                         </div>
                     </div>
 
+                    {showDateChangeWarning && (
+                        <div id="match-day-date-change-warning">
+                            {dateChangeWarning}
+                        </div>
+                    )}
+
                     <div>
-                        <Button type="submit" disabled={processing}>
+                        <Button
+                            type="submit"
+                            disabled={processing}
+                            aria-describedby={
+                                showDateChangeWarning
+                                    ? 'match-day-date-change-warning'
+                                    : undefined
+                            }
+                        >
                             {processing && <Spinner />}
                             {submitLabel}
                         </Button>

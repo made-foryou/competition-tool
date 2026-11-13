@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Competitions\UpdateMatchDay;
 use App\Models\Competition;
 use App\Models\MatchDay;
 use App\Models\MatchDayAvailability;
@@ -247,6 +248,30 @@ test('a match day added after the last submission is marked as new', function ()
             ->where('matchDays.0.is_new', false)
             ->where('matchDays.1.is_new', false)
             ->where('matchDays.2.is_new', true),
+        );
+});
+
+test('a match day moved after the last submission is marked as new and unanswered', function () {
+    $this->put(route('competition.availability.update', $this->competition), [
+        'match_days' => [$this->firstDay->id, $this->secondDay->id],
+    ]);
+
+    $this->travel(1)->minutes();
+
+    app(UpdateMatchDay::class)->handle($this->secondDay, [
+        'date' => '2026-10-05',
+        'starts_at' => '09:00',
+        'ends_at' => '17:00',
+    ], $this->secondDay->date->toDateString());
+
+    $this->get(route('competition.availability.edit', $this->competition))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('matchDays.0.is_new', false)
+            ->where('matchDays.0.is_available', true)
+            ->where('matchDays.1.is_new', true)
+            ->where('matchDays.1.is_available', false)
+            ->where('hasSubmitted', false)
+            ->where('hasSubmittedBefore', true),
         );
 });
 

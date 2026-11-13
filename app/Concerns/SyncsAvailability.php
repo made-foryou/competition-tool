@@ -15,7 +15,8 @@ use Illuminate\Support\Facades\DB;
  * availability_submitted_at op de koppeltabel dat de deelnemer het formulier
  * daadwerkelijk heeft ingediend. Die kolom is altijd het moment van de laatste
  * inzending en wordt nooit geleegd. Actueel is een inzending die niet ouder is
- * dan de nieuwste speeldag (`Competition::isCurrentSubmission()`).
+ * dan het nieuwste beschikbaarheidsverzoek (`availability_requested_at`,
+ * `Competition::isCurrentSubmission()`).
  */
 trait SyncsAvailability
 {
@@ -54,8 +55,9 @@ trait SyncsAvailability
      * De speeldagen van deze competitie met de aanwezigheid van de deelnemer.
      *
      * `is_new` volgt uit zijn inzendmoment: een speeldag die ná zijn laatste
-     * inzending is aangemaakt, is nieuw voor hem (`MatchDay::isNewSince()`),
-     * ook als die inzending leeg was. Zonder inzending is niets nieuw.
+     * inzending is aangemaakt of naar een andere datum verzet, is nieuw voor
+     * hem (`MatchDay::isNewSince()`), ook als die inzending leeg was. Zonder
+     * inzending is niets nieuw.
      *
      * @return list<array{id: int, date: string, starts_at: string, ends_at: string, is_available: bool, is_new: bool}>
      */

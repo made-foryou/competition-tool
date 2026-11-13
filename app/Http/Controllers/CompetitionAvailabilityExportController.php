@@ -36,10 +36,10 @@ class CompetitionAvailabilityExportController extends Controller
      * van de deelnemer: een vinkje is "Beschikbaar", ook als de inzending niet
      * meer actueel is. Een niet-aangevinkte speeldag is "Nog niet ingevuld" als
      * de deelnemer nog nooit heeft ingediend of de speeldag na zijn laatste
-     * inzending is aangemaakt (`MatchDay::isNewSince()`, via
-     * `unanswered_match_day_ids`). Elke andere lege speeldag is "Niet
-     * beschikbaar": daar heeft de deelnemer eerder bewust nee gezegd. De
-     * totaalrij telt alle vinkjes.
+     * inzending is aangemaakt of naar een andere datum verzet
+     * (`MatchDay::isNewSince()`, via `unanswered_match_day_ids`). Elke andere
+     * lege speeldag is "Niet beschikbaar": daar heeft de deelnemer eerder
+     * bewust nee gezegd. De totaalrij telt alle vinkjes.
      */
     public function __invoke(Competition $competition): StreamedResponse
     {

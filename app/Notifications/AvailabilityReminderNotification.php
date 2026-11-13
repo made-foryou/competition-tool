@@ -12,7 +12,7 @@ use Illuminate\Notifications\Notification;
  * Herinnering aan een deelnemer die zijn beschikbaarheid (opnieuw) moet
  * indienen. Wordt alleen verstuurd door de beheerder naar deelnemers zonder
  * actuele inzending (`Competition::constrainToAwaitingAvailability()`). Dat
- * zijn ook deelnemers die eerder indienden, maar vóór de nieuwste speeldag.
+ * zijn ook deelnemers die eerder indienden, maar vóór het nieuwste beschikbaarheidsverzoek.
  */
 class AvailabilityReminderNotification extends Notification implements ShouldQueue
 {
@@ -43,7 +43,7 @@ class AvailabilityReminderNotification extends Notification implements ShouldQue
         return (new MailMessage)
             ->subject(__('Reminder: fill in your availability for :competition', ['competition' => $this->competition->name]))
             ->line(__('We still need your availability for :competition to build the match schedule.', ['competition' => $this->competition->name]))
-            ->line(__('Did you fill in your availability before? A match day has been added since. Check your availability and save it again.'))
+            ->line(__('Did you fill in your availability before? There has been a new date since then. Check your availability and save it again.'))
             ->action(__('Fill in availability'), route('competition.availability.edit', $this->competition));
     }
 }
